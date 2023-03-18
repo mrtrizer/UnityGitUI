@@ -36,7 +36,7 @@ namespace Abuksigun.PackageShortcuts
 
                 var rect = drawRect;
                 rect.x = rect.x + rect.width - (int)labelStyle.CalcSize(new GUIContent(currentBranchClamp)).x - 5;
-                rect.y -= 6;
+                rect.y -= 6.5f;
                 GUI.Label(rect, currentBranchClamp, labelStyle);
             }
 
@@ -47,7 +47,7 @@ namespace Abuksigun.PackageShortcuts
                 offset += 30;
                 var rect = drawRect;
                 rect.x = rect.x + rect.width - offset;
-                rect.y += 1;
+                rect.y += 1.5f;
                 GUI.Label(rect, $"+{gitStatus.Files.Count(x => x.X == '?')} m{gitStatus.Files.Count(x => x.Y == 'M')}", labelStyle);
             }
 
@@ -56,7 +56,7 @@ namespace Abuksigun.PackageShortcuts
                 offset += 30;
                 var rect = drawRect;
                 rect.x = rect.x + rect.width - offset;
-                rect.y += 1;
+                rect.y += 1.5f;
                 GUI.Label(rect, $"{result.Behind}↓{result.Ahead}↑", labelStyle);
             }
         }

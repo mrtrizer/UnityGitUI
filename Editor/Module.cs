@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -21,6 +22,8 @@ namespace Abuksigun.PackageShortcuts
         Task<RemoteStatus> remoteStatus;
         Task<GitStatus> gitStatus;
 
+        List<IOData> log = new();
+
         public string Guid { get; }
         public string Name { get; }
         public string LogicalPath { get; }
@@ -32,6 +35,7 @@ namespace Abuksigun.PackageShortcuts
         public Task<string> CurrentCommit => currentCommit ??= GetCommit();
         public Task<RemoteStatus> RemoteStatus => remoteStatus ??= GetRemoteStatus();
         public Task<GitStatus> GitStatus => gitStatus ??= GetGitStatus();
+        public IReadOnlyList<IOData> Log => log;
 
         public Module(string guid)
         {
@@ -58,9 +62,17 @@ namespace Abuksigun.PackageShortcuts
             return result;
         }
 
+        bool OutputHandler(System.Diagnostics.Process _, IOData data)
+        {
+            log.Add(data);
+            return true;
+        }
+
         public Task<CommandResult> RunGitReadonly(string args)
         {
-            return PackageShortcuts.RunCommand(PhysicalPath, "git", "-c core.quotepath=false --no-optional-locks " + args);
+            string mergedArgs = "-c core.quotepath=false --no-optional-locks " + args;
+            log.Add(new IOData { Data = $"[{PhysicalPath}] >> git {mergedArgs}", Error = false });
+            return PackageShortcuts.RunCommand(PhysicalPath, "git", mergedArgs, OutputHandler);
         }
 
         async Task<string> GetRepoPath()
@@ -108,7 +120,7 @@ namespace Abuksigun.PackageShortcuts
         async Task<GitStatus> GetGitStatus()
         {
             string[] statusLines = (await RunGitReadonly("status --porcelain")).Output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            return new GitStatus(statusLines.Select(line => new FileStatus(line[2..], line[0], line[1])).ToArray());
+            return new GitStatus(statusLines.Select(line => new FileStatus(line[2..].Trim(), line[0], line[1])).ToArray());
         }
     }
 }
