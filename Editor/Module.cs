@@ -27,7 +27,7 @@ namespace Abuksigun.PackageShortcuts
         public string Guid { get; }
         public string Name { get; }
         public string LogicalPath { get; }
-        public string PhysicalPath => FileUtil.GetPhysicalPath(LogicalPath);
+        public string PhysicalPath => Path.GetFullPath(FileUtil.GetPhysicalPath(LogicalPath));
         public PackageInfo PackageInfo { get; }
         public Task<bool> IsGitRepo => isGitRepo ??= GetIsGitRepo();
         public Task<string> GitRepoPath => gitRepoPath ??= GetRepoPath();
@@ -77,7 +77,7 @@ namespace Abuksigun.PackageShortcuts
 
         async Task<string> GetRepoPath()
         {
-            return (await RunGitReadonly("rev-parse --show-toplevel")).Output;
+            return (await RunGitReadonly("rev-parse --show-toplevel")).Output.Trim();
         }
 
         async Task<bool> GetIsGitRepo()
@@ -119,8 +119,14 @@ namespace Abuksigun.PackageShortcuts
 
         async Task<GitStatus> GetGitStatus()
         {
+            string gitRepoPath = await GitRepoPath;
             string[] statusLines = (await RunGitReadonly("status --porcelain")).Output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            return new GitStatus(statusLines.Select(line => new FileStatus(line[2..].Trim(), line[0], line[1])).ToArray());
+            var files = statusLines.Select(line => new FileStatus(
+                FullPath: Path.Join(gitRepoPath, line[2..].Trim()),
+                X: line[0],
+                Y: line[1])
+            );
+            return new GitStatus(files.ToArray());
         }
     }
 }

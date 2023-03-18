@@ -48,7 +48,7 @@ namespace Abuksigun.PackageShortcuts
                 var rect = drawRect;
                 rect.x = rect.x + rect.width - offset;
                 rect.y += 1.5f;
-                GUI.Label(rect, $"+{gitStatus.Files.Count(x => x.X == '?')} m{gitStatus.Files.Count(x => x.Y == 'M')}", labelStyle);
+                GUI.Label(rect, $"+{gitStatus.Files.Count(x => x.X == '?')} *{gitStatus.Files.Count(x => x.Y == 'M')}", labelStyle);
             }
 
             if (module.RemoteStatus.IsCompleted && module.RemoteStatus.Result is { } result)
