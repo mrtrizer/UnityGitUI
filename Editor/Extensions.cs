@@ -9,7 +9,7 @@ namespace Abuksigun.PackageShortcuts
     {
         public static T GetResultOrDefault<T>(this Task<T> task, T defaultValue = default(T))
         {
-            return task.IsCompleted ? task.Result : defaultValue;
+            return task.IsCompleted && !task.IsFaulted && !task.IsCanceled ? task.Result : defaultValue;
         }
     }
 }

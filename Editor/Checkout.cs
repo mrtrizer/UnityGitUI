@@ -39,7 +39,7 @@ namespace Abuksigun.PackageShortcuts
             if (selectedIndex == -1)
                 return;
 
-            await Task.WhenAll(PackageShortcuts.GetGitModules().Select(module => module.RunGit($"checkout {branchNames[selectedIndex]}")));
+            await Task.WhenAll(PackageShortcuts.GetGitModules().Select(module => module.RunGit($"checkout {branchNames[selectedIndex].Trim()}")));
         }
     }
 }

@@ -50,7 +50,7 @@ namespace Abuksigun.PackageShortcuts
             positions[module] = scroll.scrollPosition;
         }
         
-        public static void DrawList(string path, IEnumerable<FileStatus> files, List<string> selectionList, ref Vector2 position, params GUILayoutOption[] layoutOptions)
+        public static void DrawList(string path, IEnumerable<FileStatus> files, List<string> selectionList, ref Vector2 position, bool staged, params GUILayoutOption[] layoutOptions)
         {
             using (new GUILayout.VerticalScope())
             {
@@ -61,7 +61,7 @@ namespace Abuksigun.PackageShortcuts
                         selectionList.Clear();
                         selectionList.AddRange(files.Select(x => x.FullPath));
                     }
-                    if (GUILayout.Button("All modified"))
+                    if (!staged && GUILayout.Button("All Indexed"))
                     {
                         selectionList.Clear();
                         selectionList.AddRange(files.Where(x => x.IsInIndex).Select(x => x.FullPath));
@@ -75,9 +75,12 @@ namespace Abuksigun.PackageShortcuts
                     {
                         bool wasSelected = selectionList.Contains(file.FullPath);
                         string relativePath = Path.GetRelativePath(path, file.FullPath);
-                        if (wasSelected && GUILayout.Toggle(wasSelected, $"{file.X}{file.Y} {relativePath}") != wasSelected)
+                        var numStat = staged ? file.StagedNumStat : file.UnstagedNumStat;
+                        bool isSelected = GUILayout.Toggle(wasSelected, $"{(staged ? file.X : file.Y)} {relativePath} +{numStat.Added} -{numStat.Removed}");
+
+                        if (isSelected != wasSelected && wasSelected)
                             selectionList.Remove(file.FullPath);
-                        if (!wasSelected && GUILayout.Toggle(wasSelected, $"{file.X}{file.Y} {relativePath}") != wasSelected)
+                        if (isSelected != wasSelected && !wasSelected)
                             selectionList.Add(file.FullPath);
 
                     }

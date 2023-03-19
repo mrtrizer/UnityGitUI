@@ -65,8 +65,6 @@ namespace Abuksigun.PackageShortcuts
 
         public static Task<CommandResult> RunCommand(string workingDir, string command, string args, Func<Process, IOData, bool> dataHandler = null)
         {
-            Debug.Log($"{command} {args}");
-
             var tcs = new TaskCompletionSource<CommandResult>();
 
             var process = new Process {

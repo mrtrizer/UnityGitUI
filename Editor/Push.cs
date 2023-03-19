@@ -16,6 +16,7 @@ namespace Abuksigun.PackageShortcuts
             bool pushTags = false;
             bool forcePush = false;
             Module[] modules = PackageShortcuts.GetGitModules().ToArray();
+            bool[] enableLogForModule = new bool[modules.Length];
             Vector2 scrollPosition = Vector2.zero;
             int[] logStartLine = modules.Select(x => x.Log.Count).ToArray();
             Task<CommandResult>[] tasks = new Task<CommandResult>[modules.Length];
@@ -36,15 +37,18 @@ namespace Abuksigun.PackageShortcuts
                     {
                         using (new GUILayout.HorizontalScope())
                         {
-                            GUILayout.Label(modules[i].Name);
+                            GUILayout.Label(modules[i].Name, GUILayout.Width(300));
                             if (tasks[i] != null)
                             {
-                                GUILayout.Label(!tasks[i].IsCompleted ? "In progress"
+                                string status = !tasks[i].IsCompleted ? "In progress"
                                     : tasks[i].Result.ExitCode == 0 ? "Done"
-                                    : "Errored");
+                                    : "Errored";
+                                GUILayout.Label(status, GUILayout.Width(150));
                             }
+                            enableLogForModule[i] = GUILayout.Toggle(enableLogForModule[i], "Show log");
                         }
-                        GUIShortcuts.PrintLog(modules[i], new Vector2(window.position.width - 20, 200), logStartLine[i]);
+                        if (enableLogForModule[i])
+                            GUIShortcuts.PrintLog(modules[i], new Vector2(window.position.width - 20, 200), logStartLine[i]);
                     }
                     scrollPosition = scroll.scrollPosition;
                 }
