@@ -16,7 +16,7 @@ namespace Abuksigun.PackageShortcuts
             bool pushTags = false;
             bool forcePush = false;
             Module[] modules = PackageShortcuts.GetGitModules().ToArray();
-            Vector2[] positions = new Vector2[modules.Length];
+            Vector2 scrollPosition = Vector2.zero;
             int[] logStartLine = modules.Select(x => x.Log.Count).ToArray();
             Task<CommandResult>[] tasks = new Task<CommandResult>[modules.Length];
 
@@ -30,15 +30,23 @@ namespace Abuksigun.PackageShortcuts
                     forcePush = GUILayout.Toggle(forcePush, "Force push");
                 }
                 GUILayout.Space(20);
-                for (int i = 0; i < modules.Length; i++)
+                using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(window.position.width), GUILayout.Height(window.position.height - 40)))
                 {
-                    using (new GUILayout.HorizontalScope())
+                    for (int i = 0; i < modules.Length; i++)
                     {
-                        GUILayout.Label(modules[i].Name);
-                        if (tasks[i] != null)
-                            GUILayout.Label(tasks[i].IsCompleted ? "Done" : "In progress");
+                        using (new GUILayout.HorizontalScope())
+                        {
+                            GUILayout.Label(modules[i].Name);
+                            if (tasks[i] != null)
+                            {
+                                GUILayout.Label(!tasks[i].IsCompleted ? "In progress"
+                                    : tasks[i].Result.ExitCode == 0 ? "Done"
+                                    : "Errored");
+                            }
+                        }
+                        GUIShortcuts.PrintLog(modules[i], new Vector2(window.position.width - 20, 200), logStartLine[i]);
                     }
-                    GUIShortcuts.PrintLog(modules[i], new Vector2(window.position.width, 200), logStartLine[i]);
+                    scrollPosition = scroll.scrollPosition;
                 }
             });
 
