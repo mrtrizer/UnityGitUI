@@ -20,7 +20,8 @@ namespace Abuksigun.PackageShortcuts
     {
         public IEnumerable<FileStatus> Staged => Files.Where(file => file.IsStaged);
         public IEnumerable<FileStatus> Unstaged => Files.Where(file => file.IsUnstaged);
-        public IEnumerable<FileStatus> NotInIndex => Files.Where(file => !file.IsInIndex);
+        public IEnumerable<FileStatus> Unindexed => Files.Where(file => !file.IsInIndex);
+        public IEnumerable<FileStatus> IndexedUnstaged => Files.Where(file => file.IsUnstaged && file.IsInIndex);
     }
 
     public class Module

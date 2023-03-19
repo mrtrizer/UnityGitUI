@@ -58,9 +58,7 @@ namespace Abuksigun.PackageShortcuts
                     using (new EditorGUI.DisabledGroupScope(task != null && !task.IsCompleted))
                     using (new GUILayout.HorizontalScope())
                     {
-                        var unstagedFiles = status.Files.Where(x => x.IsUnstaged);
-                        var stagedFiles = status.Files.Where(x => x.IsStaged);
-                        GUIShortcuts.DrawList(gitRepoPath, unstagedFiles, unstagedSelection, ref scrollPositions[tab].unstaged, scrollHeight, scrollWidth);
+                        GUIShortcuts.DrawList(gitRepoPath, status.Unstaged, unstagedSelection, ref scrollPositions[tab].unstaged, scrollHeight, scrollWidth);
                         using (new GUILayout.VerticalScope())
                         {
                             if (GUILayout.Button(">>", GUILayout.Width(middlePanelWidth)))
@@ -74,7 +72,7 @@ namespace Abuksigun.PackageShortcuts
                                 stagedSelection.Clear();
                             }
                         }
-                        GUIShortcuts.DrawList(module.GitRepoPath.Result, stagedFiles, stagedSelection, ref scrollPositions[tab].staged, scrollHeight, scrollWidth);
+                        GUIShortcuts.DrawList(module.GitRepoPath.Result, status.Staged, stagedSelection, ref scrollPositions[tab].staged, scrollHeight, scrollWidth);
                     }
                 }
             });
