@@ -49,6 +49,7 @@ namespace Abuksigun.PackageShortcuts
 
             positions[module] = scroll.scrollPosition;
         }
+        
         public static void DrawList(string path, IEnumerable<FileStatus> files, List<string> selectionList, ref Vector2 position, params GUILayoutOption[] layoutOptions)
         {
             using (new GUILayout.VerticalScope())
@@ -63,7 +64,7 @@ namespace Abuksigun.PackageShortcuts
                     if (GUILayout.Button("All modified"))
                     {
                         selectionList.Clear();
-                        selectionList.AddRange(files.Where(x => x.Y == 'M').Select(x => x.FullPath));
+                        selectionList.AddRange(files.Where(x => x.IsInIndex).Select(x => x.FullPath));
                     }
                     if (GUILayout.Button("None"))
                         selectionList.Clear();

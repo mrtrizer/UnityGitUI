@@ -10,8 +10,18 @@ using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 namespace Abuksigun.PackageShortcuts
 {
     public record RemoteStatus(string Remote, int Ahead, int Behind);
-    public record FileStatus(string FullPath, char X, char Y);
-    public record GitStatus(FileStatus[] Files);
+    public record FileStatus(string FullPath, char X, char Y)
+    {
+        public bool IsInIndex => Y is not '?';
+        public bool IsUnstaged => Y is not ' ';
+        public bool IsStaged => X is not ' ' and not '?';
+    }
+    public record GitStatus(FileStatus[] Files)
+    {
+        public IEnumerable<FileStatus> Staged => Files.Where(file => file.IsStaged);
+        public IEnumerable<FileStatus> Unstaged => Files.Where(file => file.IsUnstaged);
+        public IEnumerable<FileStatus> NotInIndex => Files.Where(file => !file.IsInIndex);
+    }
 
     public class Module
     {

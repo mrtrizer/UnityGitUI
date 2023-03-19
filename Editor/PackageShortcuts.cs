@@ -1,14 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using Process = System.Diagnostics.Process;
-using ProcessStartInfo = System.Diagnostics.ProcessStartInfo;
-using PackageInfo = UnityEditor.PackageManager.PackageInfo;
-using DataReceivedEventArgs = System.Diagnostics.DataReceivedEventArgs;
 using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
-using System.Threading.Tasks;
-using System.Text;
+using DataReceivedEventArgs = System.Diagnostics.DataReceivedEventArgs;
+using PackageInfo = UnityEditor.PackageManager.PackageInfo;
+using Process = System.Diagnostics.Process;
+using ProcessStartInfo = System.Diagnostics.ProcessStartInfo;
 
 namespace System.Runtime.CompilerServices { class IsExternalInit { } }
 
@@ -63,7 +63,7 @@ namespace Abuksigun.PackageShortcuts
             return GetModules().Where(x => x.IsGitRepo.GetResultOrDefault());
         }
 
-        public static Task<CommandResult> RunCommand(string path, string command, string args, Func<Process, IOData, bool> dataHandler = null)
+        public static Task<CommandResult> RunCommand(string workingDir, string command, string args, Func<Process, IOData, bool> dataHandler = null)
         {
             Debug.Log($"{command} {args}");
 
@@ -75,7 +75,7 @@ namespace Abuksigun.PackageShortcuts
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
-                    WorkingDirectory = path,
+                    WorkingDirectory = workingDir,
                 },
                 EnableRaisingEvents = true
             };

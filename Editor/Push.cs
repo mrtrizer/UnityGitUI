@@ -14,6 +14,7 @@ namespace Abuksigun.PackageShortcuts
         public static async void Invoke()
         {
             bool pushTags = false;
+            bool forcePush = false;
             Module[] modules = PackageShortcuts.GetGitModules().ToArray();
             Vector2[] positions = new Vector2[modules.Length];
             int[] logStartLine = modules.Select(x => x.Log.Count).ToArray();
@@ -23,11 +24,10 @@ namespace Abuksigun.PackageShortcuts
                 using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x != null)))
                 using (new GUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button($"Push {modules.Length} modules"))
+                    if (GUILayout.Button($"Push {modules.Length} modules", GUILayout.Width(200)))
                         tasks = PackageShortcuts.GetGitModules().Select(module => module.RunGit($"push {(pushTags ? "--follow-tags" : "")}")).ToArray();
                     pushTags = GUILayout.Toggle(pushTags, "Push tags");
-                    if (GUILayout.Button("Cancel"))
-                        window.Close();
+                    forcePush = GUILayout.Toggle(forcePush, "Force push");
                 }
                 GUILayout.Space(20);
                 for (int i = 0; i < modules.Length; i++)

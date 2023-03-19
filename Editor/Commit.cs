@@ -24,12 +24,17 @@ namespace Abuksigun.PackageShortcuts
             int tab = 0;
             
             GUIShortcuts.ShowModalWindow("Commit", new Vector2Int(600, 400), (window) => {
+                
                 GUILayout.Label("Commit message");
                 commitMessage = GUILayout.TextArea(commitMessage, GUILayout.Height(40));
-                using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x != null && !x.IsCompleted)))
+                
+                int modulesWithStagedFiles = modules.Count(x => x.GitStatus.GetResultOrDefault()?.Staged?.Count() > 0);
+                bool commitAvailable = modulesWithStagedFiles > 0 && !string.IsNullOrWhiteSpace(commitMessage) && !tasks.Any(x => x != null && !x.IsCompleted);
+
+                using (new EditorGUI.DisabledGroupScope(!commitAvailable))
                 using (new GUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button($"Commit {modules.Length} modules", GUILayout.Width(200)))
+                    if (GUILayout.Button($"Commit {modulesWithStagedFiles}/{modules.Length} modules", GUILayout.Width(200)))
                     {
                         tasks = modules.Select(module => module.RunGit($"commit -m \"{commitMessage}\"")).ToArray();
                         window.Close();
@@ -53,8 +58,8 @@ namespace Abuksigun.PackageShortcuts
                     using (new EditorGUI.DisabledGroupScope(task != null && !task.IsCompleted))
                     using (new GUILayout.HorizontalScope())
                     {
-                        var unstagedFiles = status.Files.Where(x => x.Y is not ' ');
-                        var stagedFiles = status.Files.Where(x => x.X is not ' ' and not '?');
+                        var unstagedFiles = status.Files.Where(x => x.IsUnstaged);
+                        var stagedFiles = status.Files.Where(x => x.IsStaged);
                         GUIShortcuts.DrawList(gitRepoPath, unstagedFiles, unstagedSelection, ref scrollPositions[tab].unstaged, scrollHeight, scrollWidth);
                         using (new GUILayout.VerticalScope())
                         {
