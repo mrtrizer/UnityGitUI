@@ -2,12 +2,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditor.PackageManager.UI;
 using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
 {
     public static class Commit
     {
+        const int TopPanelHeight = 120;
+        const int MiddlePanelWidth = 30;
+
         [MenuItem("Assets/Commit", true)]
         public static bool Check() => PackageShortcuts.GetGitModules().Any();
 
@@ -49,27 +53,30 @@ namespace Abuksigun.PackageShortcuts
 
                 GUILayout.Label($"{module.Name} [{module.CurrentBranch.GetResultOrDefault() ?? ".."}]");
 
-                const int topPanelHeight = 120;
-                const int middlePanelWidth = 30;
-                var scrollHeight = GUILayout.Height(window.position.height - topPanelHeight);
-                var scrollWidth = GUILayout.Width((window.position.width - middlePanelWidth) / 2);
                 if (module.GitRepoPath.GetResultOrDefault() is { } gitRepoPath && module.GitStatus.GetResultOrDefault() is { } status)
                 {
+                    var scrollHeight = GUILayout.Height(window.position.height - TopPanelHeight);
+                    var scrollWidth = GUILayout.Width((window.position.width - MiddlePanelWidth) / 2);
+
                     using (new EditorGUI.DisabledGroupScope(task != null && !task.IsCompleted))
                     using (new GUILayout.HorizontalScope())
                     {
                         GUIShortcuts.DrawList(gitRepoPath, status.Unstaged, unstagedSelection, ref scrollPositions[tab].unstaged, false, scrollHeight, scrollWidth);
                         using (new GUILayout.VerticalScope())
                         {
-                            if (GUILayout.Button(">>", GUILayout.Width(middlePanelWidth)))
+                            if (GUILayout.Button(">>", GUILayout.Width(MiddlePanelWidth)))
                             {
                                 tasks[tab] = module.RunGit($"add -f -- {string.Join(' ', unstagedSelection)}");
                                 unstagedSelection.Clear();
                             }
-                            if (GUILayout.Button("<<", GUILayout.Width(middlePanelWidth)))
+                            if (GUILayout.Button("<<", GUILayout.Width(MiddlePanelWidth)))
                             {
                                 tasks[tab] = module.RunGit($"reset -q -- {string.Join(' ', stagedSelection)}");
                                 stagedSelection.Clear();
+                            }
+                            if (GUILayout.Button("Diff", GUILayout.Width(MiddlePanelWidth)))
+                            {
+                                _ = ShowDiff(module, unstagedSelection[unstagedSelection.Count - 1]);
                             }
                         }
                         GUIShortcuts.DrawList(module.GitRepoPath.Result, status.Staged, stagedSelection, ref scrollPositions[tab].staged, true, scrollHeight, scrollWidth);
@@ -77,6 +84,17 @@ namespace Abuksigun.PackageShortcuts
                 }
             });
             await Task.WhenAll(tasks.Where(x => x != null));
+        }
+
+        static async Task ShowDiff(Module module, string filePath)
+        {
+            var result = await module.RunGitReadonly($"diff {filePath}");
+            if (result.ExitCode != 0)
+                return;
+            Vector2 scrollPosition = Vector2.zero;
+            GUIShortcuts.ShowModalWindow($"Diff {filePath}", new Vector2Int(400, 600), (window) => {
+                GUIShortcuts.DrawGitDiff(result.Output, window.position.size, null, ref scrollPosition);
+            });
         }
     }
 }

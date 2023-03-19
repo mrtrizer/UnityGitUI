@@ -48,7 +48,7 @@ namespace Abuksigun.PackageShortcuts
                             enableLogForModule[i] = GUILayout.Toggle(enableLogForModule[i], "Show log");
                         }
                         if (enableLogForModule[i])
-                            GUIShortcuts.PrintLog(modules[i], new Vector2(window.position.width - 20, 200), logStartLine[i]);
+                            GUIShortcuts.DrawProcessLog(modules[i], new Vector2(window.position.width - 20, 200), logStartLine[i]);
                     }
                     scrollPosition = scroll.scrollPosition;
                 }
