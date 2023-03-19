@@ -25,11 +25,12 @@ namespace Abuksigun.PackageShortcuts
             int tab = 0;
 
             GUIShortcuts.ShowWindow("Commit", new Vector2Int(600, 400), true, (window) => {
+                GUILayout.Label("Commit message");
                 commitMessage = GUILayout.TextField(commitMessage);
                 using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x != null && !x.IsCompleted)))
                 using (new GUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("Commit"))
+                    if (GUILayout.Button($"Commit {modules.Length} modules"))
                     {
                         tasks = modules.Select(module => module.RunGit($"commit -m \"{commitMessage}\"")).ToArray();
                         window.Close();
@@ -47,10 +48,7 @@ namespace Abuksigun.PackageShortcuts
                     GUILayout.Label($"{module.Name} [{branch}]");
                 }
                 var task = tasks[tab];
-                if (task != null)
-                    GUILayout.Label(task.IsCompleted ? task.Result.Output : "Running");
 
-                GUILayout.Label("Status:");
                 var scrollHeight = GUILayout.Height(window.position.height - 80);
                 if (module.GitStatus.IsCompleted && module.GitRepoPath.IsCompleted && module.GitStatus.Result is { } status)
                 {
@@ -65,7 +63,7 @@ namespace Abuksigun.PackageShortcuts
                                 tasks[tab] = module.RunGit($"add -f -- {string.Join(' ', unstagedSelection[tab])}");
                                 unstagedSelection[tab].Clear();
                             }
-                            if (GUILayout.Button("Discard"))
+                            if (GUILayout.Button("Unstage"))
                             {
                                 tasks[tab] = module.RunGit($"reset -q -- {string.Join(' ', stagedSelection[tab])}");
                                 stagedSelection[tab].Clear();
@@ -83,19 +81,32 @@ namespace Abuksigun.PackageShortcuts
 
         static void DrawList(string path, IEnumerable<FileStatus> files, List<string> selectionList, GUILayoutOption scrollHeight, ref Vector2 position)
         {
-            using (var scroll = new GUILayout.ScrollViewScope(position, false, false, scrollHeight))
+            using (new GUILayout.VerticalScope())
             {
-                foreach (var file in files)
+                using (new GUILayout.HorizontalScope())
                 {
-                    bool wasSelected = selectionList.Contains(file.FullPath);
-                    string relativePath = Path.GetRelativePath(path, file.FullPath);
-                    if (wasSelected && GUILayout.Toggle(wasSelected, $"{file.X}{file.Y} {relativePath}") != wasSelected)
-                        selectionList.Remove(file.FullPath);
-                    if (!wasSelected && GUILayout.Toggle(wasSelected, $"{file.X}{file.Y} {relativePath}") != wasSelected)
-                        selectionList.Add(file.FullPath);
-
+                    if (GUILayout.Button("All"))
+                    {
+                        selectionList.Clear();
+                        selectionList.AddRange(files.Select(x => x.FullPath));
+                    }
+                    if (GUILayout.Button("None"))
+                        selectionList.Clear();
                 }
-                position = scroll.scrollPosition;
+                using (var scroll = new GUILayout.ScrollViewScope(position, false, false, scrollHeight))
+                {
+                    foreach (var file in files)
+                    {
+                        bool wasSelected = selectionList.Contains(file.FullPath);
+                        string relativePath = Path.GetRelativePath(path, file.FullPath);
+                        if (wasSelected && GUILayout.Toggle(wasSelected, $"{file.X}{file.Y} {relativePath}") != wasSelected)
+                            selectionList.Remove(file.FullPath);
+                        if (!wasSelected && GUILayout.Toggle(wasSelected, $"{file.X}{file.Y} {relativePath}") != wasSelected)
+                            selectionList.Add(file.FullPath);
+
+                    }
+                    position = scroll.scrollPosition;
+                }
             }
         }
     }

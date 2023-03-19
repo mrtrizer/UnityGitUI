@@ -9,7 +9,7 @@ namespace Abuksigun.PackageShortcuts
     public class DefaultWindow : EditorWindow
     {
         public Action<EditorWindow> onGUI;
-        void OnGUI() => onGUI(this);
+        protected virtual void OnGUI() => onGUI?.Invoke(this);
         void OnInspectorUpdate() => Repaint();
     }
 
@@ -18,9 +18,9 @@ namespace Abuksigun.PackageShortcuts
         static GUIStyle logStyle;
         static GUIStyle errorLogStyle;
 
-        public static void ShowWindow(string title, Vector2Int size, bool modal, Action<EditorWindow> onGUI)
+        public static DefaultWindow ShowWindow(string title, Vector2Int size, bool modal, Action<EditorWindow> onGUI)
         {
-            var window = ScriptableObject.CreateInstance(typeof(DefaultWindow)) as DefaultWindow;
+            var window = ScriptableObject.CreateInstance<DefaultWindow>();
             window.position = new Rect(EditorGUIUtility.GetMainWindowPosition().center - size / 2, size);
             window.titleContent = new GUIContent(title);
             window.onGUI = onGUI;
@@ -28,6 +28,7 @@ namespace Abuksigun.PackageShortcuts
                 window.ShowModalUtility();
             else
                 window.Show();
+            return window;
         }
 
         public static Vector2 PrintLog(Module module, Vector2 size, Vector2 scrollPosition)
