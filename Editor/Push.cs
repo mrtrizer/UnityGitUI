@@ -25,7 +25,7 @@ namespace Abuksigun.PackageShortcuts
                 using (new GUILayout.HorizontalScope())
                 {
                     if (GUILayout.Button($"Push {modules.Length} modules", GUILayout.Width(200)))
-                        tasks = PackageShortcuts.GetGitModules().Select(module => module.RunGit($"push {(pushTags ? "--follow-tags" : "")}")).ToArray();
+                        tasks = PackageShortcuts.GetGitModules().Select(module => module.RunGit($"push {(pushTags ? "--follow-tags" : "")} {(forcePush ? "--force" : "")}")).ToArray();
                     pushTags = GUILayout.Toggle(pushTags, "Push tags");
                     forcePush = GUILayout.Toggle(forcePush, "Force push");
                 }
