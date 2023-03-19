@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
@@ -24,7 +23,7 @@ namespace Abuksigun.PackageShortcuts
             List<string>[] stagedSelection = Enumerable.Repeat(new List<string>(), modules.Length).ToArray();
             int tab = 0;
 
-            GUIShortcuts.ShowWindow("Commit", new Vector2Int(600, 400), true, (window) => {
+            GUIShortcuts.ShowModalWindow("Commit", new Vector2Int(600, 400), (window) => {
                 GUILayout.Label("Commit message");
                 commitMessage = GUILayout.TextField(commitMessage);
                 using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x != null && !x.IsCompleted)))
@@ -55,7 +54,7 @@ namespace Abuksigun.PackageShortcuts
                     using (new EditorGUI.DisabledGroupScope(task != null && !task.IsCompleted))
                     using (new GUILayout.HorizontalScope())
                     {
-                        DrawList(module.GitRepoPath.Result, status.Files.Where(x => x.Y is not ' '), unstagedSelection[tab], scrollHeight, ref positions[tab]);
+                        GUIShortcuts.DrawList(module.GitRepoPath.Result, status.Files.Where(x => x.Y is not ' '), unstagedSelection[tab], scrollHeight, ref positions[tab]);
                         using (new GUILayout.VerticalScope())
                         {
                             if (GUILayout.Button("Stage"))
@@ -69,45 +68,11 @@ namespace Abuksigun.PackageShortcuts
                                 stagedSelection[tab].Clear();
                             }
                         }
-                        DrawList(module.GitRepoPath.Result, status.Files.Where(x => x.X is not ' ' and not '?'), stagedSelection[tab], scrollHeight, ref positions[tab]);
+                        GUIShortcuts.DrawList(module.GitRepoPath.Result, status.Files.Where(x => x.X is not ' ' and not '?'), stagedSelection[tab], scrollHeight, ref positions[tab]);
                     }
                 }
             });
-            
             await Task.WhenAll(tasks.Where(x => x != null));
-
-            
-        }
-
-        static void DrawList(string path, IEnumerable<FileStatus> files, List<string> selectionList, GUILayoutOption scrollHeight, ref Vector2 position)
-        {
-            using (new GUILayout.VerticalScope())
-            {
-                using (new GUILayout.HorizontalScope())
-                {
-                    if (GUILayout.Button("All"))
-                    {
-                        selectionList.Clear();
-                        selectionList.AddRange(files.Select(x => x.FullPath));
-                    }
-                    if (GUILayout.Button("None"))
-                        selectionList.Clear();
-                }
-                using (var scroll = new GUILayout.ScrollViewScope(position, false, false, scrollHeight))
-                {
-                    foreach (var file in files)
-                    {
-                        bool wasSelected = selectionList.Contains(file.FullPath);
-                        string relativePath = Path.GetRelativePath(path, file.FullPath);
-                        if (wasSelected && GUILayout.Toggle(wasSelected, $"{file.X}{file.Y} {relativePath}") != wasSelected)
-                            selectionList.Remove(file.FullPath);
-                        if (!wasSelected && GUILayout.Toggle(wasSelected, $"{file.X}{file.Y} {relativePath}") != wasSelected)
-                            selectionList.Add(file.FullPath);
-
-                    }
-                    position = scroll.scrollPosition;
-                }
-            }
         }
     }
 }

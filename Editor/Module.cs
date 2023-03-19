@@ -42,6 +42,7 @@ namespace Abuksigun.PackageShortcuts
             string path = LogicalPath = AssetDatabase.GUIDToAssetPath(guid);
             PackageInfo = PackageInfo.FindForAssetPath(path);
             Name = PackageInfo?.displayName ?? Application.productName;
+            isGitRepo = GetIsGitRepo();
         }
 
         void Reset()

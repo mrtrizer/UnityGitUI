@@ -1,11 +1,7 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace Abuksigun.PackageShortcuts
 {
@@ -23,7 +19,7 @@ namespace Abuksigun.PackageShortcuts
             int[] logStartLine = modules.Select(x => x.Log.Count).ToArray();
             Task<CommandResult>[] tasks = new Task<CommandResult>[modules.Length];
 
-            GUIShortcuts.ShowWindow("Push", new Vector2Int(600, 400), true, (window) => {
+            GUIShortcuts.ShowModalWindow("Push", new Vector2Int(600, 400), (window) => {
                 using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x != null)))
                 using (new GUILayout.HorizontalScope())
                 {

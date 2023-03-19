@@ -1,9 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace Abuksigun.PackageShortcuts
 {
@@ -20,16 +21,13 @@ namespace Abuksigun.PackageShortcuts
         static GUIStyle errorLogStyle;
         static Dictionary<Module, Vector2> positions = new ();
 
-        public static DefaultWindow ShowWindow(string title, Vector2Int size, bool modal, Action<EditorWindow> onGUI)
+        public static DefaultWindow ShowModalWindow(string title, Vector2Int size, Action<EditorWindow> onGUI)
         {
             var window = ScriptableObject.CreateInstance<DefaultWindow>();
             window.position = new Rect(EditorGUIUtility.GetMainWindowPosition().center - size / 2, size);
             window.titleContent = new GUIContent(title);
             window.onGUI = onGUI;
-            if (modal)
-                window.ShowModalUtility();
-            else
-                window.Show();
+            window.ShowModalUtility();
             return window;
         }
 
@@ -50,6 +48,36 @@ namespace Abuksigun.PackageShortcuts
                 GUILayout.Label(module.Log[i].Data, module.Log[i].Error ? errorLogStyle : logStyle);
 
             positions[module] = scroll.scrollPosition;
+        }
+        public static void DrawList(string path, IEnumerable<FileStatus> files, List<string> selectionList, GUILayoutOption scrollHeight, ref Vector2 position)
+        {
+            using (new GUILayout.VerticalScope())
+            {
+                using (new GUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("All"))
+                    {
+                        selectionList.Clear();
+                        selectionList.AddRange(files.Select(x => x.FullPath));
+                    }
+                    if (GUILayout.Button("None"))
+                        selectionList.Clear();
+                }
+                using (var scroll = new GUILayout.ScrollViewScope(position, false, false, scrollHeight))
+                {
+                    foreach (var file in files)
+                    {
+                        bool wasSelected = selectionList.Contains(file.FullPath);
+                        string relativePath = Path.GetRelativePath(path, file.FullPath);
+                        if (wasSelected && GUILayout.Toggle(wasSelected, $"{file.X}{file.Y} {relativePath}") != wasSelected)
+                            selectionList.Remove(file.FullPath);
+                        if (!wasSelected && GUILayout.Toggle(wasSelected, $"{file.X}{file.Y} {relativePath}") != wasSelected)
+                            selectionList.Add(file.FullPath);
+
+                    }
+                    position = scroll.scrollPosition;
+                }
+            }
         }
     }
 }

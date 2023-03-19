@@ -22,7 +22,7 @@ namespace Abuksigun.PackageShortcuts
 
             int selectedIndex = -1;
 
-            GUIShortcuts.ShowWindow("Branch Name", new Vector2Int(300, 250), true, (window) =>
+            GUIShortcuts.ShowModalWindow("Branch Name", new Vector2Int(300, 250), (window) =>
             {
                 for (int i = 0; i < branchNames.Length; i++)
                 {

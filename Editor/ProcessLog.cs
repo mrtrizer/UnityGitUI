@@ -3,10 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
-using UnityEditor.PackageManager.UI;
 using UnityEngine;
-using UnityEngine.UIElements;
-
 
 namespace Abuksigun.PackageShortcuts
 {
@@ -14,7 +11,6 @@ namespace Abuksigun.PackageShortcuts
     {
         [SerializeField]
         public string guid;
-        public Vector2 scrollPosition;
 
         protected override void OnGUI()
         {
