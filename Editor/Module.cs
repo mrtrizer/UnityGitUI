@@ -21,7 +21,6 @@ namespace Abuksigun.PackageShortcuts
         Task<string> currentCommit;
         Task<RemoteStatus> remoteStatus;
         Task<GitStatus> gitStatus;
-
         List<IOData> log = new();
 
         public string Guid { get; }
