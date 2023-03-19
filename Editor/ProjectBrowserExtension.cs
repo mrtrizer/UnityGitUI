@@ -24,13 +24,13 @@ namespace Abuksigun.PackageShortcuts
             EditorApplication.RepaintProjectWindow();
 
             var module = PackageShortcuts.GetModule(guid);
-            if (module == null || !module.IsGitRepo.IsCompleted || !module.IsGitRepo.Result)
+            if (module == null || !module.IsGitRepo.GetResultOrDefault())
                 return;
 
             drawRect.height = 20;
             labelStyle ??= new GUIStyle(EditorStyles.label) { fontSize = 8 };
 
-            if (module.CurrentBranch.IsCompleted && module.CurrentBranch.Result is { } currentBranch)
+            if (module.CurrentBranch.GetResultOrDefault() is { } currentBranch)
             {
                 string currentBranchClamp = currentBranch.Substring(0, Math.Min(20, currentBranch.Length));
 
@@ -42,7 +42,7 @@ namespace Abuksigun.PackageShortcuts
 
             int offset = 0;
 
-            if (module.GitStatus.IsCompleted && module.GitStatus.Result is { } gitStatus)
+            if (module.GitStatus.GetResultOrDefault() is { } gitStatus)
             {
                 offset += 30;
                 var rect = drawRect;
@@ -51,7 +51,7 @@ namespace Abuksigun.PackageShortcuts
                 GUI.Label(rect, $"+{gitStatus.Files.Count(x => x.X == '?')} *{gitStatus.Files.Count(x => x.Y == 'M')}", labelStyle);
             }
 
-            if (module.RemoteStatus.IsCompleted && module.RemoteStatus.Result is { } result)
+            if (module.RemoteStatus.GetResultOrDefault() is { } result)
             {
                 offset += 30;
                 var rect = drawRect;

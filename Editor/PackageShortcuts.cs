@@ -60,7 +60,7 @@ namespace Abuksigun.PackageShortcuts
 
         public static IEnumerable<Module> GetGitModules()
         {
-            return GetModules().Where(x => x.IsGitRepo.IsCompleted && x.IsGitRepo.Result);
+            return GetModules().Where(x => x.IsGitRepo.GetResultOrDefault());
         }
 
         public static Task<CommandResult> RunCommand(string path, string command, string args, Func<Process, IOData, bool> dataHandler = null)
