@@ -18,8 +18,8 @@ namespace Abuksigun.PackageShortcuts
             string commitMessage = "";
             Module[] modules = PackageShortcuts.GetGitModules().ToArray();
             string[] moduleNames = modules.Select(x => x.Name.Length > 20 ? x.Name[0] + ".." + x.Name[^17..] : x.Name).ToArray();
-            Task<CommandResult>[] tasks = Enumerable.Repeat<Task<CommandResult>>(null, modules.Length).ToArray();
-            Vector2[] positions = Enumerable.Repeat(Vector2.zero, modules.Length).ToArray();
+            Task<CommandResult>[] tasks = new Task<CommandResult>[modules.Length];
+            Vector2[] positions = new Vector2[modules.Length];
             List<string>[] unstagedSelection = Enumerable.Repeat(new List<string>(), modules.Length).ToArray();
             List<string>[] stagedSelection = Enumerable.Repeat(new List<string>(), modules.Length).ToArray();
             int tab = 0;

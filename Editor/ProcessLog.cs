@@ -18,7 +18,7 @@ namespace Abuksigun.PackageShortcuts
 
         protected override void OnGUI()
         {
-            GUIShortcuts.PrintLog(PackageShortcuts.GetModule(guid), position.size, scrollPosition);
+            GUIShortcuts.PrintLog(PackageShortcuts.GetModule(guid), position.size);
             base.OnGUI();
         }
     }
