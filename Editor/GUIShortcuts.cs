@@ -28,7 +28,20 @@ namespace Abuksigun.PackageShortcuts
         static GUIStyle selectedStyle;
         static Dictionary<Module, Vector2> logScrollPositions = new();
         static Dictionary<Color, Texture2D> colorTextures = new();
-        
+
+        public static GUIStyle IdleStyle => idleStyle ??= new GUIStyle {
+            normal = new GUIStyleState {
+                background = GUIShortcuts.GetColorTexture(Color.clear),
+                textColor = GUI.skin.label.normal.textColor
+            }
+        };
+        public static GUIStyle SelectedStyle => selectedStyle ??= new GUIStyle {
+            normal = new GUIStyleState {
+                background = GUIShortcuts.GetColorTexture(new Color(0.22f, 0.44f, 0.68f)),
+                textColor = Color.white
+            }
+        };
+
         public static Texture2D GetColorTexture(Color color)
         {
             if (colorTextures.TryGetValue(color, out var tex))
@@ -67,15 +80,14 @@ namespace Abuksigun.PackageShortcuts
 
             using var scroll = new GUILayout.ScrollViewScope(logScrollPositions.GetValueOrDefault(module, Vector2.zero), false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
 
-            for (int i = logStartLine; i < module.Log.Count; i++)
-                GUILayout.Label(module.Log[i].Data, module.Log[i].Error ? errorLogStyle : logStyle);
+            for (int i = logStartLine; i < module.ProcessLog.Count; i++)
+                GUILayout.Label(module.ProcessLog[i].Data, module.ProcessLog[i].Error ? errorLogStyle : logStyle);
 
             logScrollPositions[module] = scroll.scrollPosition;
         }
 
         public static void DrawGitDiff(string diff, Vector2 size, Action<int> stageHunk, Action<int> unstageHunk, Action<int> discardHunk, ref Vector2 scrollPosition)
         {
-            idleStyle ??= new GUIStyle { normal = new GUIStyleState { background = GetColorTexture(Color.clear) } };
             diffAddedStyle ??= new GUIStyle { normal = new GUIStyleState { background = GetColorTexture(Color.green) } };
             diffRemoveStyle ??= new GUIStyle { normal = new GUIStyleState { background = GetColorTexture(Color.red) } };
 
@@ -104,7 +116,7 @@ namespace Abuksigun.PackageShortcuts
                     GUILayout.Label(lines[i],
                           lines[i][0] == '+' ? diffAddedStyle
                         : lines[i][0] == '-' ? diffRemoveStyle
-                        : idleStyle);
+                        : IdleStyle);
                 }
             }
             scrollPosition = scroll.scrollPosition;
@@ -112,9 +124,6 @@ namespace Abuksigun.PackageShortcuts
 
         public static void DrawList(string path, IEnumerable<FileStatus> files, List<string> selectionList, ref Vector2 position, bool staged, params GUILayoutOption[] layoutOptions)
         {
-            idleStyle ??= new GUIStyle { normal = new GUIStyleState { background = GetColorTexture(Color.clear) } };
-            selectedStyle ??= new GUIStyle { normal = new GUIStyleState { background = GetColorTexture(new Color(0.22f, 0.44f, 0.68f)) } };
-
             using (new GUILayout.VerticalScope())
             {
                 using (new GUILayout.HorizontalScope())
@@ -139,7 +148,7 @@ namespace Abuksigun.PackageShortcuts
                         bool wasSelected = selectionList.Contains(file.FullPath);
                         string relativePath = Path.GetRelativePath(path, file.FullPath);
                         var numStat = staged ? file.StagedNumStat : file.UnstagedNumStat;
-                        var style = wasSelected ? selectedStyle : idleStyle;
+                        var style = wasSelected ? SelectedStyle : IdleStyle;
                         bool isSelected = GUILayout.Toggle(wasSelected, $"{(staged ? file.X : file.Y)} {relativePath} +{numStat.Added} -{numStat.Removed}", style);
 
                         if (isSelected != wasSelected && wasSelected)

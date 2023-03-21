@@ -20,7 +20,7 @@ namespace Abuksigun.PackageShortcuts
             Module[] modules = PackageShortcuts.GetGitModules().ToArray();
             bool[] enableLogForModule = new bool[modules.Length];
             Vector2 scrollPosition = Vector2.zero;
-            int[] logStartLine = modules.Select(x => x.Log.Count).ToArray();
+            int[] logStartLine = modules.Select(x => x.ProcessLog.Count).ToArray();
             var tasks = new Task<CommandResult>[modules.Length];
 
             await GUIShortcuts.ShowModalWindow("Remotes", new Vector2Int(600, 400), (window) => {

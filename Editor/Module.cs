@@ -46,8 +46,8 @@ namespace Abuksigun.PackageShortcuts
         Task<Remote[]> remotes;
         Task<RemoteStatus> remoteStatus;
         Task<GitStatus> gitStatus;
-        
-        List<IOData> log = new();
+
+        List<IOData> processLog = new();
         FileSystemWatcher fsWatcher;
 
         public string Guid { get; }
@@ -63,7 +63,7 @@ namespace Abuksigun.PackageShortcuts
         public Task<Remote[]> Remotes => remotes ??= GetRemotes();
         public Task<RemoteStatus> RemoteStatus => remoteStatus ??= GetRemoteStatus();
         public Task<GitStatus> GitStatus => gitStatus ??= GetGitStatus();
-        public IReadOnlyList<IOData> Log => log;
+        public IReadOnlyList<IOData> ProcessLog => processLog;
 
         public Module(string guid)
         {
@@ -117,14 +117,14 @@ namespace Abuksigun.PackageShortcuts
 
         bool OutputHandler(System.Diagnostics.Process _, IOData data)
         {
-            log.Add(data);
+            processLog.Add(data);
             return true;
         }
 
         public Task<CommandResult> RunGitReadonly(string args)
         {
             string mergedArgs = "-c core.quotepath=false --no-optional-locks " + args;
-            log.Add(new IOData { Data = $">> git {mergedArgs}", Error = false });
+            processLog.Add(new IOData { Data = $">> git {mergedArgs}", Error = false });
             return PackageShortcuts.RunCommand(PhysicalPath, "git", mergedArgs, OutputHandler);
         }
 
