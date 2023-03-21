@@ -7,6 +7,8 @@ namespace Abuksigun.PackageShortcuts
 {
     public static class Push
     {
+        const int TopPanelHeight = 40;
+
         [MenuItem("Assets/Push", true)]
         public static bool Check() => PackageShortcuts.GetGitModules().Any();
 
@@ -19,19 +21,31 @@ namespace Abuksigun.PackageShortcuts
             bool[] enableLogForModule = new bool[modules.Length];
             Vector2 scrollPosition = Vector2.zero;
             int[] logStartLine = modules.Select(x => x.Log.Count).ToArray();
-            Task<CommandResult>[] tasks = new Task<CommandResult>[modules.Length];
+            var tasks = new Task<CommandResult>[modules.Length];
 
-            GUIShortcuts.ShowModalWindow("Push", new Vector2Int(600, 400), (window) => {
+            await GUIShortcuts.ShowModalWindow("Push", new Vector2Int(600, 400), (window) => {
                 using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x != null)))
                 using (new GUILayout.HorizontalScope())
                 {
                     if (GUILayout.Button($"Push {modules.Length} modules", GUILayout.Width(200)))
-                        tasks = PackageShortcuts.GetGitModules().Select(module => module.RunGit($"push {(pushTags ? "--follow-tags" : "")} {(forcePush ? "--force" : "")}")).ToArray();
+                    {
+                        tasks = modules.Select(async module => {
+                            string localBranch = await module.CurrentBranch;
+                            var remotes = await module.Remotes;
+                            if (remotes.Length == 0)
+                                return null;
+                            var remote = remotes[0].Alias; // TODO: Remote selection
+                            string remoteBranch = localBranch; // TODO: Remote branch selection
+                            return await module.RunGit($"push {(pushTags ? "--follow-tags" : "")} {(forcePush ? "--force" : "")} -u {remote} {localBranch}:{remoteBranch}");
+                        }).ToArray();
+                    }
                     pushTags = GUILayout.Toggle(pushTags, "Push tags");
                     forcePush = GUILayout.Toggle(forcePush, "Force push");
                 }
                 GUILayout.Space(20);
-                using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(window.position.width), GUILayout.Height(window.position.height - 40)))
+                var width = GUILayout.Width(window.position.width);
+                var height = GUILayout.Height(window.position.height - TopPanelHeight);
+                using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, width, height))
                 {
                     for (int i = 0; i < modules.Length; i++)
                     {
@@ -41,7 +55,7 @@ namespace Abuksigun.PackageShortcuts
                             if (tasks[i] != null)
                             {
                                 string status = !tasks[i].IsCompleted ? "In progress"
-                                    : tasks[i].Result.ExitCode == 0 ? "Done"
+                                    : tasks[i].IsCompletedSuccessfully && tasks[i].Result.ExitCode == 0 ? "Done"
                                     : "Errored";
                                 GUILayout.Label(status, GUILayout.Width(150));
                             }

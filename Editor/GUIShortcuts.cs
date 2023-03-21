@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -11,8 +12,10 @@ namespace Abuksigun.PackageShortcuts
     public class DefaultWindow : EditorWindow
     {
         public Action<EditorWindow> onGUI;
+        public Action onClosed;
         protected virtual void OnGUI() => onGUI?.Invoke(this);
         void OnInspectorUpdate() => Repaint();
+        void OnDestroy() => onClosed?.Invoke();
     }
 
     public static class GUIShortcuts
@@ -36,14 +39,21 @@ namespace Abuksigun.PackageShortcuts
             return colorTextures[color] = texture;
         }
 
-        public static DefaultWindow ShowModalWindow(string title, Vector2Int size, Action<EditorWindow> onGUI)
+        public static Task ShowModalWindow(string title, Vector2Int size, Action<EditorWindow> onGUI)
         {
             var window = ScriptableObject.CreateInstance<DefaultWindow>();
             window.position = new Rect(EditorGUIUtility.GetMainWindowPosition().center - size / 2, size);
             window.titleContent = new GUIContent(title);
             window.onGUI = onGUI;
-            window.ShowModalUtility();
-            return window;
+            EditorApplication.LockReloadAssemblies();
+            // True modal window in unity blocks execution of thread. So, instread I just fake it's behaviour.
+            window.ShowUtility();
+            var tcs = new TaskCompletionSource<bool>();
+            window.onClosed += () => {
+                tcs.SetResult(true);
+                EditorApplication.UnlockReloadAssemblies();
+            };
+            return tcs.Task;
         }
 
         public static void DrawProcessLog(Module module, Vector2 size, int logStartLine = 0)
@@ -63,13 +73,13 @@ namespace Abuksigun.PackageShortcuts
             logScrollPositions[module] = scroll.scrollPosition;
         }
 
-        public static void DrawGitDiff(string diff, Vector2 size, Action<int> stageHunk, ref Vector2 scrollPosition)
+        public static void DrawGitDiff(string diff, Vector2 size, Action<int> stageHunk, Action<int> unstageHunk, Action<int> discardHunk, ref Vector2 scrollPosition)
         {
             idleStyle ??= new GUIStyle { normal = new GUIStyleState { background = GetColorTexture(Color.clear) } };
             diffAddedStyle ??= new GUIStyle { normal = new GUIStyleState { background = GetColorTexture(Color.green) } };
             diffRemoveStyle ??= new GUIStyle { normal = new GUIStyleState { background = GetColorTexture(Color.red) } };
 
-            string[] lines = diff.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            string[] lines = diff.SplitLines();
             GUILayout.Space(0);
             var lastRect = GUILayoutUtility.GetLastRect();
             EditorGUI.DrawRect(new Rect(lastRect.position + Vector2.up * lastRect.size.y, size), Color.white);
@@ -82,8 +92,12 @@ namespace Abuksigun.PackageShortcuts
                 if (lines[i].StartsWith("@@"))
                 {
                     hunkIndex++;
-                    if (GUILayout.Button($"Stage hunk {hunkIndex + 1}", GUILayout.Width(100)))
-                        stageHunk?.Invoke(hunkIndex);
+                    if (stageHunk != null && GUILayout.Button($"Stage hunk {hunkIndex + 1}", GUILayout.Width(100)))
+                        stageHunk.Invoke(hunkIndex);
+                    if (unstageHunk != null && GUILayout.Button($"Unstage hunk {hunkIndex + 1}", GUILayout.Width(100)))
+                        unstageHunk.Invoke(hunkIndex);
+                    if (discardHunk != null && GUILayout.Button($"Discard hunk {hunkIndex + 1}", GUILayout.Width(100)))
+                        discardHunk.Invoke(hunkIndex);
                 }
                 else if (hunkIndex >= 0)
                 {
@@ -92,7 +106,6 @@ namespace Abuksigun.PackageShortcuts
                         : lines[i][0] == '-' ? diffRemoveStyle
                         : idleStyle);
                 }
-                
             }
             scrollPosition = scroll.scrollPosition;
         }
@@ -133,7 +146,6 @@ namespace Abuksigun.PackageShortcuts
                             selectionList.Remove(file.FullPath);
                         if (isSelected != wasSelected && !wasSelected)
                             selectionList.Add(file.FullPath);
-
                     }
                     position = scroll.scrollPosition;
                 }

@@ -4,13 +4,14 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
-using UnityEditor.PackageManager;
 using UnityEngine;
-using static Codice.Client.BaseCommands.Import.Commit;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 namespace Abuksigun.PackageShortcuts
 {
+    public record Branch(string Name);
+    public record LocalBranch(string Name, string TrackingBranch) : Branch(Name);
+    public record RemoteBranch(string Name, string RemoteAlias) : Branch(Name);
     public record Remote(string Alias, string Url);
     public record RemoteStatus(string Remote, int Ahead, int Behind);
     public struct NumStat
@@ -38,6 +39,7 @@ namespace Abuksigun.PackageShortcuts
 
         Task<bool> isGitRepo;
         Task<string> gitRepoPath;
+        Task<Branch[]> branches;
         Task<string> currentBranch;
         Task<string> currentCommit;
         Task<Remote[]> remotes;
@@ -54,6 +56,7 @@ namespace Abuksigun.PackageShortcuts
         public PackageInfo PackageInfo { get; }
         public Task<bool> IsGitRepo => isGitRepo ??= GetIsGitRepo();
         public Task<string> GitRepoPath => gitRepoPath ??= GetRepoPath();
+        public Task<Branch[]> Branches => branches ??= GetBranches();
         public Task<string> CurrentBranch => currentBranch ??= GetCurrentBranch();
         public Task<string> CurrentCommit => currentCommit ??= GetCommit();
         public Task<Remote[]> Remotes => remotes ??= GetRemotes();
@@ -78,10 +81,13 @@ namespace Abuksigun.PackageShortcuts
 
         void Reset()
         {
+            // This code can be called from another thread
             isGitRepo = null;
             gitRepoPath = null;
+            branches = null;
             currentBranch = null;
             currentCommit = null;
+            remotes = null;
             remoteStatus = null;
             gitStatus = null;
         }
@@ -139,6 +145,20 @@ namespace Abuksigun.PackageShortcuts
             return (await RunGitReadonly("rev-parse --short --verify HEAD")).Output.Trim();
         }
 
+        async Task<Branch[]> GetBranches()
+        {
+            var result = await RunGitReadonly($"branch -a --format=\"%(refname)\t%(upstream)\"");
+            return result.Output.SplitLines()
+                .Select(x => x.Split('\t', splitOptions))
+                .Select<string[], Branch>(x => {
+                    string[] split = x[0].Split('/');
+                    return split[1] == "remotes"
+                        ? new RemoteBranch(string.Join('/', split[3..]), split[2])
+                        : new LocalBranch(string.Join('/', split[2..]), x.Length > 1 ? x[1] : null);
+                    })
+                .ToArray();
+        }
+
         async Task<string> GetCurrentBranch()
         {
             return (await RunGitReadonly("branch --show-current")).Output.Trim();
@@ -146,7 +166,7 @@ namespace Abuksigun.PackageShortcuts
 
         async Task<Remote[]> GetRemotes()
         {
-            string[] remoteLines = (await RunGitReadonly("remote -v")).Output.Trim().Split('\n', splitOptions);
+            string[] remoteLines = (await RunGitReadonly("remote -v")).Output.Trim().SplitLines();
             return remoteLines.Select(line => {
                 string[] parts = line.Split('\t', splitOptions);
                 return new Remote(parts[0], parts[1]);
@@ -158,11 +178,16 @@ namespace Abuksigun.PackageShortcuts
             var remotes = await Remotes;
             if (remotes.Length == 0)
                 return null;
+            string currentBranch = await CurrentBranch;
             await RunGitReadonly("fetch");
+            string remoteAlias = remotes[0].Alias;
+            var branches = await Branches;
+            if (!branches.Any(x => x is RemoteBranch remoteBranch && remoteBranch.RemoteAlias == remoteAlias && remoteBranch.Name == currentBranch))
+                return null;
             try
             {
-                int ahead = int.Parse((await RunGitReadonly($"rev-list --count {remotes[0].Alias}/master..master")).Output.Trim());
-                int behind = int.Parse((await RunGitReadonly($"rev-list --count master..{remotes[0].Alias}/master")).Output.Trim());
+                int ahead = int.Parse((await RunGitReadonly($"rev-list --count {remoteAlias}/{currentBranch}..{currentBranch}")).Output.Trim());
+                int behind = int.Parse((await RunGitReadonly($"rev-list --count {currentBranch}..{remoteAlias}/{currentBranch}")).Output.Trim());
                 return new RemoteStatus(remotes[0].Alias, ahead, behind);
             }
             catch (Exception e)
@@ -182,7 +207,7 @@ namespace Abuksigun.PackageShortcuts
 
             var numStatUnstaged = ParseNumStat(numStatUnstagedTask.Result.Output);
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
-            string[] statusLines = statusTask.Result.Output.Split('\n', splitOptions);
+            string[] statusLines = statusTask.Result.Output.SplitLines();
             var files = statusLines.Select(line => {
                 string path = line[2..].Trim();
                 return new FileStatus(
@@ -198,7 +223,7 @@ namespace Abuksigun.PackageShortcuts
 
         Dictionary<string, NumStat> ParseNumStat(string numStatOutput)
         {
-            return numStatOutput.Trim().Split('\n', splitOptions)
+            return numStatOutput.Trim().SplitLines()
                 .Select(line => line.Trim().Split('\t', splitOptions))
                 .ToDictionary(parts => parts[2], parts => new NumStat {
                     Added = int.Parse(parts[0]), 

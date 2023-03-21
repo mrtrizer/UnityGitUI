@@ -1,8 +1,8 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
-using UnityEditor.PackageManager.UI;
 using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
@@ -10,7 +10,7 @@ namespace Abuksigun.PackageShortcuts
     public static class Commit
     {
         const int TopPanelHeight = 120;
-        const int MiddlePanelWidth = 30;
+        const int MiddlePanelWidth = 40;
 
         [MenuItem("Assets/Commit", true)]
         public static bool Check() => PackageShortcuts.GetGitModules().Any();
@@ -27,7 +27,7 @@ namespace Abuksigun.PackageShortcuts
             string[] moduleNames = modules.Select(x => x.Name.Length > 20 ? x.Name[0] + ".." + x.Name[^17..] : x.Name).ToArray();
             int tab = 0;
             
-            GUIShortcuts.ShowModalWindow("Commit", new Vector2Int(600, 400), (window) => {
+            await GUIShortcuts.ShowModalWindow("Commit", new Vector2Int(600, 400), (window) => {
                 
                 GUILayout.Label("Commit message");
                 commitMessage = GUILayout.TextArea(commitMessage, GUILayout.Height(40));
@@ -40,7 +40,7 @@ namespace Abuksigun.PackageShortcuts
                 {
                     if (GUILayout.Button($"Commit {modulesWithStagedFiles}/{modules.Length} modules", GUILayout.Width(200)))
                     {
-                        tasks = modules.Select(module => module.RunGit($"commit -m \"{commitMessage}\"")).ToArray();
+                        tasks = modules.Select(module => module.RunGit($"commit -m {commitMessage.WrapUp()}")).ToArray();
                         window.Close();
                     }
                 }
@@ -66,17 +66,17 @@ namespace Abuksigun.PackageShortcuts
                         {
                             if (GUILayout.Button(">>", GUILayout.Width(MiddlePanelWidth)))
                             {
-                                tasks[tab] = module.RunGit($"add -f -- {string.Join(' ', unstagedSelection)}");
+                                tasks[tab] = module.RunGit($"add -f -- {PackageShortcuts.JoinFileNames(unstagedSelection)}");
                                 unstagedSelection.Clear();
                             }
                             if (GUILayout.Button("<<", GUILayout.Width(MiddlePanelWidth)))
                             {
-                                tasks[tab] = module.RunGit($"reset -q -- {string.Join(' ', stagedSelection)}");
+                                tasks[tab] = module.RunGit($"reset -q -- {PackageShortcuts.JoinFileNames(stagedSelection)}");
                                 stagedSelection.Clear();
                             }
-                            if (GUILayout.Button("Diff", GUILayout.Width(MiddlePanelWidth)))
+                            if (GUILayout.Button("More", GUILayout.Width(MiddlePanelWidth)))
                             {
-                                _ = ShowDiff(module, unstagedSelection[unstagedSelection.Count - 1]);
+                                _ = ShowContextMenu(module, status.Files.Where(x => unstagedSelection.Contains(x.FullPath)|| stagedSelection.Contains(x.FullPath)));
                             }
                         }
                         GUIShortcuts.DrawList(module.GitRepoPath.Result, status.Staged, stagedSelection, ref scrollPositions[tab].staged, true, scrollHeight, scrollWidth);
@@ -86,15 +86,42 @@ namespace Abuksigun.PackageShortcuts
             await Task.WhenAll(tasks.Where(x => x != null));
         }
 
-        static async Task ShowDiff(Module module, string filePath)
+        static async Task ShowDiff(Module module, string filePath, bool staged)
         {
-            var result = await module.RunGitReadonly($"diff {filePath}");
+            var result = await module.RunGitReadonly($"diff {(staged ? "--staged" : "")} {filePath.WrapUp()}");
             if (result.ExitCode != 0)
                 return;
             Vector2 scrollPosition = Vector2.zero;
-            GUIShortcuts.ShowModalWindow($"Diff {filePath}", new Vector2Int(400, 600), (window) => {
-                GUIShortcuts.DrawGitDiff(result.Output, window.position.size, null, ref scrollPosition);
+            await GUIShortcuts.ShowModalWindow($"Diff {filePath}", new Vector2Int(400, 600), (window) => {
+                GUIShortcuts.DrawGitDiff(result.Output, window.position.size, null, null, null, ref scrollPosition);
             });
+        }
+
+        static async Task ShowContextMenu(Module module, IEnumerable<FileStatus> files)
+        {
+            if (!files.Any())
+                return;
+            Task task = null;
+            GenericMenu menu = new GenericMenu();
+            string filesList = PackageShortcuts.JoinFileNames(files.Select(x => x.FullPath));
+            if (files.Any(x => x.IsInIndex))
+            {
+                menu.AddItem(new GUIContent("Diff"), false, () => task = ShowDiff(module, files.First().FullPath, files.First().IsStaged));
+                menu.AddItem(new GUIContent("Discrad"), false, () => {
+                    if (EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", filesList, "Yes", "No"))
+                        task = module.RunGit($"checkout -- {filesList}");
+                });
+            }
+            menu.AddItem(new GUIContent("Delete"), false, () => {
+                if (EditorUtility.DisplayDialog($"Are you sure you want DELETE these files", filesList, "Yes", "No"))
+                {
+                    foreach (var file in files)
+                        File.Delete(file.FullPath);
+                }
+            });
+            menu.ShowAsContext();
+            if (task != null)
+                await task;
         }
     }
 }

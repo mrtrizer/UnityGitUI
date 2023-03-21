@@ -18,7 +18,7 @@ namespace Abuksigun.PackageShortcuts
             bool checkout = true;
             Task task = null;
 
-            GUIShortcuts.ShowModalWindow("Make branch", new Vector2Int(300, 150), (window) =>
+            await GUIShortcuts.ShowModalWindow("Make branch", new Vector2Int(300, 150), (window) =>
             {
                 GUILayout.Label("Branch Name: ");
                 branchName = EditorGUILayout.TextField(branchName);

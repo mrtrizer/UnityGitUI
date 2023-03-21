@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEditor;
-using UnityEngine;
 using DataReceivedEventArgs = System.Diagnostics.DataReceivedEventArgs;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 using Process = System.Diagnostics.Process;
@@ -63,6 +62,11 @@ namespace Abuksigun.PackageShortcuts
             return GetModules().Where(x => x.IsGitRepo.GetResultOrDefault());
         }
 
+        public static string JoinFileNames(IEnumerable<string> fileNames)
+        {
+            return string.Join(' ', fileNames.Select(x => $"\"{x}\""));
+        }
+
         public static Task<CommandResult> RunCommand(string workingDir, string command, string args, Func<Process, IOData, bool> dataHandler = null)
         {
             var tcs = new TaskCompletionSource<CommandResult>();
@@ -79,15 +83,19 @@ namespace Abuksigun.PackageShortcuts
             };
             var outputStringBuilder = new StringBuilder();
             var errorStringBuilder = new StringBuilder();
-            
+            object exitCode = null;
+
             process.OutputDataReceived += (_, args) => HandleData(outputStringBuilder, false, args);
             process.ErrorDataReceived += (_, args) => HandleData(errorStringBuilder, true, args);
             process.Exited += (_, _) => {
-                string str = outputStringBuilder.ToString();
-                tcs.SetResult(new(process.ExitCode, str));
+                exitCode = process.ExitCode;
                 process.Dispose();
             };
-            
+            process.Disposed += (_, _) => {
+                string str = outputStringBuilder.ToString();
+                tcs.SetResult(new((int)exitCode, str));
+            };
+
             process.Start();
             
             process.BeginOutputReadLine();
