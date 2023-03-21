@@ -23,24 +23,42 @@ namespace Abuksigun.PackageShortcuts
             int[] logStartLine = modules.Select(x => x.Log.Count).ToArray();
             var tasks = new Task<CommandResult>[modules.Length];
 
-            await GUIShortcuts.ShowModalWindow("Push", new Vector2Int(600, 400), (window) => {
-                using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x != null)))
-                using (new GUILayout.HorizontalScope())
+            await GUIShortcuts.ShowModalWindow("Remotes", new Vector2Int(600, 400), (window) => {
+                using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x != null && !x.IsCompleted)))
                 {
-                    if (GUILayout.Button($"Push {modules.Length} modules", GUILayout.Width(200)))
+                    using (new GUILayout.HorizontalScope())
                     {
-                        tasks = modules.Select(async module => {
-                            string localBranch = await module.CurrentBranch;
-                            var remotes = await module.Remotes;
-                            if (remotes.Length == 0)
-                                return null;
-                            var remote = remotes[0].Alias; // TODO: Remote selection
-                            string remoteBranch = localBranch; // TODO: Remote branch selection
-                            return await module.RunGit($"push {(pushTags ? "--follow-tags" : "")} {(forcePush ? "--force" : "")} -u {remote} {localBranch}:{remoteBranch}");
-                        }).ToArray();
+                        if (GUILayout.Button($"Push {modules.Length} modules", GUILayout.Width(200)))
+                        {
+                            tasks = modules.Select(async module => {
+                                string branch = await module.CurrentBranch;
+                                var remote = (await module.Remotes).FirstOrDefault()?.Alias ?? null;
+                                return await module.RunGit($"push {(pushTags ? "--follow-tags" : "")} {(forcePush ? "--force" : "")} -u {remote} {branch}:{branch}");
+                            }).ToArray();
+                        }
+                        pushTags = GUILayout.Toggle(pushTags, "Push tags");
+                        forcePush = GUILayout.Toggle(forcePush, "Force push");
                     }
-                    pushTags = GUILayout.Toggle(pushTags, "Push tags");
-                    forcePush = GUILayout.Toggle(forcePush, "Force push");
+                    using (new GUILayout.HorizontalScope())
+                    {
+                        if (GUILayout.Button($"Pull {modules.Length} modules", GUILayout.Width(200)))
+                        {
+                            tasks = modules.Select(async module => {
+                                var remote = (await module.Remotes).FirstOrDefault()?.Alias ?? null;
+                                return await module.RunGit($"pull {remote}");
+                            }).ToArray();
+                        }
+                    }
+                    using (new GUILayout.HorizontalScope())
+                    {
+                        if (GUILayout.Button($"Fetch {modules.Length} modules", GUILayout.Width(200)))
+                        {
+                            tasks = modules.Select(async module => {
+                                var remote = (await module.Remotes).FirstOrDefault()?.Alias ?? null;
+                                return await module.RunGit($"fetch {remote}");
+                            }).ToArray();
+                        }
+                    }
                 }
                 GUILayout.Space(20);
                 var width = GUILayout.Width(window.position.width);
@@ -51,7 +69,7 @@ namespace Abuksigun.PackageShortcuts
                     {
                         using (new GUILayout.HorizontalScope())
                         {
-                            GUILayout.Label(modules[i].Name, GUILayout.Width(300));
+                            GUILayout.Label($"{modules[i].Name} [{modules[i].CurrentBranch.GetResultOrDefault()}]", GUILayout.Width(500));
                             if (tasks[i] != null)
                             {
                                 string status = !tasks[i].IsCompleted ? "In progress"

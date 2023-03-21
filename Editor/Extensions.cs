@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 
 namespace Abuksigun.PackageShortcuts
 {
+    using static Const;
     public static class Extensions
     {
         public static T GetResultOrDefault<T>(this Task<T> task, T defaultValue = default)
@@ -16,7 +17,7 @@ namespace Abuksigun.PackageShortcuts
 
         public static string[] SplitLines(this string self)
         {
-            return self.Split(new[] { '\n', '\r' }, System.StringSplitOptions.RemoveEmptyEntries);
+            return self.Split(new[] { '\n', '\r' }, RemoveEmptyEntries);
         }
     }
 }
