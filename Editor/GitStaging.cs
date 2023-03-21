@@ -41,7 +41,15 @@ namespace Abuksigun.PackageShortcuts
                     if (GUILayout.Button($"Commit {modulesWithStagedFiles}/{modules.Length} modules", GUILayout.Width(200)))
                     {
                         tasks = modules.Select(module => module.RunGit($"commit -m {commitMessage.WrapUp()}")).ToArray();
-                        window.Close();
+                        commitMessage = "";
+                    }
+                    if (GUILayout.Button($"Stash {modulesWithStagedFiles}/{modules.Length} modules", GUILayout.Width(200)))
+                    {
+                        tasks = modules.Select(module => {
+                            var files = module.GitStatus.GetResultOrDefault().Files.Where(x => x.IsStaged).Select(x => x.FullPath);
+                            return module.RunGit($"stash push -m {commitMessage.WrapUp()} -- {PackageShortcuts.JoinFileNames(files)}");
+                        }).ToArray();
+                        commitMessage = "";
                     }
                 }
 
@@ -86,17 +94,6 @@ namespace Abuksigun.PackageShortcuts
             await Task.WhenAll(tasks.Where(x => x != null));
         }
 
-        public static async Task ShowDiff(Module module, string filePath, bool staged)
-        {
-            var result = await module.RunGitReadonly($"diff {(staged ? "--staged" : "")} {filePath.WrapUp()}");
-            if (result.ExitCode != 0)
-                return;
-            Vector2 scrollPosition = Vector2.zero;
-            await GUIShortcuts.ShowModalWindow($"Diff {filePath}", new Vector2Int(600, 700), (window) => {
-                GUIShortcuts.DrawGitDiff(result.Output, window.position.size, null, null, null, ref scrollPosition);
-            });
-        }
-
         static async Task ShowContextMenu(Module module, IEnumerable<FileStatus> files)
         {
             if (!files.Any())
@@ -106,7 +103,7 @@ namespace Abuksigun.PackageShortcuts
             string filesList = PackageShortcuts.JoinFileNames(files.Select(x => x.FullPath));
             if (files.Any(x => x.IsInIndex))
             {
-                menu.AddItem(new GUIContent("Diff"), false, () => task = ShowDiff(module, files.First().FullPath, files.First().IsStaged));
+                menu.AddItem(new GUIContent("Diff"), false, () => task = Diff.ShowDiff(module, files.First().FullPath, files.First().IsStaged));
                 menu.AddItem(new GUIContent("Discrad"), false, () => {
                     if (EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", filesList, "Yes", "No"))
                         task = module.RunGit($"checkout -- {filesList}");

@@ -58,12 +58,16 @@ namespace Abuksigun.PackageShortcuts
                     if (GUILayout.Button($"Checkout {selectedCommit}"))
                     {
                         if (EditorUtility.DisplayDialog("Are you sure you want CHECKOUT to COMMIT", selectedCommit, "Yes", "No"))
-                            module.RunGit($"checkout {selectedCommit}");
+                            _ = module.RunGit($"checkout {selectedCommit}");
                     }
                     if (GUILayout.Button($"Reset soft {selectedCommit}"))
                     {
                         if (EditorUtility.DisplayDialog("Are you sure you want RESET to COMMIT", selectedCommit, "Yes", "No"))
-                            module.RunGit($"reset --soft {selectedCommit}");
+                            _ = module.RunGit($"reset --soft {selectedCommit}");
+                    }
+                    if (GUILayout.Button($"Diff {selectedCommit}"))
+                    {
+                        _ = Diff.ShowDiff(module, null, false, selectedCommit);
                     }
                 }
             });
