@@ -19,7 +19,7 @@ namespace Abuksigun.PackageShortcuts
         public int Added;
         public int Removed;
     }
-    public record FileStatus(string FullPath, char X, char Y, NumStat UnstagedNumStat, NumStat StagedNumStat)
+    public record FileStatus(string FullPath, string OldName, char X, char Y, NumStat UnstagedNumStat, NumStat StagedNumStat)
     {
         public bool IsInIndex => Y is not '?';
         public bool IsUnstaged => Y is not ' ';
@@ -35,7 +35,7 @@ namespace Abuksigun.PackageShortcuts
 
     public class Module
     {
-        const StringSplitOptions splitOptions = StringSplitOptions.RemoveEmptyEntries;
+        const StringSplitOptions SplitOptions = StringSplitOptions.RemoveEmptyEntries;
 
         Task<bool> isGitRepo;
         Task<string> gitRepoPath;
@@ -149,7 +149,7 @@ namespace Abuksigun.PackageShortcuts
         {
             var result = await RunGitReadonly($"branch -a --format=\"%(refname)\t%(upstream)\"");
             return result.Output.SplitLines()
-                .Select(x => x.Split('\t', splitOptions))
+                .Select(x => x.Split('\t', SplitOptions))
                 .Select<string[], Branch>(x => {
                     string[] split = x[0].Split('/');
                     return split[1] == "remotes"
@@ -168,7 +168,7 @@ namespace Abuksigun.PackageShortcuts
         {
             string[] remoteLines = (await RunGitReadonly("remote -v")).Output.Trim().SplitLines();
             return remoteLines.Select(line => {
-                string[] parts = line.Split('\t', splitOptions);
+                string[] parts = line.Split('\t', SplitOptions);
                 return new Remote(parts[0], parts[1]);
             }).Distinct().ToArray();
         }
@@ -209,9 +209,12 @@ namespace Abuksigun.PackageShortcuts
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
             string[] statusLines = statusTask.Result.Output.SplitLines();
             var files = statusLines.Select(line => {
-                string path = line[2..].Trim();
+                string[] paths = line[2..].Trim().Split(" ->", SplitOptions);
+                string path = paths.Length > 1 ? paths[1] : paths[0];
+                string oldPath = paths.Length > 1 ? paths[0] : null;
                 return new FileStatus(
                     FullPath: Path.Join(gitRepoPath, path),
+                    OldName: oldPath,
                     X: line[0],
                     Y: line[1],
                     UnstagedNumStat: numStatUnstaged.GetValueOrDefault(path),
@@ -224,7 +227,7 @@ namespace Abuksigun.PackageShortcuts
         Dictionary<string, NumStat> ParseNumStat(string numStatOutput)
         {
             return numStatOutput.Trim().SplitLines()
-                .Select(line => line.Trim().Split('\t', splitOptions))
+                .Select(line => line.Trim().Split('\t', SplitOptions))
                 .ToDictionary(parts => parts[2], parts => new NumStat {
                     Added = int.Parse(parts[0]), 
                     Removed = int.Parse(parts[1]) 

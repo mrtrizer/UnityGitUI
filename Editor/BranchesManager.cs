@@ -5,14 +5,14 @@ using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
 {
-    public static class Checkout
+    public static class BranchesManager
     {
         const int BottomPanelHeight = 40;
 
-        [MenuItem("Assets/Checkout", true)]
+        [MenuItem("Assets/Branches Manager", true)]
         public static bool Check() => PackageShortcuts.GetGitModules().Any();
 
-        [MenuItem("Assets/Checkout")]
+        [MenuItem("Assets/Branches Manager")]
         public static async void Invoke()
         {
             Branch selectedBranch = null;
@@ -20,7 +20,7 @@ namespace Abuksigun.PackageShortcuts
 
             Task checkoutTask = null;
 
-            await GUIShortcuts.ShowModalWindow("Branches", new Vector2Int(300, 250), (window) =>
+            await GUIShortcuts.ShowModalWindow("Branches Manager", new Vector2Int(300, 250), (window) =>
             {
                 var branchesPerRepo = PackageShortcuts.GetGitModules().Select(module => module.Branches.GetResultOrDefault());
                 if (!branchesPerRepo.Any() || branchesPerRepo.Any(x => x == null))
