@@ -10,9 +10,9 @@ namespace Abuksigun.PackageShortcuts
             return task.IsCompletedSuccessfully ? task.Result : defaultValue;
         }
 
-        public static string WrapUp(this string self, string wrap = "\"")
+        public static string WrapUp(this string self, string wrapLeft = "\"", string wrapRight = null)
         {
-            return wrap + self + wrap;
+            return wrapLeft + self + wrapRight ?? wrapLeft;
         }
 
         public static string[] SplitLines(this string self)
