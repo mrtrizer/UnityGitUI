@@ -35,5 +35,10 @@ namespace Abuksigun.PackageShortcuts
         {
             return self.Replace('\\', '/');
         }
+
+        public static object When<T>(this T self, bool condition) where T : class
+        {
+            return condition ? self : default;
+        }
     }
 }

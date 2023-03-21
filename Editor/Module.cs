@@ -44,11 +44,13 @@ namespace Abuksigun.PackageShortcuts
         Task<string> currentBranch;
         Task<string> currentCommit;
         Task<Remote[]> remotes;
+        Task<Remote> defaultRemote;
         Task<RemoteStatus> remoteStatus;
         Task<GitStatus> gitStatus;
 
         List<IOData> processLog = new();
         FileSystemWatcher fsWatcher;
+        object resetLock = new();
 
         public string Guid { get; }
         public string Name { get; }
@@ -62,6 +64,7 @@ namespace Abuksigun.PackageShortcuts
         public Task<string> CurrentBranch => currentBranch ??= GetCurrentBranch();
         public Task<string> CurrentCommit => currentCommit ??= GetCommit();
         public Task<Remote[]> Remotes => remotes ??= GetRemotes();
+        public Task<Remote> DefaultRemote => defaultRemote ??= GetDefaultRemote();
         public Task<RemoteStatus> RemoteStatus => remoteStatus ??= GetRemoteStatus();
         public Task<GitStatus> GitStatus => gitStatus ??= GetGitStatus();
         public IReadOnlyList<IOData> ProcessLog => processLog;
@@ -83,15 +86,18 @@ namespace Abuksigun.PackageShortcuts
 
         void Reset()
         {
-            // This code can be called from another thread
-            isGitRepo = null;
-            gitRepoPath = null;
-            branches = null;
-            currentBranch = null;
-            currentCommit = null;
-            remotes = null;
-            remoteStatus = null;
-            gitStatus = null;
+            lock (resetLock)
+            {
+                isGitRepo = null;
+                gitRepoPath = null;
+                branches = null;
+                currentBranch = null;
+                currentCommit = null;
+                remotes = null;
+                defaultRemote = null;
+                remoteStatus = null;
+                gitStatus = null;
+            }
         }
 
         FileSystemWatcher CreateFileWatcher()
@@ -173,6 +179,11 @@ namespace Abuksigun.PackageShortcuts
                 string[] parts = line.Split('\t', RemoveEmptyEntries);
                 return new Remote(parts[0], parts[1]);
             }).Distinct().ToArray();
+        }
+
+        async Task<Remote> GetDefaultRemote()
+        {
+            return (await GetRemotes()).FirstOrDefault();
         }
 
         async Task<RemoteStatus> GetRemoteStatus()

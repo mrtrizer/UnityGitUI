@@ -35,8 +35,8 @@ namespace Abuksigun.PackageShortcuts
                         if (GUILayout.Button($"Fetch {modules.Length} modules", GUILayout.Width(200)))
                         {
                             tasks = modules.ToDictionary(x => x.Guid, async module => {
-                                var remote = (await module.Remotes).FirstOrDefault()?.Alias ?? null;
-                                return await module.RunGit($"fetch {remote} {(prune ? "--prune" : "")}");
+                                var remote = await module.DefaultRemote;
+                                return await module.RunGit($"fetch {remote?.Alias} {"--prune".When(prune)}");
                             });
                             logStartLine = modules.ToDictionary(x => x.Guid, x => x.ProcessLog.Count);
                         }
@@ -47,8 +47,8 @@ namespace Abuksigun.PackageShortcuts
                         if (GUILayout.Button($"Pull {modules.Length} modules", GUILayout.Width(200)))
                         {
                             tasks = modules.ToDictionary(x => x.Guid, async module => {
-                                var remote = (await module.Remotes).FirstOrDefault()?.Alias ?? null;
-                                return await module.RunGit($"pull {remote}");
+                                var remote = await module.DefaultRemote;
+                                return await module.RunGit($"pull {remote?.Alias}");
                             });
                             logStartLine = modules.ToDictionary(x => x.Guid, x => x.ProcessLog.Count);
                         }
@@ -59,8 +59,8 @@ namespace Abuksigun.PackageShortcuts
                         {
                             tasks = modules.ToDictionary(x => x.Guid, async module => {
                                 string branch = await module.CurrentBranch;
-                                var remote = (await module.Remotes).FirstOrDefault()?.Alias ?? null;
-                                return await module.RunGit($"push {(pushTags ? "--follow-tags" : "")} {(forcePush ? "--force" : "")} -u {remote} {branch}:{branch}");
+                                var remote = await module.DefaultRemote;
+                                return await module.RunGit($"push {"--follow-tags".When(pushTags)} {"--force".When(forcePush)} -u {remote?.Alias} {branch}:{branch}");
                             });
                             logStartLine = modules.ToDictionary(x => x.Guid, x => x.ProcessLog.Count);
                         }
