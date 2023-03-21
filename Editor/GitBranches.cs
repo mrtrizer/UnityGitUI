@@ -36,7 +36,7 @@ namespace Abuksigun.PackageShortcuts
                     for (int i = 0; i < branches.Length; i++)
                     {
                         var branch = branches[i];
-                        string reposOnBranch = branch is LocalBranch ? string.Join(',', currentBranchPerRepo.Where(x => x.Value == branch.Name).Select(x => x.Key.Name)).WrapUp("[", "]") : "";
+                        string reposOnBranch = currentBranchPerRepo.Where(x => x.Value == branch.QualifiedName).Select(x => x.Key.Name).Join(',').WrapUp("[", "]");
                         if (GUILayout.Toggle(branches[i] == selectedBranch, $"{branch.QualifiedName} {reposOnBranch}"))
                             selectedBranch = branches[i];
                     }
@@ -80,7 +80,7 @@ namespace Abuksigun.PackageShortcuts
                     }
                     using (new GUILayout.HorizontalScope())
                     {
-                        string affectedModules = string.Join('\n', modules.Select(x => $"{x.Name}: {selectedBranch.Name} into {x.CurrentBranch.GetResultOrDefault()}"));
+                        string affectedModules = modules.Select(x => $"{x.Name}: {selectedBranch.Name} into {x.CurrentBranch.GetResultOrDefault()}").Join('\n');
                         if (GUILayout.Button($"Merge [{selectedBranch.QualifiedName}]"))
                         {
                             if (EditorUtility.DisplayDialog("Are you sure you want MERGE branch", affectedModules, "Yes", "No"))

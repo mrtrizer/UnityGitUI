@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Abuksigun.PackageShortcuts
@@ -18,6 +19,16 @@ namespace Abuksigun.PackageShortcuts
         public static string[] SplitLines(this string self)
         {
             return self.Split(new[] { '\n', '\r' }, RemoveEmptyEntries);
+        }
+
+        public static string Join(this IEnumerable<string> values, char separator)
+        {
+            return string.Join(separator, values);
+        }
+
+        public static string Join(this IEnumerable<string> values, string separator)
+        {
+            return string.Join(separator, values);
         }
     }
 }

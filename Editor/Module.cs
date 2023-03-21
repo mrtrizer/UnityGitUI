@@ -154,8 +154,8 @@ namespace Abuksigun.PackageShortcuts
                 .Select<string[], Branch>(x => {
                     string[] split = x[0].Split('/');
                     return split[1] == "remotes"
-                        ? new RemoteBranch(string.Join('/', split[3..]), split[2])
-                        : new LocalBranch(string.Join('/', split[2..]), x.Length > 1 ? x[1] : null);
+                        ? new RemoteBranch(split[3..].Join('/'), split[2])
+                        : new LocalBranch(split[2..].Join('/'), x.Length > 1 ? x[1] : null);
                     })
                 .ToArray();
         }
