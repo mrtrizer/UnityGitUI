@@ -52,6 +52,7 @@ namespace Abuksigun.PackageShortcuts
 
         public string Guid { get; }
         public string Name { get; }
+        public string ShortName => Name.Length > 20 ? Name[0] + ".." + Name[^17..] : Name;
         public string LogicalPath { get; }
         public string PhysicalPath => Path.GetFullPath(FileUtil.GetPhysicalPath(LogicalPath));
         public PackageInfo PackageInfo { get; }

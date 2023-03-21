@@ -24,7 +24,7 @@ namespace Abuksigun.PackageShortcuts
             var scrollPositions = new (Vector2 unstaged, Vector2 staged)[modules.Length];
             var selection = Enumerable.Repeat((unstaged:new List<string>(), staged: new List<string>()), modules.Length).ToArray();
 
-            string[] moduleNames = modules.Select(x => x.Name.Length > 20 ? x.Name[0] + ".." + x.Name[^17..] : x.Name).ToArray();
+            string[] moduleNames = modules.Select(x => x.ShortName).ToArray();
             int tab = 0;
             
             await GUIShortcuts.ShowModalWindow("Commit", new Vector2Int(600, 400), (window) => {
