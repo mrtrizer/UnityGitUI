@@ -103,7 +103,7 @@ namespace Abuksigun.PackageShortcuts
             string filesList = PackageShortcuts.JoinFileNames(files.Select(x => x.FullPath));
             if (files.Any(x => x.IsInIndex))
             {
-                menu.AddItem(new GUIContent("Diff"), false, () => task = Diff.ShowDiff(module, files.First().FullPath, files.First().IsStaged));
+                menu.AddItem(new GUIContent("Diff"), false, () => task = Diff.ShowDiff(module, files.Select(x => x.FullPath), files.First().IsStaged));
                 menu.AddItem(new GUIContent("Discrad"), false, () => {
                     if (EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", filesList, "Yes", "No"))
                         task = module.RunGit($"checkout -- {filesList}");

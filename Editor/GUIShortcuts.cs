@@ -19,26 +19,28 @@ namespace Abuksigun.PackageShortcuts
 
     public static class GUIShortcuts
     {
+        public delegate void HunkAction(string fileName, int hunkIndex);
+
         static GUIStyle logStyle;
         static GUIStyle errorLogStyle;
         static GUIStyle diffAddedStyle;
         static GUIStyle diffRemoveStyle;
+        static GUIStyle fileNameStyle;
         static GUIStyle idleStyle;
         static GUIStyle selectedStyle;
+        
         static Dictionary<Module, Vector2> logScrollPositions = new();
         static Dictionary<Color, Texture2D> colorTextures = new();
 
         public static GUIStyle IdleStyle => idleStyle ??= new GUIStyle {
-            normal = new GUIStyleState {
-                background = GUIShortcuts.GetColorTexture(Color.clear),
-                textColor = GUI.skin.label.normal.textColor
-            }
+            normal = new GUIStyleState { background = GetColorTexture(Color.clear), textColor = GUI.skin.label.normal.textColor }
         };
         public static GUIStyle SelectedStyle => selectedStyle ??= new GUIStyle {
-            normal = new GUIStyleState {
-                background = GUIShortcuts.GetColorTexture(new Color(0.22f, 0.44f, 0.68f)),
-                textColor = Color.white
-            }
+            normal = new GUIStyleState { background = GetColorTexture(new Color(0.22f, 0.44f, 0.68f)), textColor = Color.white }
+        };
+        public static GUIStyle FileNameStyle => fileNameStyle ??= new GUIStyle {
+            fontStyle = FontStyle.Bold,
+            normal = new GUIStyleState { background = GetColorTexture(new Color(0.8f, 0.8f, 0.8f)), textColor = Color.black }
         };
 
         public static Texture2D GetColorTexture(Color color)
@@ -84,8 +86,7 @@ namespace Abuksigun.PackageShortcuts
 
             logScrollPositions[module] = scroll.scrollPosition;
         }
-
-        public static void DrawGitDiff(string diff, Vector2 size, Action<int> stageHunk, Action<int> unstageHunk, Action<int> discardHunk, ref Vector2 scrollPosition)
+        public static void DrawGitDiff(string diff, Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, ref Vector2 scrollPosition)
         {
             diffAddedStyle ??= new GUIStyle { normal = new GUIStyleState { background = GetColorTexture(Color.green) } };
             diffRemoveStyle ??= new GUIStyle { normal = new GUIStyleState { background = GetColorTexture(Color.red) } };
@@ -97,18 +98,29 @@ namespace Abuksigun.PackageShortcuts
 
             using var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
 
+            string currentFile = null;
             int hunkIndex = -1;
             for (int i = 0; i < lines.Length; i++)
             {
-                if (lines[i].StartsWith("@@"))
+                if (lines[i][0] == 'd')
+                {
+                    i += 3;
+                    hunkIndex = -1;
+                    currentFile = lines[i][6..];
+                    GUILayout.Label(currentFile, FileNameStyle);
+                }
+                else if (lines[i].StartsWith("@@"))
                 {
                     hunkIndex++;
-                    if (stageHunk != null && GUILayout.Button($"Stage hunk {hunkIndex + 1}", GUILayout.Width(100)))
-                        stageHunk.Invoke(hunkIndex);
-                    if (unstageHunk != null && GUILayout.Button($"Unstage hunk {hunkIndex + 1}", GUILayout.Width(100)))
-                        unstageHunk.Invoke(hunkIndex);
-                    if (discardHunk != null && GUILayout.Button($"Discard hunk {hunkIndex + 1}", GUILayout.Width(100)))
-                        discardHunk.Invoke(hunkIndex);
+                    using (new GUILayout.HorizontalScope())
+                    {
+                        if (stageHunk != null && GUILayout.Button($"Stage hunk {hunkIndex + 1}", GUILayout.Width(100)))
+                            stageHunk.Invoke(currentFile, hunkIndex);
+                        if (unstageHunk != null && GUILayout.Button($"Unstage hunk {hunkIndex + 1}", GUILayout.Width(100)))
+                            unstageHunk.Invoke(currentFile, hunkIndex);
+                        if (discardHunk != null && GUILayout.Button($"Discard hunk {hunkIndex + 1}", GUILayout.Width(100)))
+                            discardHunk.Invoke(currentFile, hunkIndex);
+                    }
                 }
                 else if (hunkIndex >= 0)
                 {
