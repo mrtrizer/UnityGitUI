@@ -8,17 +8,18 @@ namespace Abuksigun.PackageShortcuts
     public class Diff
     {
         [MenuItem("Assets/Diff", true)]
-        public static bool Check() => Selection.assetGUIDs.Any(x => PackageShortcuts.GetAssociatedGitModule(x) != null);
+        public static bool Check() => Selection.assetGUIDs.Any(x => PackageShortcuts.GetAssetGitInfo(x)?.FileStatuses.Any(x => x.IsInIndex) ?? false);
 
         [MenuItem("Assets/Diff")]
-        public static async void Invoke()
+        public static void Invoke()
         {
             foreach (var guid in Selection.assetGUIDs)
             {
-                if (PackageShortcuts.GetAssociatedGitModule(guid) is { }  module)
+                if (PackageShortcuts.GetAssetGitInfo(guid) is { }  assetInfo)
                 {
                     string filePath = PackageShortcuts.GetFullPathFromGuid(guid);
-                    _ = ShowDiff(module, filePath, false);
+                    foreach (var fileStatus in assetInfo.FileStatuses)
+                        _ = ShowDiff(assetInfo.Module, filePath, fileStatus.IsStaged);
                 }
             }
         }
@@ -28,7 +29,7 @@ namespace Abuksigun.PackageShortcuts
             if (result.ExitCode != 0)
                 return;
             Vector2 scrollPosition = Vector2.zero;
-            await GUIShortcuts.ShowModalWindow($"Diff {filePath}", new Vector2Int(600, 700), (window) => {
+            await GUIShortcuts.ShowModalWindow($"Diff {filePath} {(staged ? "Staged" : "Unstaged")}", new Vector2Int(600, 700), (window) => {
                 GUIShortcuts.DrawGitDiff(result.Output, window.position.size, null, null, null, ref scrollPosition);
             });
         }

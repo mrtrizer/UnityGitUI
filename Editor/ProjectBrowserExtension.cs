@@ -62,12 +62,12 @@ namespace Abuksigun.PackageShortcuts
 
             if (module == null)
             {
-                if (PackageShortcuts.GetAssociatedGitModule(guid) != null)
+                if (PackageShortcuts.GetAssetGitInfo(guid) is { } assetInfo)
                 {
                     var rect = drawRect;
                     rect.height = 15;
                     rect.x += 2.5f;
-                    GUI.Label(rect, "*");
+                    GUI.Label(rect, assetInfo.FileStatuses.Any(x => x.IsInIndex) ? "*" : "+");
                 }
             }
         }

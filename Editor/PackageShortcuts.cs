@@ -21,6 +21,8 @@ namespace Abuksigun.PackageShortcuts
     }
     public record CommandResult(int ExitCode, string Output);
 
+    public record AssetGitInfo(Module Module, FileStatus[] FileStatuses);
+    
     [InitializeOnLoad]
     public static class PackageShortcuts
     {
@@ -79,13 +81,19 @@ namespace Abuksigun.PackageShortcuts
             return !string.IsNullOrEmpty(physicalPath) ? Path.GetFullPath(physicalPath).NormalizePath() : null;
         }
 
-        public static Module GetAssociatedGitModule(string guid)
+        public static AssetGitInfo GetAssetGitInfo(string guid)
         {
             var gitModules = GetGitModules();
             string filePath = GetFullPathFromGuid(guid);
             if (string.IsNullOrEmpty(filePath))
                 return null;
-            return gitModules.FirstOrDefault(x => x.GitStatus.GetResultOrDefault()?.Files.Any(x => x.FullPath == filePath) ?? false);
+            foreach (var module in gitModules)
+            {
+                var fileStatuses = module.GitStatus.GetResultOrDefault()?.Files.Where(x => x.FullPath == filePath);
+                if (fileStatuses != null && fileStatuses.Any())
+                    return new AssetGitInfo(module, fileStatuses.ToArray());
+            }
+            return null;
         }
 
         public static string JoinFileNames(IEnumerable<string> fileNames)
