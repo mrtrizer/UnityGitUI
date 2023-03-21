@@ -69,13 +69,13 @@ namespace Abuksigun.PackageShortcuts
                     {
                         using (new GUILayout.HorizontalScope())
                         {
-                            GUILayout.Label($"{modules[i].Name} [{modules[i].CurrentBranch.GetResultOrDefault()}]", GUILayout.Width(500));
+                            GUILayout.Label($"{modules[i].Name} [{modules[i].CurrentBranch.GetResultOrDefault()}]", GUILayout.Width(400));
                             if (tasks[i] != null)
                             {
                                 string status = !tasks[i].IsCompleted ? "In progress"
                                     : tasks[i].IsCompletedSuccessfully && tasks[i].Result.ExitCode == 0 ? "Done"
                                     : "Errored";
-                                GUILayout.Label(status, GUILayout.Width(150));
+                                GUILayout.Label(status, GUILayout.Width(100));
                             }
                             enableLogForModule[i] = GUILayout.Toggle(enableLogForModule[i], "Show log");
                         }

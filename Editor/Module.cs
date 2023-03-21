@@ -12,9 +12,9 @@ namespace Abuksigun.PackageShortcuts
 {
     using static Const;
 
-    public record Branch(string Name);
-    public record LocalBranch(string Name, string TrackingBranch) : Branch(Name);
-    public record RemoteBranch(string Name, string RemoteAlias) : Branch(Name);
+    public record Branch(string Name, string QualifiedName);
+    public record LocalBranch(string Name, string TrackingBranch) : Branch(Name, Name);
+    public record RemoteBranch(string Name, string RemoteAlias) : Branch(Name, RemoteAlias + '/' +Name);
     public record Remote(string Alias, string Url);
     public record RemoteStatus(string Remote, int Ahead, int Behind);
     public struct NumStat

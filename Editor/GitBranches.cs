@@ -35,10 +35,9 @@ namespace Abuksigun.PackageShortcuts
                 {
                     for (int i = 0; i < branches.Length; i++)
                     {
-                        string prefix = branches[i] is RemoteBranch remoteBranch ? remoteBranch.RemoteAlias + '/': "";
                         var branch = branches[i];
                         string reposOnBranch = branch is LocalBranch ? string.Join(',', currentBranchPerRepo.Where(x => x.Value == branch.Name).Select(x => x.Key.Name)).WrapUp("[", "]") : "";
-                        if (GUILayout.Toggle(branches[i] == selectedBranch, $"{prefix}{branch.Name} {reposOnBranch}"))
+                        if (GUILayout.Toggle(branches[i] == selectedBranch, $"{branch.QualifiedName} {reposOnBranch}"))
                             selectedBranch = branches[i];
                     }
                     scrollPosition = scroll.scrollPosition;
@@ -58,10 +57,10 @@ namespace Abuksigun.PackageShortcuts
                     {
                         if (localBranch != null)
                         {
-                            if (GUILayout.Button($"Checkout {localBranch.Name}"))
+                            if (GUILayout.Button($"Checkout [{localBranch.Name}]"))
                                 checkoutTask = Task.WhenAll(PackageShortcuts.GetGitModules().Select(module => module.RunGit($"checkout {localBranch.Name}")));
 
-                            if (GUILayout.Button($"Delete local {localBranch.Name}"))
+                            if (GUILayout.Button($"Delete local [{localBranch.Name}]"))
                             {
                                 if (EditorUtility.DisplayDialog("Are you sure you want DELETE branch", $"LOCAL {localBranch.Name} in {modules.Count()} modules", "Yes", "No"))
                                     checkoutTask = Task.WhenAll(PackageShortcuts.GetGitModules().Select(module => module.RunGit($"branch -d {localBranch.Name}")));
@@ -69,10 +68,10 @@ namespace Abuksigun.PackageShortcuts
                         }
                         else if (remoteBranch != null)
                         {
-                            if (GUILayout.Button($"Create local {remoteBranch.Name}"))
+                            if (GUILayout.Button($"Create local [{remoteBranch.Name}]"))
                                 checkoutTask = Task.WhenAll(PackageShortcuts.GetGitModules().Select(module => module.RunGit($"switch {remoteBranch.Name}")));
 
-                            if (GUILayout.Button($"Delete remote {remoteBranch.Name}"))
+                            if (GUILayout.Button($"Delete remote [{remoteBranch.QualifiedName}]"))
                             {
                                 if (EditorUtility.DisplayDialog("Are you sure you want DELETE branch", $"REMOTE {remoteBranch.Name} in {modules.Count()} modules", "Yes", "No"))
                                     checkoutTask = Task.WhenAll(PackageShortcuts.GetGitModules().Select(module => module.RunGit($"push -d {remoteBranch.RemoteAlias} {remoteBranch.Name}")));
@@ -81,10 +80,17 @@ namespace Abuksigun.PackageShortcuts
                     }
                     using (new GUILayout.HorizontalScope())
                     {
-                        if (GUILayout.Button($"Merge {selectedBranch.Name}"))
-                            checkoutTask = Task.WhenAll(PackageShortcuts.GetGitModules().Select(module => module.RunGit($"merge {selectedBranch.Name}")));
-                        if (GUILayout.Button($"Rebase {selectedBranch.Name}"))
-                            checkoutTask = Task.WhenAll(PackageShortcuts.GetGitModules().Select(module => module.RunGit($"rebase {selectedBranch.Name}")));
+                        string affectedModules = string.Join('\n', modules.Select(x => $"{x.Name}: {selectedBranch.Name} into {x.CurrentBranch.GetResultOrDefault()}"));
+                        if (GUILayout.Button($"Merge [{selectedBranch.QualifiedName}]"))
+                        {
+                            if (EditorUtility.DisplayDialog("Are you sure you want MERGE branch", affectedModules, "Yes", "No"))
+                                checkoutTask = Task.WhenAll(PackageShortcuts.GetGitModules().Select(module => module.RunGit($"merge {selectedBranch.QualifiedName}")));
+                        }
+                        if (GUILayout.Button($"Rebase [{selectedBranch.QualifiedName}]"))
+                        {
+                            if (EditorUtility.DisplayDialog("Are you sure you want REBASE branch", affectedModules, "Yes", "No"))
+                                checkoutTask = Task.WhenAll(PackageShortcuts.GetGitModules().Select(module => module.RunGit($"rebase {selectedBranch.QualifiedName}")));
+                        }
                     }
                 }
             });
