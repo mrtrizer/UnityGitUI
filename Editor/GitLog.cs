@@ -14,7 +14,7 @@ namespace Abuksigun.PackageShortcuts
         const int BottomPanelHeight = 75;
 
         [MenuItem("Assets/Git Log", true)]
-        public static bool Check() => PackageShortcuts.GetGitModules().Any();
+        public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
 
         [MenuItem("Assets/Git Log", priority = 100)]
         public static async void Invoke()
@@ -26,7 +26,7 @@ namespace Abuksigun.PackageShortcuts
             string selectedCommit = null;
 
             await GUIShortcuts.ShowModalWindow("Git Log", new Vector2Int(500, 450), (window) => {
-                var modules = PackageShortcuts.GetGitModules();
+                var modules = PackageShortcuts.GetSelectedGitModules();
                 if (!modules.Any())
                     return;
                 tab = modules.Count() > 1 ? GUILayout.Toolbar(tab, modules.Select(x => x.Name).ToArray()) : 0;

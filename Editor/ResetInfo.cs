@@ -6,13 +6,12 @@ namespace Abuksigun.PackageShortcuts
     public class ResetInfo
     {
         [MenuItem("Assets/Reset Module Info", true)]
-        public static bool Check() => PackageShortcuts.GetModules().Any();
+        public static bool Check() => PackageShortcuts.GetSelectedModules().Any();
 
         [MenuItem("Assets/Reset Module Info")]
         public static void Invoke()
         {
-            PackageShortcuts.ResetModules(PackageShortcuts.GetModules());
+            PackageShortcuts.ResetModules(PackageShortcuts.GetSelectedModules());
         }
     }
-
 }

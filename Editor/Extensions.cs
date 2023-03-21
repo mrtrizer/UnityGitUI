@@ -30,5 +30,10 @@ namespace Abuksigun.PackageShortcuts
         {
             return string.Join(separator, values);
         }
+
+        public static string NormalizePath(this string self)
+        {
+            return self.Replace('\\', '/');
+        }
     }
 }

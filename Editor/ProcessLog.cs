@@ -22,12 +22,12 @@ namespace Abuksigun.PackageShortcuts
     public static class ProcessLog
     {
         [MenuItem("Assets/Process Log", true)]
-        public static bool Check() => PackageShortcuts.GetModules().Any();
+        public static bool Check() => PackageShortcuts.GetSelectedModules().Any();
 
         [MenuItem("Assets/Process Log")]
         public static void Invoke()
         {
-            foreach (var module in PackageShortcuts.GetModules())
+            foreach (var module in PackageShortcuts.GetSelectedModules())
             {
                 var window = ScriptableObject.CreateInstance<LogWindow>();
                 window.titleContent = new GUIContent(module.Name);

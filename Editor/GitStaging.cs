@@ -13,13 +13,13 @@ namespace Abuksigun.PackageShortcuts
         const int MiddlePanelWidth = 40;
 
         [MenuItem("Assets/Git Staging", true)]
-        public static bool Check() => PackageShortcuts.GetGitModules().Any();
+        public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
 
         [MenuItem("Assets/Git Staging", priority = 100)]
         public static async void Invoke()
         {
             string commitMessage = "";
-            var modules = PackageShortcuts.GetGitModules().ToArray();
+            var modules = PackageShortcuts.GetSelectedGitModules().ToArray();
             var tasks = new Task<CommandResult>[modules.Length];
             var scrollPositions = new (Vector2 unstaged, Vector2 staged)[modules.Length];
             var selection = Enumerable.Repeat((unstaged:new List<string>(), staged: new List<string>()), modules.Length).ToArray();
@@ -86,13 +86,13 @@ namespace Abuksigun.PackageShortcuts
             await Task.WhenAll(tasks.Where(x => x != null));
         }
 
-        static async Task ShowDiff(Module module, string filePath, bool staged)
+        public static async Task ShowDiff(Module module, string filePath, bool staged)
         {
             var result = await module.RunGitReadonly($"diff {(staged ? "--staged" : "")} {filePath.WrapUp()}");
             if (result.ExitCode != 0)
                 return;
             Vector2 scrollPosition = Vector2.zero;
-            await GUIShortcuts.ShowModalWindow($"Diff {filePath}", new Vector2Int(400, 600), (window) => {
+            await GUIShortcuts.ShowModalWindow($"Diff {filePath}", new Vector2Int(600, 700), (window) => {
                 GUIShortcuts.DrawGitDiff(result.Output, window.position.size, null, null, null, ref scrollPosition);
             });
         }

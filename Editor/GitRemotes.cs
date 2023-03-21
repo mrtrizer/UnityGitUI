@@ -10,14 +10,14 @@ namespace Abuksigun.PackageShortcuts
         const int TopPanelHeight = 40;
 
         [MenuItem("Assets/Git Remotes", true)]
-        public static bool Check() => PackageShortcuts.GetGitModules().Any();
+        public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
 
         [MenuItem("Assets/Git Remotes", priority = 100)]
         public static async void Invoke()
         {
             bool pushTags = false;
             bool forcePush = false;
-            Module[] modules = PackageShortcuts.GetGitModules().ToArray();
+            Module[] modules = PackageShortcuts.GetSelectedGitModules().ToArray();
             bool[] enableLogForModule = new bool[modules.Length];
             Vector2 scrollPosition = Vector2.zero;
             int[] logStartLine = modules.Select(x => x.ProcessLog.Count).ToArray();

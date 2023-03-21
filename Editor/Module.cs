@@ -214,7 +214,7 @@ namespace Abuksigun.PackageShortcuts
                 string path = paths.Length > 1 ? paths[1].Trim() : paths[0].Trim();
                 string oldPath = paths.Length > 1 ? paths[0].Trim() : null;
                 return new FileStatus(
-                    FullPath: Path.Join(gitRepoPath, path),
+                    FullPath: Path.Join(gitRepoPath, path).NormalizePath(),
                     OldName: oldPath,
                     X: line[0],
                     Y: line[1],

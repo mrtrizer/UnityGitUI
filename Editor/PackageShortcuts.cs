@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -54,12 +55,37 @@ namespace Abuksigun.PackageShortcuts
 
         public static IEnumerable<Module> GetModules()
         {
-            return Selection.assetGUIDs.Where(IsModule).Select(guid => GetModule(guid));
+            return modules.Values;
         }
 
         public static IEnumerable<Module> GetGitModules()
         {
-            return GetModules().Where(x => x.IsGitRepo.GetResultOrDefault());
+            return GetModules().Where(module => module != null && module.IsGitRepo.GetResultOrDefault()).Where(x => x != null);
+        }
+
+        public static IEnumerable<Module> GetSelectedModules()
+        {
+            return Selection.assetGUIDs.Where(IsModule).Select(guid => GetModule(guid));
+        }
+
+        public static IEnumerable<Module> GetSelectedGitModules()
+        {
+            return GetSelectedModules().Where(x => x.IsGitRepo.GetResultOrDefault());
+        }
+
+        public static string GetFullPathFromGuid(string guid)
+        {
+            string physicalPath = FileUtil.GetPhysicalPath(AssetDatabase.GUIDToAssetPath(guid));
+            return !string.IsNullOrEmpty(physicalPath) ? Path.GetFullPath(physicalPath).NormalizePath() : null;
+        }
+
+        public static Module GetAssociatedGitModule(string guid)
+        {
+            var gitModules = GetGitModules();
+            string filePath = GetFullPathFromGuid(guid);
+            if (string.IsNullOrEmpty(filePath))
+                return null;
+            return gitModules.FirstOrDefault(x => x.GitStatus.GetResultOrDefault()?.Files.Any(x => x.FullPath == filePath) ?? false);
         }
 
         public static string JoinFileNames(IEnumerable<string> fileNames)
