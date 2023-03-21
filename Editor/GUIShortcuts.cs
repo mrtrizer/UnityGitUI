@@ -42,12 +42,12 @@ namespace Abuksigun.PackageShortcuts
         public static Task ShowModalWindow(string title, Vector2Int size, Action<EditorWindow> onGUI)
         {
             var window = ScriptableObject.CreateInstance<DefaultWindow>();
-            window.position = new Rect(EditorGUIUtility.GetMainWindowPosition().center - size / 2, size);
             window.titleContent = new GUIContent(title);
             window.onGUI = onGUI;
             EditorApplication.LockReloadAssemblies();
             // True modal window in unity blocks execution of thread. So, instread I just fake it's behaviour.
             window.ShowUtility();
+            window.position = new Rect(EditorGUIUtility.GetMainWindowPosition().center - size / 2, size);
             var tcs = new TaskCompletionSource<bool>();
             window.onClosed += () => {
                 tcs.SetResult(true);

@@ -7,15 +7,15 @@ using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
 {
-    public static class Commit
+    public static class GitStaging
     {
         const int TopPanelHeight = 120;
         const int MiddlePanelWidth = 40;
 
-        [MenuItem("Assets/Commit", true)]
+        [MenuItem("Assets/Git Staging", true)]
         public static bool Check() => PackageShortcuts.GetGitModules().Any();
 
-        [MenuItem("Assets/Commit")]
+        [MenuItem("Assets/Git Staging", priority = 100)]
         public static async void Invoke()
         {
             string commitMessage = "";

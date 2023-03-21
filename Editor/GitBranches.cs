@@ -5,14 +5,14 @@ using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
 {
-    public static class BranchesManager
+    public static class GitBranches
     {
         const int BottomPanelHeight = 40;
 
-        [MenuItem("Assets/Branches Manager", true)]
+        [MenuItem("Assets/Git Branches", true)]
         public static bool Check() => PackageShortcuts.GetGitModules().Any();
 
-        [MenuItem("Assets/Branches Manager")]
+        [MenuItem("Assets/Git Branches", priority = 100)]
         public static async void Invoke()
         {
             Branch selectedBranch = null;
@@ -31,6 +31,8 @@ namespace Abuksigun.PackageShortcuts
 
                 using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, GUILayout.Width(window.position.width), GUILayout.Height(window.position.height - BottomPanelHeight)))
                 {
+                    if (GUILayout.Button("New Branch"))
+                        MakeBranch();
                     for (int i = 0; i < branches.Length; i++)
                     {
                         string prefix = branches[i] is RemoteBranch remoteBranch ? remoteBranch.RemoteAlias + '/': "";
@@ -75,6 +77,31 @@ namespace Abuksigun.PackageShortcuts
 
             if (checkoutTask != null)
                 await checkoutTask;
+        }
+
+        public static async void MakeBranch()
+        {
+            string branchName = "";
+            bool checkout = true;
+            Task task = null;
+
+            await GUIShortcuts.ShowModalWindow("Make branch", new Vector2Int(300, 150), (window) => {
+                GUILayout.Label("Branch Name: ");
+                branchName = EditorGUILayout.TextField(branchName);
+                checkout = GUILayout.Toggle(checkout, "Checkout to this branch");
+                GUILayout.Space(40);
+                using (new GUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("Ok", GUILayout.Width(200)))
+                    {
+                        task = Task.WhenAll(PackageShortcuts.GetGitModules().Select(module => module.RunGit(checkout ? $"checkout -b {branchName}" : $"branch {branchName}")));
+                        window.Close();
+                    }
+                }
+            });
+
+            if (task != null)
+                await task;
         }
     }
 }

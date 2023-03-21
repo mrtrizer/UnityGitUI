@@ -5,14 +5,14 @@ using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
 {
-    public static class Push
+    public static class GitRemotes
     {
         const int TopPanelHeight = 40;
 
-        [MenuItem("Assets/Push", true)]
+        [MenuItem("Assets/Git Remotes", true)]
         public static bool Check() => PackageShortcuts.GetGitModules().Any();
 
-        [MenuItem("Assets/Push")]
+        [MenuItem("Assets/Git Remotes", priority = 100)]
         public static async void Invoke()
         {
             bool pushTags = false;
