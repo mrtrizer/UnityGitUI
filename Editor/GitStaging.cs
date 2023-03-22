@@ -87,7 +87,7 @@ namespace Abuksigun.PackageShortcuts
                                 _ = ShowContextMenu(module, status.Files.Where(x => unstagedSelection.Contains(x.FullPath)|| stagedSelection.Contains(x.FullPath)));
                             }
                         }
-                        GUIShortcuts.DrawList(module.GitRepoPath.Result, status.Staged, stagedSelection, ref scrollPositions[tab].staged, true, scrollHeight, scrollWidth);
+                        GUIShortcuts.DrawList(gitRepoPath, status.Staged, stagedSelection, ref scrollPositions[tab].staged, true, scrollHeight, scrollWidth);
                     }
                 }
             });
@@ -106,7 +106,7 @@ namespace Abuksigun.PackageShortcuts
                 menu.AddItem(new GUIContent("Diff"), false, () => task = Diff.ShowDiff(module, files.Select(x => x.FullPath), files.First().IsStaged));
                 menu.AddItem(new GUIContent("Discrad"), false, () => {
                     if (EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", filesList, "Yes", "No"))
-                        task = module.RunGit($"checkout -- {filesList}");
+                        task = module.RunGit($"checkout -q -- {filesList}");
                 });
             }
             menu.AddItem(new GUIContent("Delete"), false, () => {

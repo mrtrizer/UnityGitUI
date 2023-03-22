@@ -5,10 +5,10 @@ namespace Abuksigun.PackageShortcuts
 {
     public class ResetInfo
     {
-        [MenuItem("Assets/Reset Module Info", true)]
+        [MenuItem("Assets/Git Refresh", true)]
         public static bool Check() => PackageShortcuts.GetSelectedModules().Any();
 
-        [MenuItem("Assets/Reset Module Info")]
+        [MenuItem("Assets/Git Refresh", priority = 100)]
         public static void Invoke()
         {
             PackageShortcuts.ResetModules(PackageShortcuts.GetSelectedModules());

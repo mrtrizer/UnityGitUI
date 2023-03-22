@@ -47,6 +47,7 @@ namespace Abuksigun.PackageShortcuts
         Task<Remote> defaultRemote;
         Task<RemoteStatus> remoteStatus;
         Task<GitStatus> gitStatus;
+        Dictionary<string, Task<FileStatus[]>> diffCache;
 
         List<IOData> processLog = new();
         FileSystemWatcher fsWatcher;
@@ -97,6 +98,7 @@ namespace Abuksigun.PackageShortcuts
                 defaultRemote = null;
                 remoteStatus = null;
                 gitStatus = null;
+                diffCache = null;
             }
         }
 
@@ -122,17 +124,21 @@ namespace Abuksigun.PackageShortcuts
             return result;
         }
 
-        bool OutputHandler(System.Diagnostics.Process _, IOData data)
+        public Task<FileStatus[]> DiffFiles(string firstCommit, string lastCommit)
         {
-            processLog.Add(data);
-            return true;
+            diffCache ??= new();
+            var diffId = firstCommit + lastCommit;
+            return diffCache.GetValueOrDefault(diffId) is { } diff ? diff : diffCache[diffId] = GetDiffFiles(firstCommit, lastCommit);
         }
-
+        
         public Task<CommandResult> RunGitReadonly(string args)
         {
             string mergedArgs = "-c core.quotepath=false --no-optional-locks " + args;
             processLog.Add(new IOData { Data = $">> git {mergedArgs}", Error = false });
-            return PackageShortcuts.RunCommand(PhysicalPath, "git", mergedArgs, OutputHandler);
+            return PackageShortcuts.RunCommand(PhysicalPath, "git", mergedArgs, (_, data) => {
+                processLog.Add(data);
+                return true;
+            });
         }
 
         async Task<string> GetRepoPath()
@@ -210,13 +216,14 @@ namespace Abuksigun.PackageShortcuts
             return null;
         }
 
+        // TODO: File status should be separate for staged and unstaged files
         async Task<GitStatus> GetGitStatus()
         {
-            string gitRepoPath = await GitRepoPath;
+            var gitRepoPathTask = GitRepoPath;
             var statusTask = RunGitReadonly("status --porcelain");
             var numStatUnstagedTask = RunGitReadonly("diff --numstat");
             var numStatStagedTask = RunGitReadonly("diff --numstat --staged");
-            await Task.WhenAll(statusTask, numStatUnstagedTask, numStatStagedTask);
+            await Task.WhenAll(gitRepoPathTask, statusTask, numStatUnstagedTask, numStatStagedTask);
 
             var numStatUnstaged = ParseNumStat(numStatUnstagedTask.Result.Output);
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
@@ -226,8 +233,8 @@ namespace Abuksigun.PackageShortcuts
                 string path = paths.Length > 1 ? paths[1].Trim() : paths[0].Trim();
                 string oldPath = paths.Length > 1 ? paths[0].Trim() : null;
                 return new FileStatus(
-                    FullPath: Path.Join(gitRepoPath, path).NormalizePath(),
-                    OldName: oldPath,
+                    FullPath: Path.Join(gitRepoPathTask.Result, path.Trim('"')).NormalizePath(),
+                    OldName: oldPath?.Trim('"'),
                     X: line[0],
                     Y: line[1],
                     UnstagedNumStat: numStatUnstaged.GetValueOrDefault(path),
@@ -237,14 +244,41 @@ namespace Abuksigun.PackageShortcuts
             return new GitStatus(files.ToArray());
         }
 
+        // TODO: Code duplication
+        async Task<FileStatus[]> GetDiffFiles(string firstCommit, string lastCommit)
+        {
+            var gitRepoPathTask = GitRepoPath;
+            var statusTask = RunGitReadonly($"diff --name-status {firstCommit} {lastCommit}");
+            var numStatTask = RunGitReadonly($"diff --numstat {firstCommit} {lastCommit}");
+            await Task.WhenAll(gitRepoPathTask, statusTask, numStatTask);
+            var numStat = ParseNumStat(numStatTask.Result.Output);
+
+            string[] statusLines = statusTask.Result.Output.SplitLines();
+            var files = statusLines.Select(line => {
+                string[] paths = line.Split(new[] { " ->", "\t" }, RemoveEmptyEntries)[1..];
+                string path = paths.Length > 1 ? paths[1].Trim() : paths[0].Trim();
+                string oldPath = paths.Length > 1 ? paths[0].Trim() : null;
+                return new FileStatus(
+                    FullPath: Path.Join(gitRepoPathTask.Result, path.Trim('"')).NormalizePath(),
+                    OldName: oldPath?.Trim('"'),
+                    X: line[0],
+                    Y: line[0],
+                    UnstagedNumStat: numStat.GetValueOrDefault(path),
+                    StagedNumStat: numStat.GetValueOrDefault(path)
+                );
+            });
+            return files.ToArray();
+        }
+
         Dictionary<string, NumStat> ParseNumStat(string numStatOutput)
         {
             return numStatOutput.Trim().SplitLines()
                 .Select(line => Regex.Replace(line, @"\{.*?=> (.*?)}", "$1"))
-                .Select(line => line.Trim().Split('\t', RemoveEmptyEntries))
+                .Select(line => line.Trim().Trim('"').Split('\t', RemoveEmptyEntries))
+                .Where(parts => !parts[0].Contains('-') && !parts[1].Contains('-'))
                 .ToDictionary(parts => parts[2], parts => new NumStat {
-                    Added = int.Parse(parts[0]), 
-                    Removed = int.Parse(parts[1]) 
+                    Added = int.Parse(parts[0]),
+                    Removed = int.Parse(parts[1])
                 });
         }
     }

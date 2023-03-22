@@ -22,11 +22,11 @@ namespace Abuksigun.PackageShortcuts
                 _ = ShowDiff(module, statuses.Where(x => x.IsUnstaged).Select(x => x.FullPath), false);
             }
         }
-        public static async Task ShowDiff(Module module, IEnumerable<string> filePaths, bool staged, string commit = null)
+        public static async Task ShowDiff(Module module, IEnumerable<string> filePaths, bool staged, string firstCommit = null, string lastCommit = null)
         {
             if (!filePaths.Any())
                 return;
-            var result = await module.RunGitReadonly($"diff {(staged ? "--staged" : "")} {commit} {PackageShortcuts.JoinFileNames(filePaths)}");
+            var result = await module.RunGitReadonly($"diff {(staged ? "--staged" : "")} {firstCommit} {lastCommit} -- {PackageShortcuts.JoinFileNames(filePaths)}");
             if (result.ExitCode != 0)
                 return;
             Vector2 scrollPosition = Vector2.zero;

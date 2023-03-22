@@ -82,7 +82,7 @@ namespace Abuksigun.PackageShortcuts
             using var scroll = new GUILayout.ScrollViewScope(logScrollPositions.GetValueOrDefault(module, Vector2.zero), false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
 
             for (int i = logStartLine; i < module.ProcessLog.Count; i++)
-                GUILayout.Label(module.ProcessLog[i].Data, module.ProcessLog[i].Error ? errorLogStyle : logStyle);
+                EditorGUILayout.SelectableLabel(module.ProcessLog[i].Data, module.ProcessLog[i].Error ? errorLogStyle : logStyle, GUILayout.Height(15));
 
             logScrollPositions[module] = scroll.scrollPosition;
         }
@@ -107,7 +107,7 @@ namespace Abuksigun.PackageShortcuts
                     i += 3;
                     hunkIndex = -1;
                     currentFile = lines[i][6..];
-                    GUILayout.Label(currentFile, FileNameStyle);
+                    EditorGUILayout.SelectableLabel(currentFile, FileNameStyle, GUILayout.Height(15));
                 }
                 else if (lines[i].StartsWith("@@"))
                 {
@@ -124,10 +124,11 @@ namespace Abuksigun.PackageShortcuts
                 }
                 else if (hunkIndex >= 0)
                 {
-                    GUILayout.Label(lines[i],
+                    EditorGUILayout.SelectableLabel(lines[i],
                           lines[i][0] == '+' ? diffAddedStyle
                         : lines[i][0] == '-' ? diffRemoveStyle
-                        : IdleStyle);
+                        : IdleStyle,
+                          GUILayout.Height(15));
                 }
             }
             scrollPosition = scroll.scrollPosition;

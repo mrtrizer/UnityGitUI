@@ -1,6 +1,3 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -9,12 +6,11 @@ namespace Abuksigun.PackageShortcuts
 {
     class LogWindow : DefaultWindow
     {
-        [SerializeField]
-        public string guid;
+        public string Guid { get; set; }
 
         protected override void OnGUI()
         {
-            GUIShortcuts.DrawProcessLog(PackageShortcuts.GetModule(guid), position.size);
+            GUIShortcuts.DrawProcessLog(PackageShortcuts.GetModule(Guid), position.size);
             base.OnGUI();
         }
     }
@@ -31,7 +27,7 @@ namespace Abuksigun.PackageShortcuts
             {
                 var window = ScriptableObject.CreateInstance<LogWindow>();
                 window.titleContent = new GUIContent(module.Name);
-                window.guid = module.Guid;
+                window.Guid = module.Guid;
                 window.Show();
             }
         }

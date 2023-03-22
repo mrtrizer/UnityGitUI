@@ -6,9 +6,18 @@ namespace Abuksigun.PackageShortcuts
     using static Const;
     public static class Extensions
     {
+        static List<Task> shownExceptions = new ();
+
         public static T GetResultOrDefault<T>(this Task<T> task, T defaultValue = default)
         {
-            return task.IsCompletedSuccessfully ? task.Result : defaultValue;
+            if (task.IsCompletedSuccessfully)
+                return task.Result;
+            if (task.Exception != null && !shownExceptions.Contains(task))
+            {
+                shownExceptions.Add(task);
+                throw task.Exception;
+            }
+            return defaultValue;
         }
 
         public static string WrapUp(this string self, string wrapLeft = "\"", string wrapRight = null)
