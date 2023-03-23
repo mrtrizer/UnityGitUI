@@ -23,6 +23,7 @@ namespace Abuksigun.PackageShortcuts
 
         static GUIStyle logStyle;
         static GUIStyle errorLogStyle;
+        static GUIStyle diffUnchangedStyle;
         static GUIStyle diffAddedStyle;
         static GUIStyle diffRemoveStyle;
         static GUIStyle fileNameStyle;
@@ -31,6 +32,8 @@ namespace Abuksigun.PackageShortcuts
         
         static Dictionary<Module, Vector2> logScrollPositions = new();
         static Dictionary<Color, Texture2D> colorTextures = new();
+
+        public static Lazy<Font> MonospacedFont = new (() => EditorGUIUtility.Load("Fonts/RobotoMono/RobotoMono-Regular.ttf") as Font);
 
         public static GUIStyle IdleStyle => idleStyle ??= new GUIStyle {
             normal = new GUIStyleState { background = GetColorTexture(Color.clear), textColor = GUI.skin.label.normal.textColor }
@@ -72,8 +75,8 @@ namespace Abuksigun.PackageShortcuts
 
         public static void DrawProcessLog(Module module, Vector2 size, int logStartLine = 0)
         {
-            logStyle ??= new GUIStyle { normal = new GUIStyleState { textColor = Color.white } };
-            errorLogStyle ??= new GUIStyle { normal = new GUIStyleState { textColor = Color.red } };
+            logStyle ??= new GUIStyle { normal = new GUIStyleState { textColor = Color.white }, font = MonospacedFont.Value, fontSize = 10};
+            errorLogStyle ??= new GUIStyle (logStyle) { normal = new GUIStyleState { textColor = Color.red }};
             
             GUILayout.Space(0);
             var lastRect = GUILayoutUtility.GetLastRect();
@@ -88,8 +91,9 @@ namespace Abuksigun.PackageShortcuts
         }
         public static void DrawGitDiff(string diff, Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, ref Vector2 scrollPosition)
         {
-            diffAddedStyle ??= new GUIStyle { normal = new GUIStyleState { background = GetColorTexture(Color.green) } };
-            diffRemoveStyle ??= new GUIStyle { normal = new GUIStyleState { background = GetColorTexture(Color.red) } };
+            diffUnchangedStyle ??= new GUIStyle { font = MonospacedFont.Value, fontSize = 10 };
+            diffAddedStyle ??= new GUIStyle(diffUnchangedStyle) { normal = new GUIStyleState { background = GetColorTexture(Color.green) }};
+            diffRemoveStyle ??= new GUIStyle(diffUnchangedStyle) { normal = new GUIStyleState { background = GetColorTexture(Color.red) }};
 
             string[] lines = diff.SplitLines();
             GUILayout.Space(0);
@@ -127,7 +131,7 @@ namespace Abuksigun.PackageShortcuts
                     EditorGUILayout.SelectableLabel(lines[i],
                           lines[i][0] == '+' ? diffAddedStyle
                         : lines[i][0] == '-' ? diffRemoveStyle
-                        : IdleStyle,
+                        : diffUnchangedStyle,
                           GUILayout.Height(15));
                 }
             }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -14,6 +15,9 @@ namespace Abuksigun.PackageShortcuts
         
         static readonly List<string> emptyList = new();
 
+        static Lazy<GUIStyle> IdleLogStyle = new(() => new GUIStyle(GUIShortcuts.IdleStyle) { font = GUIShortcuts.MonospacedFont.Value, fontSize = 12, richText = true });
+        static Lazy<GUIStyle> SelectedLogStyle = new(() => new GUIStyle(GUIShortcuts.SelectedStyle) { font = GUIShortcuts.MonospacedFont.Value, fontSize = 12, richText = true });
+
         [MenuItem("Assets/Git Log", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
 
@@ -28,7 +32,7 @@ namespace Abuksigun.PackageShortcuts
             int tab = 0;
             string selectedCommit = null;
 
-            await GUIShortcuts.ShowModalWindow("Git Log", new Vector2Int(500, 650), (window) => {
+            await GUIShortcuts.ShowModalWindow("Git Log", new Vector2Int(800, 650), (window) => {
                 var modules = PackageShortcuts.GetSelectedGitModules();
                 if (!modules.Any())
                     return;
@@ -39,7 +43,7 @@ namespace Abuksigun.PackageShortcuts
                 if (logTask == null || currentBranchTask != module.CurrentBranch)
                 {
                     currentBranchTask = module.CurrentBranch;
-                    logTask = module.RunGitReadonly($"log --graph --abbrev-commit --decorate --format=format:\"%h - (%ar) %d %s - %an\" --branches --remotes --tags");
+                    logTask = module.RunGitReadonly($"log --graph --abbrev-commit --decorate --format=format:\"%h - (%ar) <b>%d</b> %s - %an\" --branches --remotes --tags");
                 }
 
                 var selection = selectionPerModule.GetValueOrDefault(module.Guid, emptyList);
@@ -51,7 +55,7 @@ namespace Abuksigun.PackageShortcuts
                         foreach (var commit in log.Output.Trim().Split('\n'))
                         {
                             string commitHash = Regex.Match(commit, @"([0-9a-f]{7}) - ")?.Groups[1].Value;
-                            var style = selectedCommit == commitHash ? GUIShortcuts.SelectedStyle : GUIShortcuts.IdleStyle;
+                            var style = selectedCommit == commitHash ? SelectedLogStyle.Value : IdleLogStyle.Value;
                             if (GUILayout.Toggle(selectedCommit == commitHash, commit, style) && !string.IsNullOrEmpty(commitHash))
                             {
                                 if (commitHash != selectedCommit)
