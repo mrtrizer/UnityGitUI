@@ -39,7 +39,7 @@ namespace Abuksigun.PackageShortcuts
                 if (logTask == null || currentBranchTask != module.CurrentBranch)
                 {
                     currentBranchTask = module.CurrentBranch;
-                    logTask = module.RunGitReadonly($"log --graph --abbrev-commit --decorate --format=format:\"%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)\" --all");
+                    logTask = module.RunGitReadonly($"log --graph --abbrev-commit --decorate --format=format:\"%h - (%ar) %d %s - %an\" --branches --remotes --tags");
                 }
 
                 var selection = selectionPerModule.GetValueOrDefault(module.Guid, emptyList);
@@ -67,15 +67,21 @@ namespace Abuksigun.PackageShortcuts
                 {
                     using (new GUILayout.HorizontalScope())
                     {
-                        if (GUILayout.Button($"Checkout {selectedCommit}"))
+                        if (GUILayout.Button($"Checkout {selectedCommit}")
+                            && EditorUtility.DisplayDialog("Are you sure you want CHECKOUT to COMMIT", selectedCommit, "Yes", "No"))
                         {
-                            if (EditorUtility.DisplayDialog("Are you sure you want CHECKOUT to COMMIT", selectedCommit, "Yes", "No"))
-                                _ = module.RunGit($"checkout {selectedCommit}");
+                            _ = module.RunGit($"checkout {selectedCommit}");
                         }
-                        if (GUILayout.Button($"Reset soft {selectedCommit}"))
+                        if (GUILayout.Button($"Reset soft {selectedCommit}")
+                            && EditorUtility.DisplayDialog("Are you sure you want RESET to COMMIT", selectedCommit, "Yes", "No"))
                         {
-                            if (EditorUtility.DisplayDialog("Are you sure you want RESET to COMMIT", selectedCommit, "Yes", "No"))
-                                _ = module.RunGit($"reset --soft {selectedCommit}");
+                            _ = module.RunGit($"reset --soft {selectedCommit}");
+                        }
+                        if (GUILayout.Button($"Reset HARD {selectedCommit}")
+                            && EditorUtility.DisplayDialog("Are you sure you want RESET HARD to COMMIT.", selectedCommit, "Yes", "No")
+                            && EditorUtility.DisplayDialog("YOU WILL LOSE YOUR CHANGES!", "Do you have a backup locally or on remote repo?", "DO IT!", "Cancel"))
+                        {
+                            _ = module.RunGit($"reset --hard {selectedCommit}");
                         }
                         if (GUILayout.Button($"Diff {selectedCommit}"))
                         {

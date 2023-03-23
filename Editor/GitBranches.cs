@@ -17,7 +17,7 @@ namespace Abuksigun.PackageShortcuts
         {
             Branch selectedBranch = null;
             var scrollPosition = Vector2.zero;
-
+            bool showAllBranches = false;
             Task checkoutTask = null;
 
             await GUIShortcuts.ShowModalWindow("Branches Manager", new Vector2Int(500, 450), (window) =>
@@ -29,6 +29,7 @@ namespace Abuksigun.PackageShortcuts
                     return;
 
                 Branch[] branches = branchesPerRepo.Count() == 1 ? branchesPerRepo.First()
+                    : showAllBranches ? branchesPerRepo.SelectMany(x => x).Distinct().ToArray()
                     : branchesPerRepo.Skip(1).Aggregate(branchesPerRepo.First().AsEnumerable(), (result, nextArray) => result.Intersect(nextArray)).ToArray();
 
                 using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, GUILayout.Width(window.position.width), GUILayout.Height(window.position.height - BottomPanelHeight)))
@@ -37,14 +38,21 @@ namespace Abuksigun.PackageShortcuts
                     {
                         var branch = branches[i];
                         string reposOnBranch = currentBranchPerRepo.Where(x => x.Value == branch.QualifiedName).Select(x => x.Key.Name).Join(',').WrapUp("[", "]");
-                        if (GUILayout.Toggle(branches[i] == selectedBranch, $"{branch.QualifiedName} {reposOnBranch}"))
+                        int reposHaveBranch = branchesPerRepo.Count(x => x.Any(y => y.QualifiedName == branch.QualifiedName));
+                        string reposHaveBranchStr = reposHaveBranch.ToString().WrapUp("(in ", " modules)");
+                        if (GUILayout.Toggle(branches[i] == selectedBranch, $"{branch.QualifiedName} {reposHaveBranchStr.When(reposHaveBranch != modules.Count())} {reposOnBranch}"))
                             selectedBranch = branches[i];
                     }
                     scrollPosition = scroll.scrollPosition;
                 }
 
-                if (GUILayout.Button("New Branch"))
-                    MakeBranch();
+                using (new GUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("New Branch", GUILayout.Width(150)))
+                        MakeBranch();
+
+                    showAllBranches = GUILayout.Toggle(showAllBranches, "Show All Branches");
+                }
 
                 if (selectedBranch != null)
                 {
@@ -68,7 +76,7 @@ namespace Abuksigun.PackageShortcuts
                         }
                         else if (remoteBranch != null)
                         {
-                            if (GUILayout.Button($"Create local [{remoteBranch.Name}]"))
+                            if (GUILayout.Button($"Checkout & Track [{remoteBranch.Name}]"))
                                 checkoutTask = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.RunGit($"switch {remoteBranch.Name}")));
 
                             if (GUILayout.Button($"Delete remote [{remoteBranch.QualifiedName}]"))

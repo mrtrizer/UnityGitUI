@@ -9,6 +9,7 @@ namespace Abuksigun.PackageShortcuts
     public static class ProjectBrowserExtension
     {
         static GUIStyle labelStyle;
+        static GUIStyle fileMarkStyle;
 
         static ProjectBrowserExtension()
         {
@@ -47,7 +48,7 @@ namespace Abuksigun.PackageShortcuts
                     var rect = drawRect;
                     rect.x = rect.x + rect.width - offset;
                     rect.y += 1.5f;
-                    GUI.Label(rect, $"+{gitStatus.Unindexed.Count()} *{gitStatus.IndexedUnstaged.Count()}", labelStyle);
+                    GUI.Label(rect, $"+{gitStatus.Unindexed.Count(x => !x.Hidden)} *{gitStatus.IndexedUnstaged.Count(x => !x.Hidden)}", labelStyle);
                 }
 
                 if (module.RemoteStatus.GetResultOrDefault() is { } result)
@@ -64,10 +65,12 @@ namespace Abuksigun.PackageShortcuts
             {
                 if (PackageShortcuts.GetAssetGitInfo(guid) is { } assetInfo)
                 {
+                    fileMarkStyle ??= new GUIStyle(labelStyle) { fontStyle = FontStyle.Bold, fontSize = 15 };
                     var rect = drawRect;
                     rect.height = 15;
-                    rect.x += 2.5f;
-                    GUI.Label(rect, assetInfo.FileStatuses.Any(x => x.IsInIndex) ? "*" : "+");
+                    rect.y += 3;
+                    rect.x -= 5;
+                    GUI.Label(rect, assetInfo.FileStatuses.Any(x => x.IsInIndex) ? "*" : "+", fileMarkStyle);
                 }
             }
         }

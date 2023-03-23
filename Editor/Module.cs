@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 namespace Abuksigun.PackageShortcuts
@@ -22,11 +23,12 @@ namespace Abuksigun.PackageShortcuts
         public int Added;
         public int Removed;
     }
-    public record FileStatus(string FullPath, string OldName, char X, char Y, NumStat UnstagedNumStat, NumStat StagedNumStat)
+    public record FileStatus(string FullPath, string OldName, char X, char Y, NumStat UnstagedNumStat, NumStat StagedNumStat, bool Hidden)
     {
         public bool IsInIndex => Y is not '?';
         public bool IsUnstaged => Y is not ' ';
         public bool IsStaged => X is not ' ' and not '?';
+        public bool IsUnresolved => Y is 'U' || X is 'U';
     }
     public record GitStatus(FileStatus[] Files)
     {
@@ -52,6 +54,9 @@ namespace Abuksigun.PackageShortcuts
         List<IOData> processLog = new();
         FileSystemWatcher fsWatcher;
         object resetLock = new();
+        DateTime lastResetTime;
+
+        static readonly string HiddenFilesKey = $"{Application.productName}/{nameof(PackageShortcuts)}.{nameof(Module)}.{nameof(HiddenFilesKey)}";
 
         public string Guid { get; }
         public string Name { get; }
@@ -99,7 +104,18 @@ namespace Abuksigun.PackageShortcuts
                 remoteStatus = null;
                 gitStatus = null;
                 diffCache = null;
+                lastResetTime = DateTime.Now;
             }
+        }
+
+        void FSWatcherReset()
+        {
+            lock (resetLock)
+            {
+                if (lastResetTime - DateTime.Now > TimeSpan.FromSeconds(1))
+                    return;
+            }
+            Reset();
         }
 
         FileSystemWatcher CreateFileWatcher()
@@ -109,10 +125,10 @@ namespace Abuksigun.PackageShortcuts
                 EnableRaisingEvents = true
             };
 
-            fsWatcher.Changed += (_, _) => Reset();
-            fsWatcher.Created += (_, _) => Reset();
-            fsWatcher.Deleted += (_, _) => Reset();
-            fsWatcher.Renamed += (_, _) => Reset();
+            fsWatcher.Changed += (_, _) => FSWatcherReset();
+            fsWatcher.Created += (_, _) => FSWatcherReset();
+            fsWatcher.Deleted += (_, _) => FSWatcherReset();
+            fsWatcher.Renamed += (_, _) => FSWatcherReset();
             fsWatcher.Error += (_, e) => Debug.LogException(e.GetException());
             return fsWatcher;
         }
@@ -130,7 +146,7 @@ namespace Abuksigun.PackageShortcuts
             var diffId = firstCommit + lastCommit;
             return diffCache.GetValueOrDefault(diffId) is { } diff ? diff : diffCache[diffId] = GetDiffFiles(firstCommit, lastCommit);
         }
-        
+
         public Task<CommandResult> RunGitReadonly(string args)
         {
             string mergedArgs = "-c core.quotepath=false --no-optional-locks " + args;
@@ -163,19 +179,21 @@ namespace Abuksigun.PackageShortcuts
         {
             var result = await RunGitReadonly($"branch -a --format=\"%(refname)\t%(upstream)\"");
             return result.Output.SplitLines()
+                .Where(x => !x.StartsWith("(HEAD detached"))
                 .Select(x => x.Split('\t', RemoveEmptyEntries))
                 .Select<string[], Branch>(x => {
                     string[] split = x[0].Split('/');
                     return split[1] == "remotes"
                         ? new RemoteBranch(split[3..].Join('/'), split[2])
                         : new LocalBranch(split[2..].Join('/'), x.Length > 1 ? x[1] : null);
-                    })
+                })
                 .ToArray();
         }
 
         async Task<string> GetCurrentBranch()
         {
-            return (await RunGitReadonly("branch --show-current")).Output.Trim();
+            string branch = (await RunGitReadonly("branch --show-current")).Output.Trim();
+            return !string.IsNullOrEmpty(branch) ? branch : (await RunGitReadonly("rev-parse HEAD")).Output.Trim()[0..7];
         }
 
         async Task<Remote[]> GetRemotes()
@@ -219,6 +237,8 @@ namespace Abuksigun.PackageShortcuts
         // TODO: File status should be separate for staged and unstaged files
         async Task<GitStatus> GetGitStatus()
         {
+            string hiddenFilesStr = EditorPrefs.GetString(HiddenFilesKey, "");
+            var hiddenFiles = hiddenFilesStr.Split(',', RemoveEmptyEntries).Select(x => x.Trim()).ToList();
             var gitRepoPathTask = GitRepoPath;
             var statusTask = RunGitReadonly("status --porcelain");
             var numStatUnstagedTask = RunGitReadonly("diff --numstat");
@@ -232,13 +252,15 @@ namespace Abuksigun.PackageShortcuts
                 string[] paths = line[2..].Split(" ->", RemoveEmptyEntries);
                 string path = paths.Length > 1 ? paths[1].Trim() : paths[0].Trim();
                 string oldPath = paths.Length > 1 ? paths[0].Trim() : null;
+                string fullPath = Path.Join(gitRepoPathTask.Result, path.Trim('"')).NormalizePath();
                 return new FileStatus(
-                    FullPath: Path.Join(gitRepoPathTask.Result, path.Trim('"')).NormalizePath(),
+                    FullPath: fullPath,
                     OldName: oldPath?.Trim('"'),
                     X: line[0],
                     Y: line[1],
                     UnstagedNumStat: numStatUnstaged.GetValueOrDefault(path),
-                    StagedNumStat: numStatStaged.GetValueOrDefault(path)
+                    StagedNumStat: numStatStaged.GetValueOrDefault(path),
+                    Hidden: hiddenFiles.Any(ignored => fullPath.Contains(ignored))
                 );
             });
             return new GitStatus(files.ToArray());
@@ -264,7 +286,8 @@ namespace Abuksigun.PackageShortcuts
                     X: line[0],
                     Y: line[0],
                     UnstagedNumStat: numStat.GetValueOrDefault(path),
-                    StagedNumStat: numStat.GetValueOrDefault(path)
+                    StagedNumStat: numStat.GetValueOrDefault(path),
+                    Hidden: false
                 );
             });
             return files.ToArray();
@@ -281,5 +304,14 @@ namespace Abuksigun.PackageShortcuts
                     Removed = int.Parse(parts[1])
                 });
         }
+
+        [SettingsProvider]
+        public static SettingsProvider CreateMyCustomSettingsProvider() => new SettingsProvider("Project/MyCustomUIElementsSettings", SettingsScope.Project) {
+            label = "Package Shortcuts",
+            activateHandler = (_, rootElement) => rootElement.Add(new IMGUIContainer(() => {
+                GUILayout.Label(nameof(HiddenFilesKey)[0..^3]);
+                EditorPrefs.SetString(HiddenFilesKey, GUILayout.TextField(EditorPrefs.GetString(HiddenFilesKey, "")));
+            }))
+        };
     }
 }

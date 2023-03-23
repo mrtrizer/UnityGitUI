@@ -9,8 +9,9 @@ namespace Abuksigun.PackageShortcuts
 {
     public static class GitStaging
     {
-        const int TopPanelHeight = 120;
+        const int TopPanelHeight = 150;
         const int MiddlePanelWidth = 40;
+        const int BottomPanelHeight = 17;
 
         [MenuItem("Assets/Git Staging", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
@@ -24,10 +25,11 @@ namespace Abuksigun.PackageShortcuts
             var scrollPositions = new (Vector2 unstaged, Vector2 staged)[modules.Length];
             var selection = Enumerable.Repeat((unstaged:new List<string>(), staged: new List<string>()), modules.Length).ToArray();
 
+            bool showHidden = false;
             string[] moduleNames = modules.Select(x => x.ShortName).ToArray();
             int tab = 0;
             
-            await GUIShortcuts.ShowModalWindow("Commit", new Vector2Int(600, 400), (window) => {
+            await GUIShortcuts.ShowModalWindow("Commit", new Vector2Int(800, 500), (window) => {
                 
                 GUILayout.Label("Commit message");
                 commitMessage = GUILayout.TextArea(commitMessage, GUILayout.Height(40));
@@ -63,13 +65,14 @@ namespace Abuksigun.PackageShortcuts
 
                 if (module.GitRepoPath.GetResultOrDefault() is { } gitRepoPath && module.GitStatus.GetResultOrDefault() is { } status)
                 {
-                    var scrollHeight = GUILayout.Height(window.position.height - TopPanelHeight);
+                    var scrollHeight = GUILayout.Height(window.position.height - TopPanelHeight - BottomPanelHeight);
                     var scrollWidth = GUILayout.Width((window.position.width - MiddlePanelWidth) / 2);
 
                     using (new EditorGUI.DisabledGroupScope(task != null && !task.IsCompleted))
                     using (new GUILayout.HorizontalScope())
                     {
-                        GUIShortcuts.DrawList(gitRepoPath, status.Unstaged, unstagedSelection, ref scrollPositions[tab].unstaged, false, scrollHeight, scrollWidth);
+                        var unstaged = status.Unstaged.Where(x => showHidden || !x.Hidden);
+                        GUIShortcuts.DrawList(gitRepoPath, unstaged, unstagedSelection, ref scrollPositions[tab].unstaged, false,  scrollHeight, scrollWidth);
                         using (new GUILayout.VerticalScope())
                         {
                             if (GUILayout.Button(">>", GUILayout.Width(MiddlePanelWidth)))
@@ -87,9 +90,11 @@ namespace Abuksigun.PackageShortcuts
                                 _ = ShowContextMenu(module, status.Files.Where(x => unstagedSelection.Contains(x.FullPath)|| stagedSelection.Contains(x.FullPath)));
                             }
                         }
-                        GUIShortcuts.DrawList(gitRepoPath, status.Staged, stagedSelection, ref scrollPositions[tab].staged, true, scrollHeight, scrollWidth);
+                        var staged = status.Staged.Where(x => showHidden || !x.Hidden);
+                        GUIShortcuts.DrawList(gitRepoPath, staged, stagedSelection, ref scrollPositions[tab].staged, true, scrollHeight, scrollWidth);
                     }
                 }
+                showHidden = GUILayout.Toggle(showHidden, "Show Hidden");
             });
             await Task.WhenAll(tasks.Where(x => x != null));
         }
@@ -103,10 +108,25 @@ namespace Abuksigun.PackageShortcuts
             string filesList = PackageShortcuts.JoinFileNames(files.Select(x => x.FullPath));
             if (files.Any(x => x.IsInIndex))
             {
-                menu.AddItem(new GUIContent("Diff"), false, () => task = Diff.ShowDiff(module, files.Select(x => x.FullPath), files.First().IsStaged));
+                menu.AddItem(new GUIContent("Diff"), false, () => task = Task.WhenAll(
+                    Diff.ShowDiff(module, files.Where(x => x.IsStaged).Select(x => x.FullPath), true),
+                    Diff.ShowDiff(module, files.Where(x => x.IsUnstaged).Select(x => x.FullPath), false)
+                ));
                 menu.AddItem(new GUIContent("Discrad"), false, () => {
                     if (EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", filesList, "Yes", "No"))
                         task = module.RunGit($"checkout -q -- {filesList}");
+                });
+            }
+            string conflictedFilesList = PackageShortcuts.JoinFileNames(files.Where(x => x.IsUnresolved).Select(x => x.FullPath));
+            if (!string.IsNullOrEmpty(conflictedFilesList))
+            {
+                menu.AddItem(new GUIContent("Take Ours"), false, () => {
+                    if (EditorUtility.DisplayDialog($"Do you want to take OURS changes (git checkout --ours --)", conflictedFilesList, "Yes", "No"))
+                        task = module.RunGit($"checkout --ours  -- {conflictedFilesList}");
+                });
+                menu.AddItem(new GUIContent("Take Theirs"), false, () => {
+                    if (EditorUtility.DisplayDialog($"Do you want to take THEIRS changes (git checkout --theirs --)", conflictedFilesList, "Yes", "No"))
+                        task = module.RunGit($"checkout --theirs  -- {conflictedFilesList}");
                 });
             }
             menu.AddItem(new GUIContent("Delete"), false, () => {
