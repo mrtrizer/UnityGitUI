@@ -124,6 +124,9 @@ namespace Abuksigun.PackageShortcuts
                     Diff.ShowDiff(module, files.Where(x => x.IsStaged).Select(x => x.FullPath), true),
                     Diff.ShowDiff(module, files.Where(x => x.IsUnstaged).Select(x => x.FullPath), false)
                 ));
+            }
+            if (files.Any(x => x.IsUnstaged))
+            {
                 menu.AddItem(new GUIContent("Discrad"), false, () => {
                     if (EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", filesList, "Yes", "No"))
                         task = module.RunGit($"checkout -q -- {filesList}");

@@ -87,15 +87,27 @@ namespace Abuksigun.PackageShortcuts
                         {
                             _ = module.RunGit($"reset --hard {selectedCommit}");
                         }
-                        if (selection.Count > 0 && GUILayout.Button($"Diff {selectedCommit}"))
-                        {
-                            _ = Diff.ShowDiff(module, selection, false, $"{selectedCommit}~1", selectedCommit);
-                        }
                     }
                 }
                 if (module.GitRepoPath.GetResultOrDefault() is { } gitRepoPath && module.DiffFiles($"{selectedCommit}~1", selectedCommit).GetResultOrDefault() is { } diffFiles)
-                    GUIShortcuts.DrawList(gitRepoPath, diffFiles, selection, ref filesScrollPosition, true, null, windowWidth, GUILayout.Height(FileListHeight));
+                {
+                    void ShowSelectionContextMenu(FileStatus file) => ShowContextMenu(module, selection, selectedCommit);
+                    GUIShortcuts.DrawList(gitRepoPath, diffFiles, selection, ref filesScrollPosition, true, ShowSelectionContextMenu, windowWidth, GUILayout.Height(FileListHeight));
+                }
             });
+        }
+
+        static void ShowContextMenu(Module module, IEnumerable<string> files, string selectedCommit)
+        {
+            if (!files.Any())
+                return;
+            GenericMenu menu = new GenericMenu();
+            menu.AddItem(new GUIContent("Diff"), false, () => _ = Diff.ShowDiff(module, files, false, $"{selectedCommit}~1", selectedCommit));
+            menu.AddItem(new GUIContent($"Revert to this commit"), false, () => {
+                if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
+                    _ = GUIShortcuts.RunGitAndErrorCheck(module, $"checkout {selectedCommit} -- {PackageShortcuts.JoinFileNames(files)}");
+            });
+            menu.ShowAsContext();
         }
     }
 }
