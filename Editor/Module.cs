@@ -1,3 +1,4 @@
+using PlasticGui.WorkspaceWindow.Merge;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -47,6 +48,7 @@ namespace Abuksigun.PackageShortcuts
         Task<Branch[]> branches;
         Task<string> currentBranch;
         Task<string> currentCommit;
+        Task<bool> isMergeInProgress;
         Task<Remote[]> remotes;
         Task<Remote> defaultRemote;
         Task<RemoteStatus> remoteStatus;
@@ -68,6 +70,7 @@ namespace Abuksigun.PackageShortcuts
         public Task<Branch[]> Branches => branches ??= GetBranches();
         public Task<string> CurrentBranch => currentBranch ??= GetCurrentBranch();
         public Task<string> CurrentCommit => currentCommit ??= GetCommit();
+        public Task<bool> IsMergeInProgress => isMergeInProgress ??= GetIsMergeInProgress();
         public Task<Remote[]> Remotes => remotes ??= GetRemotes();
         public Task<Remote> DefaultRemote => defaultRemote ??= GetDefaultRemote();
         public Task<RemoteStatus> RemoteStatus => remoteStatus ??= GetRemoteStatus();
@@ -110,6 +113,7 @@ namespace Abuksigun.PackageShortcuts
                 branches = null;
                 currentBranch = null;
                 currentCommit = null;
+                isMergeInProgress = null;
                 remotes = null;
                 defaultRemote = null;
                 remoteStatus = null;
@@ -157,6 +161,11 @@ namespace Abuksigun.PackageShortcuts
         async Task<string> GetCommit()
         {
             return (await RunGit("rev-parse --short --verify HEAD")).Output.Trim();
+        }
+
+        async Task<bool> GetIsMergeInProgress()
+        {
+            return File.Exists(Path.Combine(await GitRepoPath, ".git", "MERGE_HEAD"));
         }
 
         async Task<Branch[]> GetBranches()
@@ -279,14 +288,14 @@ namespace Abuksigun.PackageShortcuts
 
         Dictionary<string, NumStat> ParseNumStat(string numStatOutput)
         {
-            return numStatOutput.Trim().SplitLines()
+            var partsPerLine = numStatOutput.Trim().SplitLines()
                 .Select(line => Regex.Replace(line, @"\{.*?=> (.*?)}", "$1"))
                 .Select(line => line.Trim().Trim('"').Split('\t', RemoveEmptyEntries))
-                .Where(parts => !parts[0].Contains('-') && !parts[1].Contains('-'))
-                .ToDictionary(parts => parts[2], parts => new NumStat {
-                    Added = int.Parse(parts[0]),
-                    Removed = int.Parse(parts[1])
-                });
+                .Where(parts => !parts[0].Contains('-') && !parts[1].Contains('-'));
+            var dict = new Dictionary<string, NumStat>();
+            foreach (var parts in partsPerLine)
+                dict[parts[2]] = new NumStat { Added = int.Parse(parts[0]), Removed = int.Parse(parts[1])};
+            return dict;
         }
 
         [SettingsProvider]

@@ -33,25 +33,39 @@ namespace Abuksigun.PackageShortcuts
                 
                 GUILayout.Label("Commit message");
                 commitMessage = GUILayout.TextArea(commitMessage, GUILayout.Height(40));
-                
-                int modulesWithStagedFiles = modules.Count(x => x.GitStatus.GetResultOrDefault()?.Staged?.Count() > 0);
+
+                var modulesInMergingState = modules.Where(x => x.IsMergeInProgress.GetResultOrDefault());
+                var moduleNotInMergeState = modules.Where(x => !x.IsMergeInProgress.GetResultOrDefault());
+                int modulesWithStagedFiles = moduleNotInMergeState.Count(x => x.GitStatus.GetResultOrDefault()?.Staged?.Count() > 0);
                 bool commitAvailable = modulesWithStagedFiles > 0 && !string.IsNullOrWhiteSpace(commitMessage) && !tasks.Any(x => x != null && !x.IsCompleted);
 
-                using (new EditorGUI.DisabledGroupScope(!commitAvailable))
                 using (new GUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button($"Commit {modulesWithStagedFiles}/{modules.Length} modules", GUILayout.Width(200)))
+                    using (new EditorGUI.DisabledGroupScope(!commitAvailable))
                     {
-                        tasks = modules.Select(module => module.RunGit($"commit -m {commitMessage.WrapUp()}")).ToArray();
-                        commitMessage = "";
+                        if (GUILayout.Button($"Commit {modulesWithStagedFiles}/{modules.Length} modules", GUILayout.Width(200)))
+                        {
+                            tasks = moduleNotInMergeState.Select(module => module.RunGit($"commit -m {commitMessage.WrapUp()}")).ToArray();
+                            commitMessage = "";
+                        }
+                        if (GUILayout.Button($"Stash {modulesWithStagedFiles}/{modules.Length} modules", GUILayout.Width(200)))
+                        {
+                            tasks = moduleNotInMergeState.Select(module => {
+                                var files = module.GitStatus.GetResultOrDefault().Files.Where(x => x.IsStaged).Select(x => x.FullPath);
+                                return module.RunGit($"stash push -m {commitMessage.WrapUp()} -- {PackageShortcuts.JoinFileNames(files)}");
+                            }).ToArray();
+                            commitMessage = "";
+                        } 
                     }
-                    if (GUILayout.Button($"Stash {modulesWithStagedFiles}/{modules.Length} modules", GUILayout.Width(200)))
+                    if (modulesInMergingState.Any() && GUILayout.Button($"Commit merge in {modulesInMergingState.Count()}/{modules.Length} modules", GUILayout.Width(200))
+                        && EditorUtility.DisplayDialog($"Are you sure you want COMMIT merge?", "It will be default commit message for each module. You can't change it!", "Yes", "No"))
                     {
-                        tasks = modules.Select(module => {
-                            var files = module.GitStatus.GetResultOrDefault().Files.Where(x => x.IsStaged).Select(x => x.FullPath);
-                            return module.RunGit($"stash push -m {commitMessage.WrapUp()} -- {PackageShortcuts.JoinFileNames(files)}");
-                        }).ToArray();
-                        commitMessage = "";
+                        tasks = modules.Select(module => module.RunGit($"commit --no-edit")).ToArray();
+                    }
+                    if (modulesInMergingState.Any() && GUILayout.Button($"Abort merge in {modulesInMergingState.Count()}/{modules.Length} modules", GUILayout.Width(200))
+                        && EditorUtility.DisplayDialog($"Are you sure you want ABORT merge?", modulesInMergingState.Select(x => x.Name).Join(", "), "Yes", "No"))
+                    {
+                        tasks = modules.Select(module => module.RunGit($"merge --abort")).ToArray();
                     }
                 }
 
