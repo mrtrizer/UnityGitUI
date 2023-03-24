@@ -94,7 +94,7 @@ namespace Abuksigun.PackageShortcuts
                     }
                 }
                 if (module.GitRepoPath.GetResultOrDefault() is { } gitRepoPath && module.DiffFiles($"{selectedCommit}~1", selectedCommit).GetResultOrDefault() is { } diffFiles)
-                    GUIShortcuts.DrawList(gitRepoPath, diffFiles, selection, ref filesScrollPosition, true, windowWidth, GUILayout.Height(FileListHeight));
+                    GUIShortcuts.DrawList(gitRepoPath, diffFiles, selection, ref filesScrollPosition, true, null, windowWidth, GUILayout.Height(FileListHeight));
             });
         }
     }

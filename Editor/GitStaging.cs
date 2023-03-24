@@ -86,7 +86,8 @@ namespace Abuksigun.PackageShortcuts
                     using (new GUILayout.HorizontalScope())
                     {
                         var unstaged = status.Unstaged.Where(x => showHidden || !x.Hidden);
-                        GUIShortcuts.DrawList(gitRepoPath, unstaged, unstagedSelection, ref scrollPositions[tab].unstaged, false,  scrollHeight, scrollWidth);
+                        void ShowUnstagedContextMenu(FileStatus file) => _ = ShowContextMenu(module, unstaged.Where(x => unstagedSelection.Contains(x.FullPath)));
+                        GUIShortcuts.DrawList(gitRepoPath, unstaged, unstagedSelection, ref scrollPositions[tab].unstaged, false, ShowUnstagedContextMenu, scrollHeight, scrollWidth);
                         using (new GUILayout.VerticalScope())
                         {
                             if (GUILayout.Button(">>", GUILayout.Width(MiddlePanelWidth)))
@@ -99,13 +100,10 @@ namespace Abuksigun.PackageShortcuts
                                 tasks[tab] = module.RunGit($"reset -q -- {PackageShortcuts.JoinFileNames(stagedSelection)}");
                                 stagedSelection.Clear();
                             }
-                            if (GUILayout.Button("More", GUILayout.Width(MiddlePanelWidth)))
-                            {
-                                _ = ShowContextMenu(module, status.Files.Where(x => unstagedSelection.Contains(x.FullPath)|| stagedSelection.Contains(x.FullPath)));
-                            }
                         }
                         var staged = status.Staged.Where(x => showHidden || !x.Hidden);
-                        GUIShortcuts.DrawList(gitRepoPath, staged, stagedSelection, ref scrollPositions[tab].staged, true, scrollHeight, scrollWidth);
+                        void ShowStagedContextMenu(FileStatus file) => _ = ShowContextMenu(module, staged.Where(x => stagedSelection.Contains(x.FullPath)));
+                        GUIShortcuts.DrawList(gitRepoPath, staged, stagedSelection, ref scrollPositions[tab].staged, true, ShowStagedContextMenu, scrollHeight, scrollWidth);
                     }
                 }
                 showHidden = GUILayout.Toggle(showHidden, "Show Hidden");

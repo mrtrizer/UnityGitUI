@@ -127,7 +127,7 @@ namespace Abuksigun.PackageShortcuts
             scrollPosition = scroll.scrollPosition;
         }
 
-        public static void DrawList(string path, IEnumerable<FileStatus> files, List<string> selectionList, ref Vector2 position, bool staged, params GUILayoutOption[] layoutOptions)
+        public static void DrawList(string path, IEnumerable<FileStatus> files, List<string> selectionList, ref Vector2 position, bool staged, Action<FileStatus> contextMenu = null, params GUILayoutOption[] layoutOptions)
         {
             using (new GUILayout.VerticalScope())
             {
@@ -152,7 +152,11 @@ namespace Abuksigun.PackageShortcuts
                         var style = wasSelected ? Style.Selected.Value : Style.Idle.Value;
                         bool isSelected = GUILayout.Toggle(wasSelected, $"{(staged ? file.X : file.Y)} {relativePath} +{numStat.Added} -{numStat.Removed}", style);
 
-                        if (Event.current.control)
+                        if (Event.current.button == 1 && wasSelected != isSelected)
+                        {
+                            contextMenu?.Invoke(file);
+                        }
+                        else if (Event.current.control)
                         {
                             if (isSelected != wasSelected && wasSelected)
                                 selectionList.Remove(file.FullPath);
