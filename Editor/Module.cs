@@ -28,7 +28,7 @@ namespace Abuksigun.PackageShortcuts
     {
         public bool IsInIndex => Y is not '?';
         public bool IsUnstaged => Y is not ' ';
-        public bool IsStaged => X is not ' ' and not '?';
+        public bool IsStaged => !IsUnresolved && X is not ' ' and not '?';
         public bool IsUnresolved => Y is 'U' || X is 'U';
     }
     public record GitStatus(FileStatus[] Files)
