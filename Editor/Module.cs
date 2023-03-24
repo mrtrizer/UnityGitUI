@@ -14,7 +14,7 @@ namespace Abuksigun.PackageShortcuts
     using static Const;
 
     public record Branch(string Name, string QualifiedName);
-    public record LocalBranch(string Name, string TrackingBranch) : Branch(Name, Name);
+    public record LocalBranch(string Name) : Branch(Name, Name);
     public record RemoteBranch(string Name, string RemoteAlias) : Branch(Name, RemoteAlias + '/' +Name);
     public record Remote(string Alias, string Url);
     public record RemoteStatus(string Remote, int Ahead, int Behind);
@@ -40,6 +40,8 @@ namespace Abuksigun.PackageShortcuts
 
     public class Module
     {
+        static readonly string HiddenFilesKey = $"{Application.productName}/{nameof(PackageShortcuts)}.{nameof(Module)}.{nameof(HiddenFilesKey)}";
+
         Task<bool> isGitRepo;
         Task<string> gitRepoPath;
         Task<Branch[]> branches;
@@ -53,16 +55,13 @@ namespace Abuksigun.PackageShortcuts
 
         List<IOData> processLog = new();
         FileSystemWatcher fsWatcher;
-        object resetLock = new();
-        DateTime lastResetTime;
-
-        static readonly string HiddenFilesKey = $"{Application.productName}/{nameof(PackageShortcuts)}.{nameof(Module)}.{nameof(HiddenFilesKey)}";
 
         public string Guid { get; }
         public string Name { get; }
         public string ShortName => Name.Length > 20 ? Name[0] + ".." + Name[^17..] : Name;
         public string LogicalPath { get; }
-        public string PhysicalPath => Path.GetFullPath(FileUtil.GetPhysicalPath(LogicalPath));
+        public string PhysicalPath => Path.GetFullPath(FileUtil.GetPhysicalPath(LogicalPath)).NormalizePath();
+        public string ProjectDirPath => PhysicalPath == Application.dataPath ? Directory.GetParent(PhysicalPath).FullName.NormalizePath() : PhysicalPath;
         public PackageInfo PackageInfo { get; }
         public Task<bool> IsGitRepo => isGitRepo ??= GetIsGitRepo();
         public Task<string> GitRepoPath => gitRepoPath ??= GetRepoPath();
@@ -90,9 +89,21 @@ namespace Abuksigun.PackageShortcuts
             fsWatcher.Dispose();
         }
 
-        void Reset()
+        FileSystemWatcher CreateFileWatcher()
         {
-            lock (resetLock)
+            var fsWatcher = new FileSystemWatcher(ProjectDirPath) {
+                NotifyFilter = (NotifyFilters)0xFFFF,
+                EnableRaisingEvents = true
+            };
+
+            fsWatcher.Changed += Reset;
+            fsWatcher.Created += Reset;
+            fsWatcher.Deleted += Reset;
+            fsWatcher.Renamed += Reset;
+            fsWatcher.Error += (_, e) => Debug.LogException(e.GetException());
+            return fsWatcher;
+
+            void Reset(object obj, FileSystemEventArgs args)
             {
                 isGitRepo = null;
                 gitRepoPath = null;
@@ -104,40 +115,23 @@ namespace Abuksigun.PackageShortcuts
                 remoteStatus = null;
                 gitStatus = null;
                 diffCache = null;
-                lastResetTime = DateTime.Now;
             }
         }
 
-        void FSWatcherReset()
+        public Task<CommandResult> RunGit(string args, Action<IOData> dataHandler = null)
         {
-            lock (resetLock)
-            {
-                if (lastResetTime - DateTime.Now > TimeSpan.FromSeconds(1))
-                    return;
-            }
-            Reset();
+            string mergedArgs = "-c core.quotepath=false --no-optional-locks " + args;
+            return RunProcess("git", mergedArgs, dataHandler);
         }
 
-        FileSystemWatcher CreateFileWatcher()
+        public Task<CommandResult> RunProcess(string command, string args, Action<IOData> dataHandler = null)
         {
-            var fsWatcher = new FileSystemWatcher(PhysicalPath) {
-                NotifyFilter = (NotifyFilters)0xFFFF,
-                EnableRaisingEvents = true
-            };
-
-            fsWatcher.Changed += (_, _) => FSWatcherReset();
-            fsWatcher.Created += (_, _) => FSWatcherReset();
-            fsWatcher.Deleted += (_, _) => FSWatcherReset();
-            fsWatcher.Renamed += (_, _) => FSWatcherReset();
-            fsWatcher.Error += (_, e) => Debug.LogException(e.GetException());
-            return fsWatcher;
-        }
-
-        public async Task<CommandResult> RunGit(string args)
-        {
-            var result = await RunGitReadonly(args);
-            Reset();
-            return result;
+            processLog.Add(new IOData { Data = $">> {command} {args}", Error = false });
+            return PackageShortcuts.RunCommand(PhysicalPath, command, args, (_, data) => {
+                processLog.Add(data);
+                dataHandler?.Invoke(data);
+                return true;
+            });
         }
 
         public Task<FileStatus[]> DiffFiles(string firstCommit, string lastCommit)
@@ -147,24 +141,14 @@ namespace Abuksigun.PackageShortcuts
             return diffCache.GetValueOrDefault(diffId) is { } diff ? diff : diffCache[diffId] = GetDiffFiles(firstCommit, lastCommit);
         }
 
-        public Task<CommandResult> RunGitReadonly(string args)
-        {
-            string mergedArgs = "-c core.quotepath=false --no-optional-locks " + args;
-            processLog.Add(new IOData { Data = $">> git {mergedArgs}", Error = false });
-            return PackageShortcuts.RunCommand(PhysicalPath, "git", mergedArgs, (_, data) => {
-                processLog.Add(data);
-                return true;
-            });
-        }
-
         async Task<string> GetRepoPath()
         {
-            return (await RunGitReadonly("rev-parse --show-toplevel")).Output.Trim();
+            return (await RunGit("rev-parse --show-toplevel")).Output.Trim();
         }
 
         async Task<bool> GetIsGitRepo()
         {
-            var result = await RunGitReadonly("rev-parse --show-toplevel");
+            var result = await RunGit("rev-parse --show-toplevel");
             if (result.ExitCode != 0)
                 return false;
             return Path.GetFullPath(result.Output.Trim()) != Directory.GetCurrentDirectory() || Path.GetFullPath(PhysicalPath) == Path.GetFullPath(Application.dataPath);
@@ -172,12 +156,12 @@ namespace Abuksigun.PackageShortcuts
 
         async Task<string> GetCommit()
         {
-            return (await RunGitReadonly("rev-parse --short --verify HEAD")).Output.Trim();
+            return (await RunGit("rev-parse --short --verify HEAD")).Output.Trim();
         }
 
         async Task<Branch[]> GetBranches()
         {
-            var result = await RunGitReadonly($"branch -a --format=\"%(refname)\t%(upstream)\"");
+            var result = await RunGit($"branch -a --format=\"%(refname)\t%(upstream)\"");
             return result.Output.SplitLines()
                 .Where(x => !x.StartsWith("(HEAD detached"))
                 .Select(x => x.Split('\t', RemoveEmptyEntries))
@@ -185,20 +169,20 @@ namespace Abuksigun.PackageShortcuts
                     string[] split = x[0].Split('/');
                     return split[1] == "remotes"
                         ? new RemoteBranch(split[3..].Join('/'), split[2])
-                        : new LocalBranch(split[2..].Join('/'), x.Length > 1 ? x[1] : null);
+                        : new LocalBranch(split[2..].Join('/'));
                 })
                 .ToArray();
         }
 
         async Task<string> GetCurrentBranch()
         {
-            string branch = (await RunGitReadonly("branch --show-current")).Output.Trim();
-            return !string.IsNullOrEmpty(branch) ? branch : (await RunGitReadonly("rev-parse HEAD")).Output.Trim()[0..7];
+            string branch = (await RunGit("branch --show-current")).Output.Trim();
+            return !string.IsNullOrEmpty(branch) ? branch : (await RunGit("rev-parse HEAD")).Output.Trim()[0..7];
         }
 
         async Task<Remote[]> GetRemotes()
         {
-            string[] remoteLines = (await RunGitReadonly("remote -v")).Output.Trim().SplitLines();
+            string[] remoteLines = (await RunGit("remote -v")).Output.Trim().SplitLines();
             return remoteLines.Select(line => {
                 string[] parts = line.Split('\t', RemoveEmptyEntries);
                 return new Remote(parts[0], parts[1]);
@@ -216,15 +200,15 @@ namespace Abuksigun.PackageShortcuts
             if (remotes.Length == 0)
                 return null;
             string currentBranch = await CurrentBranch;
-            await RunGitReadonly("fetch");
+            await RunGit("fetch");
             string remoteAlias = remotes[0].Alias;
             var branches = await Branches;
             if (!branches.Any(x => x is RemoteBranch remoteBranch && remoteBranch.RemoteAlias == remoteAlias && remoteBranch.Name == currentBranch))
                 return null;
             try
             {
-                int ahead = int.Parse((await RunGitReadonly($"rev-list --count {remoteAlias}/{currentBranch}..{currentBranch}")).Output.Trim());
-                int behind = int.Parse((await RunGitReadonly($"rev-list --count {currentBranch}..{remoteAlias}/{currentBranch}")).Output.Trim());
+                int ahead = int.Parse((await RunGit($"rev-list --count {remoteAlias}/{currentBranch}..{currentBranch}")).Output.Trim());
+                int behind = int.Parse((await RunGit($"rev-list --count {currentBranch}..{remoteAlias}/{currentBranch}")).Output.Trim());
                 return new RemoteStatus(remotes[0].Alias, ahead, behind);
             }
             catch (Exception e)
@@ -240,9 +224,9 @@ namespace Abuksigun.PackageShortcuts
             string hiddenFilesStr = EditorPrefs.GetString(HiddenFilesKey, "");
             var hiddenFiles = hiddenFilesStr.Split(',', RemoveEmptyEntries).Select(x => x.Trim()).ToList();
             var gitRepoPathTask = GitRepoPath;
-            var statusTask = RunGitReadonly("status --porcelain");
-            var numStatUnstagedTask = RunGitReadonly("diff --numstat");
-            var numStatStagedTask = RunGitReadonly("diff --numstat --staged");
+            var statusTask = RunGit("status -uall --porcelain");
+            var numStatUnstagedTask = RunGit("diff --numstat");
+            var numStatStagedTask = RunGit("diff --numstat --staged");
             await Task.WhenAll(gitRepoPathTask, statusTask, numStatUnstagedTask, numStatStagedTask);
 
             var numStatUnstaged = ParseNumStat(numStatUnstagedTask.Result.Output);
@@ -270,8 +254,8 @@ namespace Abuksigun.PackageShortcuts
         async Task<FileStatus[]> GetDiffFiles(string firstCommit, string lastCommit)
         {
             var gitRepoPathTask = GitRepoPath;
-            var statusTask = RunGitReadonly($"diff --name-status {firstCommit} {lastCommit}");
-            var numStatTask = RunGitReadonly($"diff --numstat {firstCommit} {lastCommit}");
+            var statusTask = RunGit($"diff --name-status {firstCommit} {lastCommit}");
+            var numStatTask = RunGit($"diff --numstat {firstCommit} {lastCommit}");
             await Task.WhenAll(gitRepoPathTask, statusTask, numStatTask);
             var numStat = ParseNumStat(numStatTask.Result.Output);
 
@@ -306,8 +290,7 @@ namespace Abuksigun.PackageShortcuts
         }
 
         [SettingsProvider]
-        public static SettingsProvider CreateMyCustomSettingsProvider() => new SettingsProvider("Project/MyCustomUIElementsSettings", SettingsScope.Project) {
-            label = "Package Shortcuts",
+        public static SettingsProvider CreateMyCustomSettingsProvider() => new SettingsProvider("Preferences/External Tools/Package Shortcuts", SettingsScope.User) {
             activateHandler = (_, rootElement) => rootElement.Add(new IMGUIContainer(() => {
                 GUILayout.Label(nameof(HiddenFilesKey)[0..^3]);
                 EditorPrefs.SetString(HiddenFilesKey, GUILayout.TextField(EditorPrefs.GetString(HiddenFilesKey, "")));

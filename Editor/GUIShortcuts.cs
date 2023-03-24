@@ -21,40 +21,8 @@ namespace Abuksigun.PackageShortcuts
     {
         public delegate void HunkAction(string fileName, int hunkIndex);
 
-        static GUIStyle logStyle;
-        static GUIStyle errorLogStyle;
-        static GUIStyle diffUnchangedStyle;
-        static GUIStyle diffAddedStyle;
-        static GUIStyle diffRemoveStyle;
-        static GUIStyle fileNameStyle;
-        static GUIStyle idleStyle;
-        static GUIStyle selectedStyle;
-        
         static Dictionary<Module, Vector2> logScrollPositions = new();
-        static Dictionary<Color, Texture2D> colorTextures = new();
-
-        public static Lazy<Font> MonospacedFont = new (() => EditorGUIUtility.Load("Fonts/RobotoMono/RobotoMono-Regular.ttf") as Font);
-
-        public static GUIStyle IdleStyle => idleStyle ??= new GUIStyle {
-            normal = new GUIStyleState { background = GetColorTexture(Color.clear), textColor = GUI.skin.label.normal.textColor }
-        };
-        public static GUIStyle SelectedStyle => selectedStyle ??= new GUIStyle {
-            normal = new GUIStyleState { background = GetColorTexture(new Color(0.22f, 0.44f, 0.68f)), textColor = Color.white }
-        };
-        public static GUIStyle FileNameStyle => fileNameStyle ??= new GUIStyle {
-            fontStyle = FontStyle.Bold,
-            normal = new GUIStyleState { background = GetColorTexture(new Color(0.8f, 0.8f, 0.8f)), textColor = Color.black }
-        };
-
-        public static Texture2D GetColorTexture(Color color)
-        {
-            if (colorTextures.TryGetValue(color, out var tex))
-                return tex;
-            var texture = new Texture2D(1, 1);
-            texture.SetPixel(0, 0, color);
-            texture.Apply();
-            return colorTextures[color] = texture;
-        }
+        
 
         public static Task ShowModalWindow(string title, Vector2Int size, Action<EditorWindow> onGUI)
         {
@@ -73,32 +41,53 @@ namespace Abuksigun.PackageShortcuts
             return tcs.Task;
         }
 
-        public static void DrawProcessLog(Module module, Vector2 size, int logStartLine = 0)
+        public static async Task<CommandResult> RunGitAndErrorCheck(Module module, string args)
         {
-            logStyle ??= new GUIStyle { normal = new GUIStyleState { textColor = Color.white }, font = MonospacedFont.Value, fontSize = 10};
-            errorLogStyle ??= new GUIStyle (logStyle) { normal = new GUIStyleState { textColor = Color.red }};
-            
-            GUILayout.Space(0);
-            var lastRect = GUILayoutUtility.GetLastRect();
-            EditorGUI.DrawRect(new Rect(lastRect.position + Vector2.up * lastRect.size.y, size), Color.black);
+            var commandLog = new List<IOData>();
+            var result = await module.RunGit(args, (data) => commandLog.Add(data));
+            if (result.ExitCode != 0)
+                EditorUtility.DisplayDialog($"Error in {module.Name}", $">> git {args}\n{commandLog.Where(x => x.Error).Select(x => x.Data).Join('\n')}", "Ok");
+            return result;
+        }
 
-            using var scroll = new GUILayout.ScrollViewScope(logScrollPositions.GetValueOrDefault(module, Vector2.zero), false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
+        public static Module ModuleGuidToolbar(IReadOnlyList<Module> modules, string guid)
+        {
+            if (modules.Count == 0)
+                return null;
+            int tab = 0;
+            for (int i = 0; i < modules.Count; i++)
+                tab = modules[i].Guid == guid ? i : tab;
+            tab = modules.Count() > 1 ? GUILayout.Toolbar(tab, modules.Select(x => x.Name).ToArray()) : 0;
+            return modules[tab];
+        }
+        
+        public static void DrawProcessLog(IReadOnlyList<Module> modules, ref string guid, Vector2 size, Dictionary<string, int> logStartLines = null)
+        {
+            if (modules.Count == 0)
+                return;
+            var module = ModuleGuidToolbar(modules, guid);
+            guid = module.Guid;
 
-            for (int i = logStartLine; i < module.ProcessLog.Count; i++)
-                EditorGUILayout.SelectableLabel(module.ProcessLog[i].Data, module.ProcessLog[i].Error ? errorLogStyle : logStyle, GUILayout.Height(15));
+            int longestLine = module.ProcessLog.Max(x => x.Data.Length);
+            float maxWidth = Mathf.Max(Style.ProcessLog.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x);
+
+            float topPanelHeight = modules.Count > 1 ? 20 : 0;
+            var scrollHeight = GUILayout.Height(size.y - topPanelHeight);
+            using var scroll = new GUILayout.ScrollViewScope(logScrollPositions.GetValueOrDefault(module, Vector2.zero), false, false, GUILayout.Width(size.x));
+
+            for (int i = logStartLines?.GetValueOrDefault(guid, int.MaxValue) ?? 0; i < module.ProcessLog.Count; i++)
+            {
+                var lineStyle = module.ProcessLog[i].Error ? Style.ProcessLogError.Value : Style.ProcessLog.Value;
+                EditorGUILayout.SelectableLabel(module.ProcessLog[i].Data, lineStyle, GUILayout.Height(15), GUILayout.Width(maxWidth));
+            }
 
             logScrollPositions[module] = scroll.scrollPosition;
         }
         public static void DrawGitDiff(string diff, Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, ref Vector2 scrollPosition)
         {
-            diffUnchangedStyle ??= new GUIStyle { font = MonospacedFont.Value, fontSize = 10 };
-            diffAddedStyle ??= new GUIStyle(diffUnchangedStyle) { normal = new GUIStyleState { background = GetColorTexture(Color.green) }};
-            diffRemoveStyle ??= new GUIStyle(diffUnchangedStyle) { normal = new GUIStyleState { background = GetColorTexture(Color.red) }};
-
             string[] lines = diff.SplitLines();
-            GUILayout.Space(0);
-            var lastRect = GUILayoutUtility.GetLastRect();
-            EditorGUI.DrawRect(new Rect(lastRect.position + Vector2.up * lastRect.size.y, size), Color.white);
+            int longestLine = lines.Max(x => x.Length);
+            float width = Mathf.Max(Style.DiffUnchanged.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x);
 
             using var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
 
@@ -111,7 +100,7 @@ namespace Abuksigun.PackageShortcuts
                     i += 3;
                     hunkIndex = -1;
                     currentFile = lines[i][6..];
-                    EditorGUILayout.SelectableLabel(currentFile, FileNameStyle, GUILayout.Height(15));
+                    EditorGUILayout.SelectableLabel(currentFile, Style.FileName.Value, GUILayout.Height(15));
                 }
                 else if (lines[i].StartsWith("@@"))
                 {
@@ -129,10 +118,10 @@ namespace Abuksigun.PackageShortcuts
                 else if (hunkIndex >= 0)
                 {
                     EditorGUILayout.SelectableLabel(lines[i],
-                          lines[i][0] == '+' ? diffAddedStyle
-                        : lines[i][0] == '-' ? diffRemoveStyle
-                        : diffUnchangedStyle,
-                          GUILayout.Height(15));
+                          lines[i][0] == '+' ? Style.DiffAdded.Value
+                        : lines[i][0] == '-' ? Style.DiffRemove.Value
+                        : Style.DiffUnchanged.Value,
+                          GUILayout.Height(15), GUILayout.Width(width));
                 }
             }
             scrollPosition = scroll.scrollPosition;
@@ -144,17 +133,12 @@ namespace Abuksigun.PackageShortcuts
             {
                 using (new GUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("All"))
+                    if (files.Any() && GUILayout.Button("All", GUILayout.MaxWidth(50)))
                     {
                         selectionList.Clear();
                         selectionList.AddRange(files.Select(x => x.FullPath));
                     }
-                    if (!staged && GUILayout.Button("All Indexed"))
-                    {
-                        selectionList.Clear();
-                        selectionList.AddRange(files.Where(x => x.IsInIndex).Select(x => x.FullPath));
-                    }
-                    if (GUILayout.Button("None"))
+                    if (files.Any() && GUILayout.Button("None", GUILayout.MaxWidth(50)))
                         selectionList.Clear();
                 }
                 using (var scroll = new GUILayout.ScrollViewScope(position, false, false, layoutOptions))
@@ -162,15 +146,37 @@ namespace Abuksigun.PackageShortcuts
                     foreach (var file in files)
                     {
                         bool wasSelected = selectionList.Contains(file.FullPath);
+                        // TODO: Remove path from arguments and add RepoPath to FileStatus record
                         string relativePath = Path.GetRelativePath(path, file.FullPath);
                         var numStat = staged ? file.StagedNumStat : file.UnstagedNumStat;
-                        var style = wasSelected ? SelectedStyle : IdleStyle;
+                        var style = wasSelected ? Style.Selected.Value : Style.Idle.Value;
                         bool isSelected = GUILayout.Toggle(wasSelected, $"{(staged ? file.X : file.Y)} {relativePath} +{numStat.Added} -{numStat.Removed}", style);
 
-                        if (isSelected != wasSelected && wasSelected)
-                            selectionList.Remove(file.FullPath);
-                        if (isSelected != wasSelected && !wasSelected)
-                            selectionList.Add(file.FullPath);
+                        if (Event.current.control)
+                        {
+                            if (isSelected != wasSelected && wasSelected)
+                                selectionList.Remove(file.FullPath);
+                            if (isSelected != wasSelected && !wasSelected)
+                                selectionList.Add(file.FullPath);
+                        }
+                        else if (Event.current.shift && isSelected != wasSelected && selectionList.LastOrDefault() != file.FullPath)
+                        {
+                            bool select = false;
+                            foreach (var selectedFile in files)
+                            {
+                                bool hitRange = selectedFile.FullPath == selectionList.LastOrDefault() || selectedFile.FullPath == file.FullPath;
+                                if ((hitRange || select) && !selectionList.Contains(selectedFile.FullPath))
+                                    selectionList.Add(selectedFile.FullPath);
+                                if (hitRange)
+                                    select = !select;
+                            }
+                        }
+                        else if (isSelected != wasSelected)
+                        {
+                            selectionList.Clear();
+                            if (!wasSelected)
+                                selectionList.Add(file.FullPath);
+                        }
                     }
                     position = scroll.scrollPosition;
                 }

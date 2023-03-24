@@ -26,11 +26,12 @@ namespace Abuksigun.PackageShortcuts
         {
             if (!filePaths.Any())
                 return;
-            var result = await module.RunGitReadonly($"diff {(staged ? "--staged" : "")} {firstCommit} {lastCommit} -- {PackageShortcuts.JoinFileNames(filePaths)}");
+            var result = await module.RunGit($"diff {(staged ? "--staged" : "")} {firstCommit} {lastCommit} -- {PackageShortcuts.JoinFileNames(filePaths)}");
             if (result.ExitCode != 0)
                 return;
             Vector2 scrollPosition = Vector2.zero;
-            await GUIShortcuts.ShowModalWindow($"Diff {(staged ? "Staged" : "Unstaged")} {filePaths}", new Vector2Int(600, 700), (window) => {
+            string windowName = $"Diff {(staged ? "Staged" : "Unstaged").When(firstCommit == null)} {filePaths.Count()} files";
+            await GUIShortcuts.ShowModalWindow(windowName, new Vector2Int(600, 700), (window) => {
                 GUIShortcuts.DrawGitDiff(result.Output, window.position.size, null, null, null, ref scrollPosition);
             });
         }

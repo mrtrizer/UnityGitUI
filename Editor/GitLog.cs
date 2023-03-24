@@ -15,8 +15,8 @@ namespace Abuksigun.PackageShortcuts
         
         static readonly List<string> emptyList = new();
 
-        static Lazy<GUIStyle> IdleLogStyle = new(() => new GUIStyle(GUIShortcuts.IdleStyle) { font = GUIShortcuts.MonospacedFont.Value, fontSize = 12, richText = true });
-        static Lazy<GUIStyle> SelectedLogStyle = new(() => new GUIStyle(GUIShortcuts.SelectedStyle) { font = GUIShortcuts.MonospacedFont.Value, fontSize = 12, richText = true });
+        static Lazy<GUIStyle> IdleLogStyle = new(() => new (Style.Idle.Value) { font = Style.MonospacedFont.Value, fontSize = 12, richText = true });
+        static Lazy<GUIStyle> SelectedLogStyle = new(() => new (Style.Selected.Value) { font = Style.MonospacedFont.Value, fontSize = 12, richText = true });
 
         [MenuItem("Assets/Git Log", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
@@ -43,7 +43,7 @@ namespace Abuksigun.PackageShortcuts
                 if (logTask == null || currentBranchTask != module.CurrentBranch)
                 {
                     currentBranchTask = module.CurrentBranch;
-                    logTask = module.RunGitReadonly($"log --graph --abbrev-commit --decorate --format=format:\"%h - (%ar) <b>%d</b> %s - %an\" --branches --remotes --tags");
+                    logTask = module.RunGit($"log --graph --abbrev-commit --decorate --format=format:\"%h - %an (%ar) <b>%d</b> %s\" --branches --remotes --tags");
                 }
 
                 var selection = selectionPerModule.GetValueOrDefault(module.Guid, emptyList);
@@ -87,7 +87,7 @@ namespace Abuksigun.PackageShortcuts
                         {
                             _ = module.RunGit($"reset --hard {selectedCommit}");
                         }
-                        if (GUILayout.Button($"Diff {selectedCommit}"))
+                        if (selection.Count > 0 && GUILayout.Button($"Diff {selectedCommit}"))
                         {
                             _ = Diff.ShowDiff(module, selection, false, $"{selectedCommit}~1", selectedCommit);
                         }

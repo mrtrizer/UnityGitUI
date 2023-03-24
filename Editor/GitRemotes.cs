@@ -9,6 +9,7 @@ namespace Abuksigun.PackageShortcuts
     public static class GitRemotes
     {
         const int TopPanelHeight = 40;
+        const int LogHeight = 200;
 
         [MenuItem("Assets/Git Remotes", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
@@ -20,10 +21,10 @@ namespace Abuksigun.PackageShortcuts
             bool forcePush = false;
             bool prune = false;
             
-            var enableLogForModule = new Dictionary<string, bool>();
             var scrollPosition = Vector2.zero;
-            var logStartLine = new Dictionary<string, int>();
+            var logStartLines = new Dictionary<string, int>();
             var tasks = new Dictionary<string, Task<CommandResult>>();
+            string currentLogGuid = null;
 
             await GUIShortcuts.ShowModalWindow("Remotes", new Vector2Int(600, 400), (window) => {
                 var modules = PackageShortcuts.GetSelectedGitModules().ToArray();
@@ -38,7 +39,7 @@ namespace Abuksigun.PackageShortcuts
                                 var remote = await module.DefaultRemote;
                                 return await module.RunGit($"fetch {remote?.Alias} {"--prune".When(prune)}");
                             });
-                            logStartLine = modules.ToDictionary(x => x.Guid, x => x.ProcessLog.Count);
+                            logStartLines = modules.ToDictionary(x => x.Guid, x => x.ProcessLog.Count);
                         }
                         prune = GUILayout.Toggle(prune, "Prune");
                     }
@@ -50,7 +51,7 @@ namespace Abuksigun.PackageShortcuts
                                 var remote = await module.DefaultRemote;
                                 return await module.RunGit($"pull {remote?.Alias}");
                             });
-                            logStartLine = modules.ToDictionary(x => x.Guid, x => x.ProcessLog.Count);
+                            logStartLines = modules.ToDictionary(x => x.Guid, x => x.ProcessLog.Count);
                         }
                     }
                     using (new GUILayout.HorizontalScope())
@@ -62,7 +63,7 @@ namespace Abuksigun.PackageShortcuts
                                 var remote = await module.DefaultRemote;
                                 return await module.RunGit($"push {"--follow-tags".When(pushTags)} {"--force".When(forcePush)} -u {remote?.Alias} {branch}:{branch}");
                             });
-                            logStartLine = modules.ToDictionary(x => x.Guid, x => x.ProcessLog.Count);
+                            logStartLines = modules.ToDictionary(x => x.Guid, x => x.ProcessLog.Count);
                         }
                         pushTags = GUILayout.Toggle(pushTags, "Push tags");
                         forcePush = GUILayout.Toggle(forcePush, "Force push");
@@ -70,7 +71,7 @@ namespace Abuksigun.PackageShortcuts
                 }
                 GUILayout.Space(20);
                 var width = GUILayout.Width(window.position.width);
-                var height = GUILayout.Height(window.position.height - TopPanelHeight);
+                var height = GUILayout.Height(window.position.height - TopPanelHeight - LogHeight);
                 using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, width, height))
                 {
                     foreach (var module in modules)
@@ -86,13 +87,11 @@ namespace Abuksigun.PackageShortcuts
                                     : "Errored";
                                 GUILayout.Label(status, GUILayout.Width(100));
                             }
-                            enableLogForModule[module.Guid] = GUILayout.Toggle(enableLogForModule.GetValueOrDefault(module.Guid), "Show log");
                         }
-                        if (enableLogForModule.GetValueOrDefault(module.Guid))
-                            GUIShortcuts.DrawProcessLog(module, new Vector2(window.position.width - 20, 200), logStartLine.GetValueOrDefault(module.Guid, int.MaxValue));
                     }
                     scrollPosition = scroll.scrollPosition;
                 }
+                GUIShortcuts.DrawProcessLog(modules, ref currentLogGuid, new Vector2(window.position.width, LogHeight), logStartLines);
             });
 
             await Task.WhenAll(tasks.Select(x => x.Value).Where(x => x != null));
