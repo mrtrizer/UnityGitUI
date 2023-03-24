@@ -9,7 +9,7 @@ namespace Abuksigun.PackageShortcuts
     public static class GitRemotes
     {
         const int TopPanelHeight = 40;
-        const int LogHeight = 200;
+        const int LogHeight = 300;
 
         [MenuItem("Assets/Git Remotes", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
@@ -26,14 +26,15 @@ namespace Abuksigun.PackageShortcuts
             var tasks = new Dictionary<string, Task<CommandResult>>();
             string currentLogGuid = null;
 
-            await GUIShortcuts.ShowModalWindow("Remotes", new Vector2Int(600, 400), (window) => {
+            await GUIShortcuts.ShowModalWindow("Remotes", new Vector2Int(500, 600), (window) => {
                 var modules = PackageShortcuts.GetSelectedGitModules().ToArray();
 
+                using (new GUILayout.HorizontalScope())
                 using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x.Value != null && !x.Value.IsCompleted)))
                 {
-                    using (new GUILayout.HorizontalScope())
+                    using (new GUILayout.VerticalScope(GUILayout.MaxWidth(150)))
                     {
-                        if (GUILayout.Button($"Fetch {modules.Length} modules", GUILayout.Width(200)))
+                        if (GUILayout.Button($"Fetch {modules.Length} modules"))
                         {
                             tasks = modules.ToDictionary(x => x.Guid, async module => {
                                 var remote = await module.DefaultRemote;
@@ -43,9 +44,9 @@ namespace Abuksigun.PackageShortcuts
                         }
                         prune = GUILayout.Toggle(prune, "Prune");
                     }
-                    using (new GUILayout.HorizontalScope())
+                    using (new GUILayout.VerticalScope(GUILayout.MaxWidth(150)))
                     {
-                        if (GUILayout.Button($"Pull {modules.Length} modules", GUILayout.Width(200)))
+                        if (GUILayout.Button($"Pull {modules.Length} modules"))
                         {
                             tasks = modules.ToDictionary(x => x.Guid, async module => {
                                 var remote = await module.DefaultRemote;
@@ -54,9 +55,9 @@ namespace Abuksigun.PackageShortcuts
                             logStartLines = modules.ToDictionary(x => x.Guid, x => x.ProcessLog.Count);
                         }
                     }
-                    using (new GUILayout.HorizontalScope())
+                    using (new GUILayout.VerticalScope(GUILayout.MaxWidth(150)))
                     {
-                        if (GUILayout.Button($"Push {modules.Length} modules", GUILayout.Width(200)))
+                        if (GUILayout.Button($"Push {modules.Length} modules"))
                         {
                             tasks = modules.ToDictionary(x => x.Guid, async module => {
                                 string branch = await module.CurrentBranch;
@@ -78,7 +79,7 @@ namespace Abuksigun.PackageShortcuts
                     {
                         using (new GUILayout.HorizontalScope())
                         {
-                            GUILayout.Label($"{module.Name} [{module.CurrentBranch.GetResultOrDefault()}]", GUILayout.Width(400));
+                            GUILayout.Label($"{module.Name} [{module.CurrentBranch.GetResultOrDefault()}]", GUILayout.Width(300));
                             var task = tasks.GetValueOrDefault(module.Guid);
                             if (task != null)
                             {
