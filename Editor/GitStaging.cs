@@ -13,6 +13,8 @@ namespace Abuksigun.PackageShortcuts
         const int MiddlePanelWidth = 40;
         const int BottomPanelHeight = 17;
 
+        record Selection(ListState unstaged, ListState staged);
+
         [MenuItem("Assets/Git Staging", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
 
@@ -20,15 +22,15 @@ namespace Abuksigun.PackageShortcuts
         public static async void Invoke()
         {
             string commitMessage = "";
-            var modules = PackageShortcuts.GetSelectedGitModules().ToArray();
+            string guid = null;
             var tasksInProgress = new List<Task<CommandResult>>();
-            var selection = Enumerable.Repeat((unstaged:new ListState(), staged: new ListState()), modules.Length).ToArray();
+            var selectionPerModule = new Dictionary<Module, Selection>();
 
             bool showHidden = false;
-            string[] moduleNames = modules.Select(x => x.ShortName).ToArray();
-            int tab = 0;
-            
+
             await GUIShortcuts.ShowModalWindow("Commit", new Vector2Int(800, 500), (window) => {
+
+                var modules = PackageShortcuts.GetSelectedGitModules().ToList();
                 
                 GUILayout.Label("Commit message");
                 commitMessage = GUILayout.TextArea(commitMessage, GUILayout.Height(40));
@@ -44,12 +46,12 @@ namespace Abuksigun.PackageShortcuts
                 {
                     using (new EditorGUI.DisabledGroupScope(!commitAvailable))
                     {
-                        if (GUILayout.Button($"Commit {modulesWithStagedFiles}/{modules.Length} modules", GUILayout.Width(200)))
+                        if (GUILayout.Button($"Commit {modulesWithStagedFiles}/{modules.Count} modules", GUILayout.Width(200)))
                         {
                             tasksInProgress.AddRange(moduleNotInMergeState.Select(module => module.RunGit($"commit -m {commitMessage.WrapUp()}")));
                             commitMessage = "";
                         }
-                        if (GUILayout.Button($"Stash {modulesWithStagedFiles}/{modules.Length} modules", GUILayout.Width(200)))
+                        if (GUILayout.Button($"Stash {modulesWithStagedFiles}/{modules.Count} modules", GUILayout.Width(200)))
                         {
                             tasksInProgress.AddRange(moduleNotInMergeState.Select(module => {
                                 var files = module.GitStatus.GetResultOrDefault().Files.Where(x => x.IsStaged).Select(x => x.FullPath);
@@ -58,22 +60,24 @@ namespace Abuksigun.PackageShortcuts
                             commitMessage = "";
                         } 
                     }
-                    if (modulesInMergingState.Any() && GUILayout.Button($"Commit merge in {modulesInMergingState.Count()}/{modules.Length} modules", GUILayout.Width(200))
+                    if (modulesInMergingState.Any() && GUILayout.Button($"Commit merge in {modulesInMergingState.Count()}/{modules.Count} modules", GUILayout.Width(200))
                         && EditorUtility.DisplayDialog($"Are you sure you want COMMIT merge?", "It will be default commit message for each module. You can't change it!", "Yes", "No"))
                     {
                         tasksInProgress.AddRange(modules.Select(module => module.RunGit($"commit --no-edit")));
                     }
-                    if (modulesInMergingState.Any() && GUILayout.Button($"Abort merge in {modulesInMergingState.Count()}/{modules.Length} modules", GUILayout.Width(200))
+                    if (modulesInMergingState.Any() && GUILayout.Button($"Abort merge in {modulesInMergingState.Count()}/{modules.Count} modules", GUILayout.Width(200))
                         && EditorUtility.DisplayDialog($"Are you sure you want ABORT merge?", modulesInMergingState.Select(x => x.Name).Join(", "), "Yes", "No"))
                     {
                         tasksInProgress.AddRange(modules.Select(module => module.RunGit($"merge --abort")));
                     }
                 }
 
-                tab = moduleNames.Length > 1 ? GUILayout.Toolbar(tab, moduleNames) : 0;
-                var module = modules[tab];
-                var unstagedSelection = selection[tab].unstaged;
-                var stagedSelection = selection[tab].staged;
+                var module = GUIShortcuts.ModuleGuidToolbar(modules, guid);
+                if (module == null)
+                    return;
+
+                guid = module.Guid;
+                var selection = selectionPerModule.GetOrCreate(module, () => new (new ListState(), new ListState()));
 
                 GUILayout.Label($"{module.Name} [{module.CurrentBranch.GetResultOrDefault() ?? ".."}]");
 
@@ -86,24 +90,24 @@ namespace Abuksigun.PackageShortcuts
                     using (new GUILayout.HorizontalScope())
                     {
                         var unstaged = status.Unstaged.Where(x => showHidden || !x.Hidden);
-                        void ShowUnstagedContextMenu(FileStatus file) => _ = ShowContextMenu(module, unstaged.Where(x => unstagedSelection.Contains(x.FullPath)));
-                        GUIShortcuts.DrawList(unstaged, unstagedSelection, false, ShowUnstagedContextMenu, scrollHeight, scrollWidth);
+                        void ShowUnstagedContextMenu(FileStatus file) => _ = ShowContextMenu(module, unstaged.Where(x => selection.unstaged.Contains(x.FullPath)));
+                        GUIShortcuts.DrawList(unstaged, selection.unstaged, false, ShowUnstagedContextMenu, scrollHeight, scrollWidth);
                         using (new GUILayout.VerticalScope())
                         {
                             if (GUILayout.Button(">>", GUILayout.Width(MiddlePanelWidth)))
                             {
-                                tasksInProgress.Add(module.RunGit($"add -f -- {PackageShortcuts.JoinFileNames(unstagedSelection)}"));
-                                unstagedSelection.Clear();
+                                tasksInProgress.Add(module.RunGit($"add -f -- {PackageShortcuts.JoinFileNames(selection.unstaged)}"));
+                                selection.unstaged.Clear();
                             }
                             if (GUILayout.Button("<<", GUILayout.Width(MiddlePanelWidth)))
                             {
-                                tasksInProgress.Add(module.RunGit($"reset -q -- {PackageShortcuts.JoinFileNames(stagedSelection)}"));
-                                stagedSelection.Clear();
+                                tasksInProgress.Add(module.RunGit($"reset -q -- {PackageShortcuts.JoinFileNames(selection.staged)}"));
+                                selection.staged.Clear();
                             }
                         }
                         var staged = status.Staged.Where(x => showHidden || !x.Hidden);
-                        void ShowStagedContextMenu(FileStatus file) => _ = ShowContextMenu(module, staged.Where(x => stagedSelection.Contains(x.FullPath)));
-                        GUIShortcuts.DrawList(staged, stagedSelection, true, ShowStagedContextMenu, scrollHeight, scrollWidth);
+                        void ShowStagedContextMenu(FileStatus file) => _ = ShowContextMenu(module, staged.Where(x => selection.staged.Contains(x.FullPath)));
+                        GUIShortcuts.DrawList(staged, selection.staged, true, ShowStagedContextMenu, scrollHeight, scrollWidth);
                     }
                 }
                 showHidden = GUILayout.Toggle(showHidden, "Show Hidden");

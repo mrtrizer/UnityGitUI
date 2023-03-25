@@ -27,31 +27,68 @@ namespace Abuksigun.PackageShortcuts
         public delegate void HunkAction(string fileName, int hunkIndex);
 
         static Dictionary<Module, Vector2> logScrollPositions = new();
-        
+
+        static int reloadAssembliesStack = 0;
+
+        static void PushReloadAssemblies()
+        {
+            if (reloadAssembliesStack++ == 0)
+                EditorApplication.LockReloadAssemblies();
+        }
+
+        static void PopReloadAssemblies()
+        {
+            if (--reloadAssembliesStack == 0)
+                EditorApplication.UnlockReloadAssemblies();
+        }
 
         public static Task ShowModalWindow(string title, Vector2Int size, Action<EditorWindow> onGUI)
         {
             var window = ScriptableObject.CreateInstance<DefaultWindow>();
             window.titleContent = new GUIContent(title);
             window.onGUI = onGUI;
-            EditorApplication.LockReloadAssemblies();
+            PushReloadAssemblies();
             // True modal window in unity blocks execution of thread. So, instread I just fake it's behaviour.
             window.ShowUtility();
             window.position = new Rect(EditorGUIUtility.GetMainWindowPosition().center - size / 2, size);
             var tcs = new TaskCompletionSource<bool>();
             window.onClosed += () => {
                 tcs.SetResult(true);
-                EditorApplication.UnlockReloadAssemblies();
+                PopReloadAssemblies();
+            };
+            return tcs.Task;
+        }
+
+        // FIXME: Code duplication
+        public static Task ShowWindow(string title, Vector2Int size, Action<EditorWindow> onGUI)
+        {
+            var window = ScriptableObject.CreateInstance<DefaultWindow>();
+            window.titleContent = new GUIContent(title);
+            window.onGUI = onGUI;
+            window.Show();
+            window.position = new Rect(EditorGUIUtility.GetMainWindowPosition().center - size / 2, size);
+            var tcs = new TaskCompletionSource<bool>();
+            window.onClosed += () => {
+                tcs.SetResult(true);
             };
             return tcs.Task;
         }
 
         public static async Task<CommandResult> RunGitAndErrorCheck(Module module, string args)
         {
-            var commandLog = new List<IOData>();
-            var result = await module.RunGit(args, (data) => commandLog.Add(data));
-            if (result.ExitCode != 0)
-                EditorUtility.DisplayDialog($"Error in {module.Name}", $">> git {args}\n{commandLog.Where(x => x.Error).Select(x => x.Data).Join('\n')}", "Ok");
+            CommandResult result = null;
+            try
+            {
+                var commandLog = new List<IOData>();
+                PushReloadAssemblies();
+                result = await module.RunGit(args, (data) => commandLog.Add(data));
+                if (result.ExitCode != 0)
+                    EditorUtility.DisplayDialog($"Error in {module.Name}", $">> git {args}\n{commandLog.Where(x => x.Error).Select(x => x.Data).Join('\n')}", "Ok");
+            }
+            finally
+            {
+                PopReloadAssemblies();
+            }
             return result;
         }
 

@@ -20,7 +20,7 @@ namespace Abuksigun.PackageShortcuts
             bool showAllBranches = false;
             Task checkoutTask = null;
 
-            await GUIShortcuts.ShowModalWindow("Branches Manager", new Vector2Int(500, 450), (window) =>
+            await GUIShortcuts.ShowWindow("Branches Manager", new Vector2Int(500, 450), (window) =>
             {
                 var modules = PackageShortcuts.GetSelectedGitModules();
                 var branchesPerRepo = modules.Select(module => module.Branches.GetResultOrDefault());

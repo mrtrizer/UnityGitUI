@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -48,6 +49,11 @@ namespace Abuksigun.PackageShortcuts
         public static object When<T>(this T self, bool condition) where T : class
         {
             return condition ? self : default;
+        }
+
+        public static TValue GetOrCreate<TKey, TValue>(this IDictionary<TKey, TValue> dict, TKey key, Func<TValue> createNew)
+        {
+            return dict.TryGetValue(key, out var value) ? value : dict[key] = createNew();
         }
     }
 }
