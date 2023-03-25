@@ -31,6 +31,11 @@ namespace Abuksigun.PackageShortcuts
             return self.Split(new[] { '\n', '\r' }, RemoveEmptyEntries);
         }
 
+        public static string Join(this IEnumerable<string> values)
+        {
+            return string.Join(string.Empty, values);
+        }
+
         public static string Join(this IEnumerable<string> values, char separator)
         {
             return string.Join(separator, values);

@@ -15,7 +15,10 @@ namespace Abuksigun.PackageShortcuts
 {
     using static Const;
 
-    public record Branch(string Name, string QualifiedName, string Hash);
+    public record Reference(string Name, string QualifiedName, string Hash);
+    public record Tag(string Name, string Hash) : Reference(Name, Name, Hash);
+    public record Stash(string Message, int Id, string Hash) : Reference(Message, $"stash@{{{Id}}}", Hash);
+    public record Branch(string Name, string QualifiedName, string Hash) : Reference(Name, QualifiedName, Hash);
     public record LocalBranch(string Name, string Hash, string TrackingBranch) : Branch(Name, Name, Hash);
     public record RemoteBranch(string Name, string Hash, string RemoteAlias) : Branch(Name, RemoteAlias + '/' +Name, Hash);
     public record Remote(string Alias, string Url);

@@ -1,11 +1,44 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
 {
+    class SimpleTreeView : TreeView
+    {
+        IList<TreeViewItem> items;
+        bool multiSelection;
+
+        public SimpleTreeView(TreeViewState treeViewState, bool multiSelection) : base(treeViewState)
+        {
+            this.multiSelection = multiSelection;
+        }
+
+        public void Draw(Vector2 size, IList<TreeViewItem> items)
+        {
+            this.items = items;
+            Reload();
+            OnGUI(GUILayoutUtility.GetRect(size.x, size.y));
+        }
+
+        protected override TreeViewItem BuildRoot()
+        {
+            var root = new TreeViewItem { id = 0, depth = -1, displayName = "Root" };
+            SetupParentsAndChildrenFromDepths(root, items);
+            return root;
+        }
+
+        protected override bool CanMultiSelect(TreeViewItem item)
+        {
+            return multiSelection;
+        }
+    }
+
+
     public class RefComparer : EqualityComparer<Branch>
     {
         public override bool Equals(Branch x, Branch y)
@@ -27,9 +60,12 @@ namespace Abuksigun.PackageShortcuts
         const int BottomPanelHeight = 75;
 
         Branch selectedBranch = null;
-        Vector2 scrollPosition;
         bool showAllBranches = false;
         Task checkoutTask = null;
+
+        SimpleTreeView simpleTreeView;
+        [SerializeField]
+        TreeViewState treeViewState;
 
         protected override void OnGUI()
         {
@@ -43,19 +79,19 @@ namespace Abuksigun.PackageShortcuts
                 : showAllBranches ? branchesPerRepo.SelectMany(x => x).Distinct().ToArray()
                 : branchesPerRepo.Skip(1).Aggregate(branchesPerRepo.First().AsEnumerable(), (result, nextArray) => result.Intersect(nextArray, refComparer)).ToArray();
 
-            using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, GUILayout.Width(position.width), GUILayout.Height(position.height - BottomPanelHeight)))
-            {
-                for (int i = 0; i < branches.Length; i++)
-                {
-                    var branch = branches[i];
-                    string reposOnBranch = currentBranchPerRepo.Where(x => x.Value == branch.QualifiedName).Select(x => x.Key.Name).Join(',').WrapUp("[", "]");
-                    int reposHaveBranch = branchesPerRepo.Count(x => x.Any(y => y.QualifiedName == branch.QualifiedName));
-                    string reposHaveBranchStr = reposHaveBranch.ToString().WrapUp("(in ", " modules)");
-                    if (GUILayout.Toggle(branches[i] == selectedBranch, $"{branch.QualifiedName} {reposHaveBranchStr.When(reposHaveBranch != modules.Count())} {reposOnBranch}"))
-                        selectedBranch = branches[i];
-                }
-                scrollPosition = scroll.scrollPosition;
-            }
+            simpleTreeView ??= new SimpleTreeView(treeViewState ??= new TreeViewState(), false);
+            var items = new List<TreeViewItem>();
+            items.Add(new TreeViewItem(0, 0, "Branches"));
+            BranchesToItems(modules, branches, x => x is LocalBranch, 1, items);
+            items.Add(new TreeViewItem(1, 0, "Remotes"));
+            BranchesToItems(modules, branches, x => x is RemoteBranch, 1, items);
+            items.Add(new TreeViewItem(2, 0, "Tags"));
+            BranchesToItems(modules, branches, x => x is Tag, 1, items);
+            items.Add(new TreeViewItem(3, 0, "Stashes"));
+            BranchesToItems(modules, branches, x => x is Stash, 1, items);
+            simpleTreeView.Draw(new Vector2(position.width, position.height - BottomPanelHeight), items);
+            if (treeViewState.selectedIDs.Count > 0)
+                selectedBranch = branches.FirstOrDefault(x => x.QualifiedName.GetHashCode() == treeViewState.selectedIDs[0]);
 
             using (new GUILayout.HorizontalScope())
             {
@@ -133,6 +169,39 @@ namespace Abuksigun.PackageShortcuts
 
             if (task != null)
                 await task;
+        }
+
+        List<TreeViewItem> BranchesToItems(IEnumerable<Module> modules, Reference[] branches, Func<Reference, bool> filter, int rootDepth, List<TreeViewItem> items)
+        {
+            var branchesPerRepo = modules.Select(module => module.Branches.GetResultOrDefault());
+            var currentBranchPerRepo = modules.ToDictionary(module => module, module => module.CurrentBranch.GetResultOrDefault());
+            string currentPath = "";
+            foreach (var branch in branches.Where(filter).OrderBy(x => x.QualifiedName))
+            {
+                int lastSlashIndex = branch.QualifiedName.LastIndexOf('/');
+                if (lastSlashIndex != -1 && currentPath != branch.QualifiedName.Substring(0, lastSlashIndex))
+                {
+                    currentPath = branch.QualifiedName.Substring(0, lastSlashIndex);
+                    var parts = currentPath.Split('/');
+                    for (int i = 0; i < parts.Length; i++)
+                    {
+                        int hashCode = parts[0..(i + 1)].Join('/').GetHashCode();
+                        if (!items.Any(x => x.id == hashCode))
+                            items.Add(new TreeViewItem(hashCode, rootDepth + i, parts[i]));
+                    }
+                }
+                int depth = branch.QualifiedName.Count(x => x == '/');
+                string reposOnBranch = currentBranchPerRepo.Where(x => x.Value == branch.QualifiedName).Select(x => x.Key.Name).Join(',');
+                int reposHaveBranch = branchesPerRepo.Count(x => x.Any(y => y.QualifiedName == branch.QualifiedName));
+                string reposHaveBranchStr = reposHaveBranch.ToString().WrapUp("(in ", " modules)");
+                string itemText = 
+                    $"{branch.QualifiedName.Substring(lastSlashIndex + 1)} " +
+                    $"{reposHaveBranchStr.When(reposHaveBranch != modules.Count())} " +
+                    $"{reposOnBranch.WrapUp("[", "]").When(reposOnBranch != "")}";
+                var item = new TreeViewItem(branch.QualifiedName.GetHashCode(), rootDepth + depth, itemText);
+                items.Add(item);
+            }
+            return items;
         }
     }
 
