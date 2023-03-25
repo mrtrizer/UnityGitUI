@@ -1,13 +1,29 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
-using UnityEditor.PackageManager.UI;
 using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
 {
+    public class RefComparer : EqualityComparer<Branch>
+    {
+        public override bool Equals(Branch x, Branch y)
+        {
+            return (x is LocalBranch localBranchX && y is LocalBranch localBranchY && localBranchX.Name == localBranchY.Name)
+                || (x is RemoteBranch remoteBranchX && y is RemoteBranch remoteBranchY && remoteBranchX.QualifiedName == remoteBranchY.QualifiedName);
+        }
+
+        public override int GetHashCode(Branch obj)
+        {
+            return obj.QualifiedName.GetHashCode();
+        }
+    }
+    
     class GitBranchesWindow : DefaultWindow
     {
+        static RefComparer refComparer = new();
+
         const int BottomPanelHeight = 75;
 
         Branch selectedBranch = null;
@@ -25,7 +41,7 @@ namespace Abuksigun.PackageShortcuts
 
             Branch[] branches = branchesPerRepo.Count() == 1 ? branchesPerRepo.First()
                 : showAllBranches ? branchesPerRepo.SelectMany(x => x).Distinct().ToArray()
-                : branchesPerRepo.Skip(1).Aggregate(branchesPerRepo.First().AsEnumerable(), (result, nextArray) => result.Intersect(nextArray)).ToArray();
+                : branchesPerRepo.Skip(1).Aggregate(branchesPerRepo.First().AsEnumerable(), (result, nextArray) => result.Intersect(nextArray, refComparer)).ToArray();
 
             using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, GUILayout.Width(position.width), GUILayout.Height(position.height - BottomPanelHeight)))
             {

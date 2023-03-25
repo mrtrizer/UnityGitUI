@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.AccessControl;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
@@ -14,9 +15,9 @@ namespace Abuksigun.PackageShortcuts
 {
     using static Const;
 
-    public record Branch(string Name, string QualifiedName);
-    public record LocalBranch(string Name) : Branch(Name, Name);
-    public record RemoteBranch(string Name, string RemoteAlias) : Branch(Name, RemoteAlias + '/' +Name);
+    public record Branch(string Name, string QualifiedName, string Hash);
+    public record LocalBranch(string Name, string Hash, string TrackingBranch) : Branch(Name, Name, Hash);
+    public record RemoteBranch(string Name, string Hash, string RemoteAlias) : Branch(Name, RemoteAlias + '/' +Name, Hash);
     public record Remote(string Alias, string Url);
     public record RemoteStatus(string Remote, int Ahead, int Behind);
     public struct NumStat
@@ -108,15 +109,18 @@ namespace Abuksigun.PackageShortcuts
 
             void Reset(object obj, FileSystemEventArgs args)
             {
-                isGitRepo = null;
-                gitRepoPath = null;
-                branches = null;
-                currentBranch = null;
-                currentCommit = null;
-                isMergeInProgress = null;
-                remotes = null;
-                defaultRemote = null;
-                remoteStatus = null;
+                if (args.FullPath.Contains(".git"))
+                {
+                    isGitRepo = null;
+                    gitRepoPath = null;
+                    branches = null;
+                    currentBranch = null;
+                    currentCommit = null;
+                    isMergeInProgress = null;
+                    remotes = null;
+                    defaultRemote = null;
+                    remoteStatus = null;
+                }
                 gitStatus = null;
                 diffCache = null;
             }
@@ -170,15 +174,15 @@ namespace Abuksigun.PackageShortcuts
 
         async Task<Branch[]> GetBranches()
         {
-            var result = await RunGit($"branch -a --format=\"%(refname)\t%(upstream)\"");
+            var result = await RunGit($"branch -a --format=\"%(refname)\t%(objectname)\t%(upstream)\"");
             return result.Output.SplitLines()
                 .Where(x => !x.StartsWith("(HEAD detached"))
                 .Select(x => x.Split('\t', RemoveEmptyEntries))
                 .Select<string[], Branch>(x => {
                     string[] split = x[0].Split('/');
                     return split[1] == "remotes"
-                        ? new RemoteBranch(split[3..].Join('/'), split[2])
-                        : new LocalBranch(split[2..].Join('/'));
+                        ? new RemoteBranch(split[3..].Join('/'), x[1], split[2])
+                        : new LocalBranch(split[2..].Join('/'), x[1], x.Length > 2 ? x[2] : null);
                 })
                 .ToArray();
         }
