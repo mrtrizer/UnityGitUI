@@ -21,9 +21,8 @@ namespace Abuksigun.PackageShortcuts
         {
             string commitMessage = "";
             var modules = PackageShortcuts.GetSelectedGitModules().ToArray();
-            var tasks = new Task<CommandResult>[modules.Length];
-            var scrollPositions = new (Vector2 unstaged, Vector2 staged)[modules.Length];
-            var selection = Enumerable.Repeat((unstaged:new List<string>(), staged: new List<string>()), modules.Length).ToArray();
+            var tasksInProgress = new List<Task<CommandResult>>();
+            var selection = Enumerable.Repeat((unstaged:new ListState(), staged: new ListState()), modules.Length).ToArray();
 
             bool showHidden = false;
             string[] moduleNames = modules.Select(x => x.ShortName).ToArray();
@@ -34,10 +33,12 @@ namespace Abuksigun.PackageShortcuts
                 GUILayout.Label("Commit message");
                 commitMessage = GUILayout.TextArea(commitMessage, GUILayout.Height(40));
 
+                tasksInProgress.RemoveAll(x => x.IsCompleted);
+
                 var modulesInMergingState = modules.Where(x => x.IsMergeInProgress.GetResultOrDefault());
                 var moduleNotInMergeState = modules.Where(x => !x.IsMergeInProgress.GetResultOrDefault());
                 int modulesWithStagedFiles = moduleNotInMergeState.Count(x => x.GitStatus.GetResultOrDefault()?.Staged?.Count() > 0);
-                bool commitAvailable = modulesWithStagedFiles > 0 && !string.IsNullOrWhiteSpace(commitMessage) && !tasks.Any(x => x != null && !x.IsCompleted);
+                bool commitAvailable = modulesWithStagedFiles > 0 && !string.IsNullOrWhiteSpace(commitMessage) && !tasksInProgress.Any();
 
                 using (new GUILayout.HorizontalScope())
                 {
@@ -45,33 +46,32 @@ namespace Abuksigun.PackageShortcuts
                     {
                         if (GUILayout.Button($"Commit {modulesWithStagedFiles}/{modules.Length} modules", GUILayout.Width(200)))
                         {
-                            tasks = moduleNotInMergeState.Select(module => module.RunGit($"commit -m {commitMessage.WrapUp()}")).ToArray();
+                            tasksInProgress.AddRange(moduleNotInMergeState.Select(module => module.RunGit($"commit -m {commitMessage.WrapUp()}")));
                             commitMessage = "";
                         }
                         if (GUILayout.Button($"Stash {modulesWithStagedFiles}/{modules.Length} modules", GUILayout.Width(200)))
                         {
-                            tasks = moduleNotInMergeState.Select(module => {
+                            tasksInProgress.AddRange(moduleNotInMergeState.Select(module => {
                                 var files = module.GitStatus.GetResultOrDefault().Files.Where(x => x.IsStaged).Select(x => x.FullPath);
                                 return module.RunGit($"stash push -m {commitMessage.WrapUp()} -- {PackageShortcuts.JoinFileNames(files)}");
-                            }).ToArray();
+                            }));
                             commitMessage = "";
                         } 
                     }
                     if (modulesInMergingState.Any() && GUILayout.Button($"Commit merge in {modulesInMergingState.Count()}/{modules.Length} modules", GUILayout.Width(200))
                         && EditorUtility.DisplayDialog($"Are you sure you want COMMIT merge?", "It will be default commit message for each module. You can't change it!", "Yes", "No"))
                     {
-                        tasks = modules.Select(module => module.RunGit($"commit --no-edit")).ToArray();
+                        tasksInProgress.AddRange(modules.Select(module => module.RunGit($"commit --no-edit")));
                     }
                     if (modulesInMergingState.Any() && GUILayout.Button($"Abort merge in {modulesInMergingState.Count()}/{modules.Length} modules", GUILayout.Width(200))
                         && EditorUtility.DisplayDialog($"Are you sure you want ABORT merge?", modulesInMergingState.Select(x => x.Name).Join(", "), "Yes", "No"))
                     {
-                        tasks = modules.Select(module => module.RunGit($"merge --abort")).ToArray();
+                        tasksInProgress.AddRange(modules.Select(module => module.RunGit($"merge --abort")));
                     }
                 }
 
                 tab = moduleNames.Length > 1 ? GUILayout.Toolbar(tab, moduleNames) : 0;
                 var module = modules[tab];
-                var task = tasks[tab];
                 var unstagedSelection = selection[tab].unstaged;
                 var stagedSelection = selection[tab].staged;
 
@@ -82,33 +82,33 @@ namespace Abuksigun.PackageShortcuts
                     var scrollHeight = GUILayout.Height(window.position.height - TopPanelHeight - BottomPanelHeight);
                     var scrollWidth = GUILayout.Width((window.position.width - MiddlePanelWidth) / 2);
 
-                    using (new EditorGUI.DisabledGroupScope(task != null && !task.IsCompleted))
+                    using (new EditorGUI.DisabledGroupScope(tasksInProgress.Any()))
                     using (new GUILayout.HorizontalScope())
                     {
                         var unstaged = status.Unstaged.Where(x => showHidden || !x.Hidden);
                         void ShowUnstagedContextMenu(FileStatus file) => _ = ShowContextMenu(module, unstaged.Where(x => unstagedSelection.Contains(x.FullPath)));
-                        GUIShortcuts.DrawList(gitRepoPath, unstaged, unstagedSelection, ref scrollPositions[tab].unstaged, false, ShowUnstagedContextMenu, scrollHeight, scrollWidth);
+                        GUIShortcuts.DrawList(unstaged, unstagedSelection, false, ShowUnstagedContextMenu, scrollHeight, scrollWidth);
                         using (new GUILayout.VerticalScope())
                         {
                             if (GUILayout.Button(">>", GUILayout.Width(MiddlePanelWidth)))
                             {
-                                tasks[tab] = module.RunGit($"add -f -- {PackageShortcuts.JoinFileNames(unstagedSelection)}");
+                                tasksInProgress.Add(module.RunGit($"add -f -- {PackageShortcuts.JoinFileNames(unstagedSelection)}"));
                                 unstagedSelection.Clear();
                             }
                             if (GUILayout.Button("<<", GUILayout.Width(MiddlePanelWidth)))
                             {
-                                tasks[tab] = module.RunGit($"reset -q -- {PackageShortcuts.JoinFileNames(stagedSelection)}");
+                                tasksInProgress.Add(module.RunGit($"reset -q -- {PackageShortcuts.JoinFileNames(stagedSelection)}"));
                                 stagedSelection.Clear();
                             }
                         }
                         var staged = status.Staged.Where(x => showHidden || !x.Hidden);
                         void ShowStagedContextMenu(FileStatus file) => _ = ShowContextMenu(module, staged.Where(x => stagedSelection.Contains(x.FullPath)));
-                        GUIShortcuts.DrawList(gitRepoPath, staged, stagedSelection, ref scrollPositions[tab].staged, true, ShowStagedContextMenu, scrollHeight, scrollWidth);
+                        GUIShortcuts.DrawList(staged, stagedSelection, true, ShowStagedContextMenu, scrollHeight, scrollWidth);
                     }
                 }
                 showHidden = GUILayout.Toggle(showHidden, "Show Hidden");
             });
-            await Task.WhenAll(tasks.Where(x => x != null));
+            await Task.WhenAll(tasksInProgress.Where(x => x != null));
         }
 
         static async Task ShowContextMenu(Module module, IEnumerable<FileStatus> files)
@@ -124,14 +124,21 @@ namespace Abuksigun.PackageShortcuts
                     Diff.ShowDiff(module, files.Where(x => x.IsStaged).Select(x => x.FullPath), true),
                     Diff.ShowDiff(module, files.Where(x => x.IsUnstaged).Select(x => x.FullPath), false)
                 ));
+                if (files.Any(x => x.IsUnstaged))
+                {
+                    menu.AddItem(new GUIContent("Discrad"), false, () => {
+                        if (EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", filesList, "Yes", "No"))
+                            task = module.RunGit($"checkout -q -- {filesList}");
+                    });
+                }
+                if (files.Any(x => x.IsStaged))
+                {
+                    menu.AddItem(new GUIContent("Unstage"), false, () => {
+                        task = module.RunGit($"reset -q -- {filesList}");
+                    });
+                }
             }
-            if (files.Any(x => x.IsUnstaged))
-            {
-                menu.AddItem(new GUIContent("Discrad"), false, () => {
-                    if (EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", filesList, "Yes", "No"))
-                        task = module.RunGit($"checkout -q -- {filesList}");
-                });
-            }
+            
             string conflictedFilesList = PackageShortcuts.JoinFileNames(files.Where(x => x.IsUnresolved).Select(x => x.FullPath));
             if (!string.IsNullOrEmpty(conflictedFilesList))
             {

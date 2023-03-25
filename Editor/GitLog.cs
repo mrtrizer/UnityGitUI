@@ -12,8 +12,6 @@ namespace Abuksigun.PackageShortcuts
     {
         const int BottomPanelHeight = 200;
         const int FileListHeight = 150;
-        
-        static readonly List<string> emptyList = new();
 
         static Lazy<GUIStyle> IdleLogStyle = new(() => new (Style.Idle.Value) { font = Style.MonospacedFont.Value, fontSize = 12, richText = true });
         static Lazy<GUIStyle> SelectedLogStyle = new(() => new (Style.Selected.Value) { font = Style.MonospacedFont.Value, fontSize = 12, richText = true });
@@ -24,11 +22,10 @@ namespace Abuksigun.PackageShortcuts
         [MenuItem("Assets/Git Log", priority = 100)]
         public static async void Invoke()
         {
-            var filesScrollPosition = Vector2.zero;
             var scrollPosition = Vector2.zero;
             Task<CommandResult> logTask = null;
             Task<string> currentBranchTask = null;
-            var selectionPerModule = new Dictionary<string, List<string>>();
+            var selectionPerModule = new Dictionary<string, ListState>();
             int tab = 0;
             string selectedCommit = null;
 
@@ -46,7 +43,7 @@ namespace Abuksigun.PackageShortcuts
                     logTask = module.RunGit($"log --graph --abbrev-commit --decorate --format=format:\"%h - %an (%ar) <b>%d</b> %s\" --branches --remotes --tags");
                 }
 
-                var selection = selectionPerModule.GetValueOrDefault(module.Guid, emptyList);
+                var selection = selectionPerModule.GetValueOrDefault(module.Guid) ?? (selectionPerModule[module.Guid] = new ListState());
                 var windowWidth = GUILayout.Width(window.position.width);
                 using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, windowWidth, GUILayout.Height(window.position.height - BottomPanelHeight)))
                 {
@@ -92,7 +89,7 @@ namespace Abuksigun.PackageShortcuts
                 if (module.GitRepoPath.GetResultOrDefault() is { } gitRepoPath && module.DiffFiles($"{selectedCommit}~1", selectedCommit).GetResultOrDefault() is { } diffFiles)
                 {
                     void ShowSelectionContextMenu(FileStatus file) => ShowContextMenu(module, selection, selectedCommit);
-                    GUIShortcuts.DrawList(gitRepoPath, diffFiles, selection, ref filesScrollPosition, true, ShowSelectionContextMenu, windowWidth, GUILayout.Height(FileListHeight));
+                    GUIShortcuts.DrawList(diffFiles, selection, true, ShowSelectionContextMenu, windowWidth, GUILayout.Height(FileListHeight));
                 }
             });
         }

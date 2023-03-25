@@ -17,6 +17,11 @@ namespace Abuksigun.PackageShortcuts
         void OnDestroy() => onClosed?.Invoke();
     }
 
+    public class ListState : List<string>
+    {
+        public Vector2 ScrollPosition { get; set; }
+    }
+    
     public static class GUIShortcuts
     {
         public delegate void HunkAction(string fileName, int hunkIndex);
@@ -127,7 +132,7 @@ namespace Abuksigun.PackageShortcuts
             scrollPosition = scroll.scrollPosition;
         }
 
-        public static void DrawList(string path, IEnumerable<FileStatus> files, List<string> selectionList, ref Vector2 position, bool staged, Action<FileStatus> contextMenu = null, params GUILayoutOption[] layoutOptions)
+        public static void DrawList(IEnumerable<FileStatus> files, ListState listState, bool staged, Action<FileStatus> contextMenu = null, params GUILayoutOption[] layoutOptions)
         {
             using (new GUILayout.VerticalScope())
             {
@@ -135,19 +140,19 @@ namespace Abuksigun.PackageShortcuts
                 {
                     if (files.Any() && GUILayout.Button("All", GUILayout.MaxWidth(50)))
                     {
-                        selectionList.Clear();
-                        selectionList.AddRange(files.Select(x => x.FullPath));
+                        listState.Clear();
+                        listState.AddRange(files.Select(x => x.FullPath));
                     }
                     if (files.Any() && GUILayout.Button("None", GUILayout.MaxWidth(50)))
-                        selectionList.Clear();
+                        listState.Clear();
                 }
-                using (var scroll = new GUILayout.ScrollViewScope(position, false, false, layoutOptions))
+                using (var scroll = new GUILayout.ScrollViewScope(listState.ScrollPosition, false, false, layoutOptions))
                 {
                     foreach (var file in files)
                     {
-                        bool wasSelected = selectionList.Contains(file.FullPath);
-                        // TODO: Remove path from arguments and add RepoPath to FileStatus record
-                        string relativePath = Path.GetRelativePath(path, file.FullPath);
+                        bool wasSelected = listState.Contains(file.FullPath);
+                        var module = PackageShortcuts.GetModule(file.ModuleGuid);
+                        string relativePath = Path.GetRelativePath(module.GitRepoPath.GetResultOrDefault(), file.FullPath);
                         var numStat = staged ? file.StagedNumStat : file.UnstagedNumStat;
                         var style = wasSelected ? Style.Selected.Value : Style.Idle.Value;
                         bool isSelected = GUILayout.Toggle(wasSelected, $"{(staged ? file.X : file.Y)} {relativePath} +{numStat.Added} -{numStat.Removed}", style);
@@ -159,30 +164,30 @@ namespace Abuksigun.PackageShortcuts
                         else if (Event.current.control)
                         {
                             if (isSelected != wasSelected && wasSelected)
-                                selectionList.Remove(file.FullPath);
+                                listState.Remove(file.FullPath);
                             if (isSelected != wasSelected && !wasSelected)
-                                selectionList.Add(file.FullPath);
+                                listState.Add(file.FullPath);
                         }
-                        else if (Event.current.shift && isSelected != wasSelected && selectionList.LastOrDefault() != file.FullPath)
+                        else if (Event.current.shift && isSelected != wasSelected && listState.LastOrDefault() != file.FullPath)
                         {
                             bool select = false;
                             foreach (var selectedFile in files)
                             {
-                                bool hitRange = selectedFile.FullPath == selectionList.LastOrDefault() || selectedFile.FullPath == file.FullPath;
-                                if ((hitRange || select) && !selectionList.Contains(selectedFile.FullPath))
-                                    selectionList.Add(selectedFile.FullPath);
+                                bool hitRange = selectedFile.FullPath == listState.LastOrDefault() || selectedFile.FullPath == file.FullPath;
+                                if ((hitRange || select) && !listState.Contains(selectedFile.FullPath))
+                                    listState.Add(selectedFile.FullPath);
                                 if (hitRange)
                                     select = !select;
                             }
                         }
                         else if (isSelected != wasSelected)
                         {
-                            selectionList.Clear();
+                            listState.Clear();
                             if (!wasSelected)
-                                selectionList.Add(file.FullPath);
+                                listState.Add(file.FullPath);
                         }
                     }
-                    position = scroll.scrollPosition;
+                    listState.ScrollPosition = scroll.scrollPosition;
                 }
             }
         }

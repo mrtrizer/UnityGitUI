@@ -24,7 +24,7 @@ namespace Abuksigun.PackageShortcuts
         public int Added;
         public int Removed;
     }
-    public record FileStatus(string FullPath, string OldName, char X, char Y, NumStat UnstagedNumStat, NumStat StagedNumStat, bool Hidden)
+    public record FileStatus(string ModuleGuid, string FullPath, string OldName, char X, char Y, NumStat UnstagedNumStat, NumStat StagedNumStat, bool Hidden)
     {
         public bool IsInIndex => Y is not '?';
         public bool IsUnstaged => Y is not ' ';
@@ -247,6 +247,7 @@ namespace Abuksigun.PackageShortcuts
                 string oldPath = paths.Length > 1 ? paths[0].Trim() : null;
                 string fullPath = Path.Join(gitRepoPathTask.Result, path.Trim('"')).NormalizePath();
                 return new FileStatus(
+                    ModuleGuid: Guid,
                     FullPath: fullPath,
                     OldName: oldPath?.Trim('"'),
                     X: line[0],
@@ -274,6 +275,7 @@ namespace Abuksigun.PackageShortcuts
                 string path = paths.Length > 1 ? paths[1].Trim() : paths[0].Trim();
                 string oldPath = paths.Length > 1 ? paths[0].Trim() : null;
                 return new FileStatus(
+                    ModuleGuid: Guid,
                     FullPath: Path.Join(gitRepoPathTask.Result, path.Trim('"')).NormalizePath(),
                     OldName: oldPath?.Trim('"'),
                     X: line[0],
