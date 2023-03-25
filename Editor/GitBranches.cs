@@ -10,6 +10,7 @@ namespace Abuksigun.PackageShortcuts
 {
     class SimpleTreeView : TreeView
     {
+        Action<int> contextMenuCallback;
         IList<TreeViewItem> items;
         bool multiSelection;
 
@@ -18,9 +19,10 @@ namespace Abuksigun.PackageShortcuts
             this.multiSelection = multiSelection;
         }
 
-        public void Draw(Vector2 size, IList<TreeViewItem> items)
+        public void Draw(Vector2 size, IList<TreeViewItem> items, Action<int> contextMenuCallback = null)
         {
             this.items = items;
+            this.contextMenuCallback = contextMenuCallback;
             Reload();
             OnGUI(GUILayoutUtility.GetRect(size.x, size.y));
         }
@@ -35,6 +37,12 @@ namespace Abuksigun.PackageShortcuts
         protected override bool CanMultiSelect(TreeViewItem item)
         {
             return multiSelection;
+        }
+
+        protected override void ContextClickedItem(int id)
+        {
+            contextMenuCallback?.Invoke(id);
+            base.ContextClickedItem(id);
         }
     }
 
@@ -57,9 +65,8 @@ namespace Abuksigun.PackageShortcuts
     {
         static RefComparer refComparer = new();
 
-        const int BottomPanelHeight = 75;
+        const int BottomPanelHeight = 25;
 
-        Branch selectedBranch = null;
         bool showAllBranches = false;
         Task checkoutTask = null;
 
@@ -76,7 +83,7 @@ namespace Abuksigun.PackageShortcuts
                 return;
 
             Branch[] branches = branchesPerRepo.Count() == 1 ? branchesPerRepo.First()
-                : showAllBranches ? branchesPerRepo.SelectMany(x => x).Distinct().ToArray()
+                : showAllBranches ? branchesPerRepo.SelectMany(x => x).Distinct(refComparer).ToArray()
                 : branchesPerRepo.Skip(1).Aggregate(branchesPerRepo.First().AsEnumerable(), (result, nextArray) => result.Intersect(nextArray, refComparer)).ToArray();
 
             simpleTreeView ??= new SimpleTreeView(treeViewState ??= new TreeViewState(), false);
@@ -89,9 +96,10 @@ namespace Abuksigun.PackageShortcuts
             BranchesToItems(modules, branches, x => x is Tag, 1, items);
             items.Add(new TreeViewItem(3, 0, "Stashes"));
             BranchesToItems(modules, branches, x => x is Stash, 1, items);
-            simpleTreeView.Draw(new Vector2(position.width, position.height - BottomPanelHeight), items);
-            if (treeViewState.selectedIDs.Count > 0)
-                selectedBranch = branches.FirstOrDefault(x => x.QualifiedName.GetHashCode() == treeViewState.selectedIDs[0]);
+            simpleTreeView.Draw(new Vector2(position.width, position.height - BottomPanelHeight), items, id => {
+                if (checkoutTask == null || checkoutTask.IsCompleted)
+                    ContextMenu(modules, branches.FirstOrDefault(x => x.QualifiedName.GetHashCode() == id));
+            });
 
             using (new GUILayout.HorizontalScope())
             {
@@ -100,52 +108,9 @@ namespace Abuksigun.PackageShortcuts
 
                 showAllBranches = GUILayout.Toggle(showAllBranches, "Show All Branches");
             }
-
-            if (selectedBranch != null)
-            {
-                using (new EditorGUI.DisabledGroupScope(checkoutTask != null && !checkoutTask.IsCompleted))
-                using (new GUILayout.HorizontalScope())
-                {
-                    if (selectedBranch is LocalBranch localBranch)
-                    {
-                        if (GUILayout.Button($"Checkout [{localBranch.Name}]"))
-                            checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"checkout {localBranch.Name}")));
-
-                        if (GUILayout.Button($"Delete local [{localBranch.Name}]")
-                            && EditorUtility.DisplayDialog("Are you sure you want DELETE branch", $"LOCAL {localBranch.Name} in {modules.Count()} modules", "Yes", "No"))
-                        {
-                            checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"branch -d {localBranch.Name}")));
-                        }
-                    }
-                    else if (selectedBranch is RemoteBranch remoteBranch)
-                    {
-                        if (GUILayout.Button($"Checkout & Track [{remoteBranch.Name}]"))
-                            checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"switch {remoteBranch.Name}")));
-
-                        if (GUILayout.Button($"Delete remote [{remoteBranch.QualifiedName}]")
-                            && EditorUtility.DisplayDialog("Are you sure you want DELETE branch", $"REMOTE {remoteBranch.Name} in {modules.Count()} modules", "Yes", "No"))
-                        {
-                            checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"push -d {remoteBranch.RemoteAlias} {remoteBranch.Name}")));
-                        }
-                    }
-                }
-                using (new GUILayout.HorizontalScope())
-                {
-                    string affectedModules = modules.Select(x => $"{x.Name}: {selectedBranch.Name} into {x.CurrentBranch.GetResultOrDefault()}").Join('\n');
-                    if (GUILayout.Button($"Merge [{selectedBranch.QualifiedName}]"))
-                    {
-                        if (EditorUtility.DisplayDialog("Are you sure you want MERGE branch", affectedModules, "Yes", "No"))
-                            checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"merge {selectedBranch.QualifiedName}")));
-                    }
-                    if (GUILayout.Button($"Rebase [{selectedBranch.QualifiedName}]"))
-                    {
-                        if (EditorUtility.DisplayDialog("Are you sure you want REBASE branch", affectedModules, "Yes", "No"))
-                            checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"rebase {selectedBranch.QualifiedName}")));
-                    }
-                }
-            }
             base.OnGUI();
         }
+        
         static async void MakeBranch()
         {
             string branchName = "";
@@ -171,6 +136,48 @@ namespace Abuksigun.PackageShortcuts
                 await task;
         }
 
+        void ContextMenu(IEnumerable<Module> modules, Branch selectedBranch)
+        {
+            string branchName = selectedBranch.QualifiedName.Replace("/", "\u2215");
+            GenericMenu menu = new GenericMenu();
+            if (selectedBranch is LocalBranch localBranch)
+            {
+                menu.AddItem(new GUIContent($"Checkout [{branchName}]"), false, () => {
+                    checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"checkout {localBranch.Name}")));
+                });
+
+                menu.AddItem(new GUIContent($"Delete local [{branchName}]"), false, () => {
+                    if (EditorUtility.DisplayDialog("Are you sure you want DELETE branch", $"LOCAL {localBranch.Name} in {modules.Count()} modules", "Yes", "No"))
+                        checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"branch -d {localBranch.Name}")));
+                });
+            }
+            else if (selectedBranch is RemoteBranch remoteBranch)
+            {
+                
+                menu.AddItem(new GUIContent($"Checkout & Track [{branchName}]"), false, () => {
+                    checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"switch {remoteBranch.Name}")));
+                });
+
+                menu.AddItem(new GUIContent($"Delete remote [{branchName}]"), false, () => {
+                    if (EditorUtility.DisplayDialog("Are you sure you want DELETE branch", $"REMOTE {remoteBranch.Name} in {modules.Count()} modules", "Yes", "No"))
+                        checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"push -d {remoteBranch.RemoteAlias} {remoteBranch.Name}")));
+                });
+            }
+
+            string affectedModules = modules.Select(x => $"{x.Name}: {selectedBranch.Name} into {x.CurrentBranch.GetResultOrDefault()}").Join('\n');
+
+            menu.AddItem(new GUIContent($"Merge [{branchName}]"), false, () => {
+                if (EditorUtility.DisplayDialog("Are you sure you want MERGE branch", affectedModules, "Yes", "No"))
+                    checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"merge {selectedBranch.QualifiedName}")));
+            });
+
+            menu.AddItem(new GUIContent($"Rebase [{branchName}]"), false, () => {
+                if (EditorUtility.DisplayDialog("Are you sure you want REBASE branch", affectedModules, "Yes", "No"))
+                    checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"rebase {selectedBranch.QualifiedName}")));
+            });
+            menu.ShowAsContext();
+        }
+
         List<TreeViewItem> BranchesToItems(IEnumerable<Module> modules, Reference[] branches, Func<Reference, bool> filter, int rootDepth, List<TreeViewItem> items)
         {
             var branchesPerRepo = modules.Select(module => module.Branches.GetResultOrDefault());
@@ -193,7 +200,7 @@ namespace Abuksigun.PackageShortcuts
                 int depth = branch.QualifiedName.Count(x => x == '/');
                 string reposOnBranch = currentBranchPerRepo.Where(x => x.Value == branch.QualifiedName).Select(x => x.Key.Name).Join(',');
                 int reposHaveBranch = branchesPerRepo.Count(x => x.Any(y => y.QualifiedName == branch.QualifiedName));
-                string reposHaveBranchStr = reposHaveBranch.ToString().WrapUp("(in ", " modules)");
+                string reposHaveBranchStr = reposHaveBranch.ToString().WrapUp("(", ")");
                 string itemText = 
                     $"{branch.QualifiedName.Substring(lastSlashIndex + 1)} " +
                     $"{reposHaveBranchStr.When(reposHaveBranch != modules.Count())} " +
