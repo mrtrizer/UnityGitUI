@@ -39,7 +39,10 @@ namespace Abuksigun.PackageShortcuts
         static void PopReloadAssemblies()
         {
             if (--reloadAssembliesStack == 0)
+            {
                 EditorApplication.UnlockReloadAssemblies();
+                AssetDatabase.Refresh();
+            }
         }
 
         public static Task ShowModalWindow(string title, Vector2Int size, Action<EditorWindow> onGUI)
@@ -58,22 +61,7 @@ namespace Abuksigun.PackageShortcuts
             };
             return tcs.Task;
         }
-
-        // FIXME: Code duplication
-        public static Task ShowWindow(string title, Vector2Int size, Action<EditorWindow> onGUI)
-        {
-            var window = ScriptableObject.CreateInstance<DefaultWindow>();
-            window.titleContent = new GUIContent(title);
-            window.onGUI = onGUI;
-            window.Show();
-            window.position = new Rect(EditorGUIUtility.GetMainWindowPosition().center - size / 2, size);
-            var tcs = new TaskCompletionSource<bool>();
-            window.onClosed += () => {
-                tcs.SetResult(true);
-            };
-            return tcs.Task;
-        }
-
+        
         public static async Task<CommandResult> RunGitAndErrorCheck(Module module, string args)
         {
             CommandResult result = null;
