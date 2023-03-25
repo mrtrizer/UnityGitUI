@@ -138,6 +138,8 @@ namespace Abuksigun.PackageShortcuts
 
         void ContextMenu(IEnumerable<Module> modules, Branch selectedBranch)
         {
+            if (selectedBranch == null)
+                return;
             string branchName = selectedBranch.QualifiedName.Replace("/", "\u2215");
             GenericMenu menu = new GenericMenu();
             if (selectedBranch is LocalBranch localBranch)
