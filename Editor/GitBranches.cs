@@ -87,6 +87,7 @@ namespace Abuksigun.PackageShortcuts
                 : branchesPerRepo.Skip(1).Aggregate(branchesPerRepo.First().AsEnumerable(), (result, nextArray) => result.Intersect(nextArray, refComparer)).ToArray();
 
             simpleTreeView ??= new SimpleTreeView(treeViewState ??= new TreeViewState(), false);
+
             var items = new List<TreeViewItem>();
             items.Add(new TreeViewItem(0, 0, "Branches"));
             BranchesToItems(modules, references, x => x is LocalBranch, 1, items);
@@ -96,18 +97,16 @@ namespace Abuksigun.PackageShortcuts
             BranchesToItems(modules, references, x => x is Tag, 1, items);
             items.Add(new TreeViewItem(3, 0, "Stashes"));
             BranchesToItems(modules, references, x => x is Stash, 1, items);
+            
             simpleTreeView.Draw(new Vector2(position.width, position.height - BottomPanelHeight), items, id => {
+                var genericMenu = new GenericMenu();
                 if (checkoutTask == null || checkoutTask.IsCompleted)
-                    ContextMenu(modules, references.FirstOrDefault(x => x.QualifiedName.GetHashCode() == id));
+                    ShowContextMenu(modules, references.FirstOrDefault(x => x.QualifiedName.GetHashCode() == id));
+                if (genericMenu.GetItemCount() > 0)
+                    genericMenu.ShowAsContext();
             });
 
-            using (new GUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button("New Branch", GUILayout.Width(150)))
-                    MakeBranch();
-
-                showAllBranches = GUILayout.Toggle(showAllBranches, "Show All Branches");
-            }
+            showAllBranches = GUILayout.Toggle(showAllBranches, "Show All Branches");
             base.OnGUI();
         }
         
@@ -115,9 +114,8 @@ namespace Abuksigun.PackageShortcuts
         {
             string branchName = "";
             bool checkout = true;
-            Task task = null;
-
-            await GUIShortcuts.ShowModalWindow("Make branch", new Vector2Int(300, 150), (window) => {
+            
+            await GUIShortcuts.ShowModalWindow("New Branch", new Vector2Int(300, 150), (window) => {
                 GUILayout.Label("Branch Name: ");
                 branchName = EditorGUILayout.TextField(branchName);
                 checkout = GUILayout.Toggle(checkout, "Checkout to this branch");
@@ -126,22 +124,41 @@ namespace Abuksigun.PackageShortcuts
                 {
                     if (GUILayout.Button("Ok", GUILayout.Width(200)))
                     {
-                        task = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.RunGit(checkout ? $"checkout -b {branchName}" : $"branch {branchName}")));
+                        _ = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.RunGit(checkout ? $"checkout -b {branchName}" : $"branch {branchName}")));
                         window.Close();
                     }
                 }
             });
-
-            if (task != null)
-                await task;
         }
 
-        void ContextMenu(IEnumerable<Module> modules, Reference selectedReference)
+        static async void MakeTag()
         {
-            if (selectedReference == null)
-                return;
-            string branchName = selectedReference.QualifiedName.Replace("/", "\u2215");
+            string tagName = "";
+            string annotation = "";
+
+            await GUIShortcuts.ShowModalWindow("New Tag", new Vector2Int(300, 150), (window) => {
+                GUILayout.Label("Tag Name: ");
+                tagName = EditorGUILayout.TextField(tagName);
+                GUILayout.Label("Annotation (optional): ");
+                tagName = EditorGUILayout.TextArea(annotation, GUILayout.Height(30));
+                GUILayout.Space(30);
+                using (new GUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("Ok", GUILayout.Width(200)))
+                    {
+                        string message = string.IsNullOrEmpty(annotation) ? "" : $"-m {annotation}";
+                        _ = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.RunGit($"tag {tagName} {message}")));
+                        window.Close();
+                    }
+                }
+            });
+        }
+
+        void ShowContextMenu(IEnumerable<Module> modules, Reference selectedReference)
+        {
             GenericMenu menu = new GenericMenu();
+            
+            string branchName = selectedReference?.QualifiedName?.Replace("/", "\u2215");
             if (selectedReference is LocalBranch localBranch)
             {
                 menu.AddItem(new GUIContent($"Checkout [{branchName}]"), false, () => {
@@ -184,9 +201,11 @@ namespace Abuksigun.PackageShortcuts
                         checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"stash -d {stashName}")));
                 });
             }
-
+            
             if (selectedReference is Branch)
             {
+                menu.AddSeparator("");
+                
                 string affectedModules = modules.Select(x => $"{x.Name}: {selectedReference.Name} into {x.CurrentBranch.GetResultOrDefault()}").Join('\n');
 
                 menu.AddItem(new GUIContent($"Merge [{branchName}]"), false, () => {
@@ -198,6 +217,11 @@ namespace Abuksigun.PackageShortcuts
                         checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"rebase {selectedReference.QualifiedName}")));
                 });
             }
+
+            if (selectedReference != null)
+                menu.AddSeparator("");
+            menu.AddItem(new GUIContent($"New Branch"), false, MakeBranch);
+            menu.AddItem(new GUIContent($"New Tag"), false, MakeTag);
             menu.ShowAsContext();
         }
 

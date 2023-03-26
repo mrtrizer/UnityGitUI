@@ -128,6 +128,7 @@ namespace Abuksigun.PackageShortcuts
                     Diff.ShowDiff(module, files.Where(x => x.IsStaged).Select(x => x.FullPath), true),
                     Diff.ShowDiff(module, files.Where(x => x.IsUnstaged).Select(x => x.FullPath), false)
                 ));
+                menu.AddSeparator("");
                 if (files.Any(x => x.IsUnstaged))
                 {
                     menu.AddItem(new GUIContent("Discrad"), false, () => {
@@ -146,6 +147,7 @@ namespace Abuksigun.PackageShortcuts
             string conflictedFilesList = PackageShortcuts.JoinFileNames(files.Where(x => x.IsUnresolved).Select(x => x.FullPath));
             if (!string.IsNullOrEmpty(conflictedFilesList))
             {
+                menu.AddSeparator("");
                 menu.AddItem(new GUIContent("Take Ours"), false, () => {
                     if (EditorUtility.DisplayDialog($"Do you want to take OURS changes (git checkout --ours --)", conflictedFilesList, "Yes", "No"))
                         task = module.RunGit($"checkout --ours  -- {conflictedFilesList}");
