@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Abuksigun.PackageShortcuts
 {
@@ -216,5 +217,12 @@ namespace Abuksigun.PackageShortcuts
                 }
             }
         }
+        
+        [SettingsProvider]
+        public static SettingsProvider CreateMyCustomSettingsProvider() => new("Preferences/External Tools/Package Shortcuts", SettingsScope.User) {
+            activateHandler = (_, rootElement) => rootElement.Add(new IMGUIContainer(() => {
+
+            }))
+        };
     }
 }

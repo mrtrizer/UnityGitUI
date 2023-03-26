@@ -43,8 +43,6 @@ namespace Abuksigun.PackageShortcuts
 
     public class Module
     {
-        static readonly string HiddenFilesKey = $"{Application.productName}/{nameof(PackageShortcuts)}.{nameof(Module)}.{nameof(HiddenFilesKey)}";
-
         Task<bool> isGitRepo;
         Task<string> gitRepoPath;
         Task<Reference[]> references;
@@ -87,12 +85,10 @@ namespace Abuksigun.PackageShortcuts
             isGitRepo = GetIsGitRepo();
             fsWatcher = CreateFileWatcher();
         }
-
         ~Module()
         {
             fsWatcher.Dispose();
         }
-
         FileSystemWatcher CreateFileWatcher()
         {
             var fsWatcher = new FileSystemWatcher(ProjectDirPath) {
@@ -125,13 +121,11 @@ namespace Abuksigun.PackageShortcuts
                 diffCache = null;
             }
         }
-
         public Task<CommandResult> RunGit(string args, Action<IOData> dataHandler = null)
         {
             string mergedArgs = "-c core.quotepath=false --no-optional-locks " + args;
             return RunProcess("git", mergedArgs, dataHandler);
         }
-
         public Task<CommandResult> RunProcess(string command, string args, Action<IOData> dataHandler = null)
         {
             processLog.Add(new IOData { Data = $">> {command} {args}", Error = false });
@@ -141,19 +135,16 @@ namespace Abuksigun.PackageShortcuts
                 return true;
             });
         }
-
         public Task<FileStatus[]> DiffFiles(string firstCommit, string lastCommit)
         {
             diffCache ??= new();
             var diffId = firstCommit + lastCommit;
             return diffCache.GetValueOrDefault(diffId) is { } diff ? diff : diffCache[diffId] = GetDiffFiles(firstCommit, lastCommit);
         }
-
         async Task<string> GetRepoPath()
         {
             return (await RunGit("rev-parse --show-toplevel")).Output.Trim();
         }
-
         async Task<bool> GetIsGitRepo()
         {
             var result = await RunGit("rev-parse --show-toplevel");
@@ -161,17 +152,14 @@ namespace Abuksigun.PackageShortcuts
                 return false;
             return Path.GetFullPath(result.Output.Trim()) != Directory.GetCurrentDirectory() || Path.GetFullPath(PhysicalPath) == Path.GetFullPath(Application.dataPath);
         }
-
         async Task<string> GetCommit()
         {
             return (await RunGit("rev-parse --short --verify HEAD")).Output.Trim();
         }
-
         async Task<bool> GetIsMergeInProgress()
         {
             return File.Exists(Path.Combine(await GitRepoPath, ".git", "MERGE_HEAD"));
         }
-
         async Task<Reference[]> GetReferences()
         {
             var branchesResult = await RunGit($"branch -a --format=\"%(refname)\t%(objectname)\t%(upstream)\"");
@@ -196,7 +184,6 @@ namespace Abuksigun.PackageShortcuts
                 .Cast<Reference>();
             return branches.Concat(stashes).Concat(tags).ToArray();
         }
-
         async Task<string> GetCurrentBranch()
         {
             string branch = (await RunGit("branch --show-current")).Output.Trim();
@@ -211,12 +198,10 @@ namespace Abuksigun.PackageShortcuts
                 return new Remote(parts[0], parts[1]);
             }).Distinct().ToArray();
         }
-
         async Task<Remote> GetDefaultRemote()
         {
             return (await GetRemotes()).FirstOrDefault();
         }
-
         async Task<RemoteStatus> GetRemoteStatus()
         {
             var remotes = await Remotes;
@@ -240,11 +225,8 @@ namespace Abuksigun.PackageShortcuts
             }
             return null;
         }
-        
         async Task<GitStatus> GetGitStatus()
         {
-            string hiddenFilesStr = EditorPrefs.GetString(HiddenFilesKey, "");
-            var hiddenFiles = hiddenFilesStr.Split(',', RemoveEmptyEntries).Select(x => x.Trim()).ToList();
             var gitRepoPathTask = GitRepoPath;
             var statusTask = RunGit("status -uall --porcelain");
             var numStatUnstagedTask = RunGit("diff --numstat");
@@ -255,7 +237,6 @@ namespace Abuksigun.PackageShortcuts
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
             return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, false, numStatUnstaged, numStatStaged));
         }
-
         async Task<FileStatus[]> GetDiffFiles(string firstCommit, string lastCommit)
         {
             var gitRepoPathTask = GitRepoPath;
@@ -266,7 +247,6 @@ namespace Abuksigun.PackageShortcuts
 
             return ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, true, numStat, numStat);
         }
-
         // TODO: File status should be separate for staged and unstaged files
         FileStatus[] ParseStatus(string statusOutput, string gitRepoPath, bool singleColumn, Dictionary<string, NumStat> numStatUnstaged, Dictionary<string, NumStat> numStatStaged)
         {
@@ -286,7 +266,6 @@ namespace Abuksigun.PackageShortcuts
                 );
             }).ToArray();
         }
-
         Dictionary<string, NumStat> ParseNumStat(string numStatOutput)
         {
             var partsPerLine = numStatOutput.Trim().SplitLines()
@@ -298,13 +277,5 @@ namespace Abuksigun.PackageShortcuts
                 dict[parts[2]] = new NumStat { Added = int.Parse(parts[0]), Removed = int.Parse(parts[1])};
             return dict;
         }
-
-        [SettingsProvider]
-        public static SettingsProvider CreateMyCustomSettingsProvider() => new ("Preferences/External Tools/Package Shortcuts", SettingsScope.User) {
-            activateHandler = (_, rootElement) => rootElement.Add(new IMGUIContainer(() => {
-                GUILayout.Label(nameof(HiddenFilesKey)[0..^3]);
-                EditorPrefs.SetString(HiddenFilesKey, GUILayout.TextField(EditorPrefs.GetString(HiddenFilesKey, "")));
-            }))
-        };
     }
 }
