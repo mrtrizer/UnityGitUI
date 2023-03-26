@@ -87,7 +87,7 @@ namespace Abuksigun.PackageShortcuts
             
             simpleTreeView.Draw(new Vector2(position.width, position.height - BottomPanelHeight), items, id => {
                 if (checkoutTask == null || checkoutTask.IsCompleted)
-                    ShowContextMenu(modules, references.FirstOrDefault(x => x.QualifiedName.GetHashCode() == id));
+                    ShowContextMenu(modules, references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id));
             });
 
             showAllBranches = GUILayout.Toggle(showAllBranches, "Show All Branches");
