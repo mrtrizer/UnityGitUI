@@ -80,7 +80,7 @@ namespace Abuksigun.PackageShortcuts
             }
             return result;
         }
-
+        
         public static Module ModuleGuidToolbar(IReadOnlyList<Module> modules, string guid)
         {
             if (modules.Count == 0)

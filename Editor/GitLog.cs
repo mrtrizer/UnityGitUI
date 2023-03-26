@@ -26,6 +26,7 @@ namespace Abuksigun.PackageShortcuts
             Task<CommandResult> logTask = null;
             Task<string> currentBranchTask = null;
             var selectionPerModule = new Dictionary<string, ListState>();
+            // TODO: Use default tab selector
             int tab = 0;
             bool viewStash = false;
             string selectedCommit = null;
@@ -36,14 +37,7 @@ namespace Abuksigun.PackageShortcuts
                     return;
                 tab = modules.Count() > 1 ? GUILayout.Toolbar(tab, modules.Select(x => x.Name).ToArray()) : 0;
 
-                if (GUILayout.Toggle(viewStash, "View Stash", "Button") != viewStash)
-                {
-                    viewStash = !viewStash;
-                    logTask = null;
-                }
-
                 var module = modules.Skip(tab).First();
-
                 if (logTask == null || currentBranchTask != module.CurrentBranch)
                 {
                     currentBranchTask = module.CurrentBranch;
@@ -51,7 +45,6 @@ namespace Abuksigun.PackageShortcuts
                     string filter = viewStash ? "refs/stash" : "--branches --remotes --tags";
                     logTask = module.RunGit($"log {settings} --format=format:\"%h - %an (%ar) <b>%d</b> %s\" {filter}");
                 }
-
                 var selection = selectionPerModule.GetValueOrDefault(module.Guid) ?? (selectionPerModule[module.Guid] = new ListState());
                 var windowWidth = GUILayout.Width(window.position.width);
                 using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, windowWidth, GUILayout.Height(window.position.height - BottomPanelHeight)))
@@ -67,43 +60,51 @@ namespace Abuksigun.PackageShortcuts
                                 if (commitHash != selectedCommit)
                                     selection.Clear();
                                 selectedCommit = commitHash;
+                                if (Event.current.button == 1)
+                                    _ = ShowCommitContextMenu(module, commitHash);
                             }
                         }
                     }
                     scrollPosition = scroll.scrollPosition;
                 }
-                
-                if (!string.IsNullOrEmpty(selectedCommit))
+                if (GUILayout.Toggle(viewStash, "View Stash", "Button", GUILayout.Width(150)) != viewStash)
                 {
-                    using (new GUILayout.HorizontalScope())
-                    {
-                        if (GUILayout.Button($"Checkout {selectedCommit}")
-                            && EditorUtility.DisplayDialog("Are you sure you want CHECKOUT to COMMIT", selectedCommit, "Yes", "No"))
-                        {
-                            _ = module.RunGit($"checkout {selectedCommit}");
-                        }
-                        if (GUILayout.Button($"Reset soft {selectedCommit}")
-                            && EditorUtility.DisplayDialog("Are you sure you want RESET to COMMIT", selectedCommit, "Yes", "No"))
-                        {
-                            _ = module.RunGit($"reset --soft {selectedCommit}");
-                        }
-                        if (GUILayout.Button($"Reset HARD {selectedCommit}")
-                            && EditorUtility.DisplayDialog("Are you sure you want RESET HARD to COMMIT.", selectedCommit, "Yes", "No")
-                            && EditorUtility.DisplayDialog("YOU WILL LOSE YOUR CHANGES!", "Do you have a backup locally or on remote repo?", "DO IT!", "Cancel"))
-                        {
-                            _ = module.RunGit($"reset --hard {selectedCommit}");
-                        }
-                    }
+                    viewStash = !viewStash;
+                    logTask = null;
                 }
                 if (module.GitRepoPath.GetResultOrDefault() is { } gitRepoPath && module.DiffFiles($"{selectedCommit}~1", selectedCommit).GetResultOrDefault() is { } diffFiles)
                 {
-                    void ShowSelectionContextMenu(FileStatus file) => ShowContextMenu(module, selection, selectedCommit);
+                    void ShowSelectionContextMenu(FileStatus file) => ShowFileContextMenu(module, selection, selectedCommit);
                     GUIShortcuts.DrawList(diffFiles, selection, true, ShowSelectionContextMenu, windowWidth, GUILayout.Height(FileListHeight));
                 }
             });
         }
 
-        static void ShowContextMenu(Module module, IEnumerable<string> files, string selectedCommit)
+        static async Task ShowCommitContextMenu(Module module, string selectedCommit)
+        {
+            var menu = new GenericMenu();
+            var commitReference = new[] { new Reference(selectedCommit, selectedCommit, selectedCommit) };
+            var references = commitReference.Concat((await module.References).Where(x => (x is LocalBranch || x is Tag) && x.Hash.StartsWith(selectedCommit)));
+            foreach (var reference in references)
+            {
+                var contextMenuname = reference.QualifiedName.Replace("/", "\u2215");
+                menu.AddItem(new GUIContent($"Checkout/{contextMenuname}"), false, () => {
+                    if (EditorUtility.DisplayDialog("Are you sure you want CHECKOUT to COMMIT", reference.QualifiedName, "Yes", "No"))
+                        _ = module.RunGit($"checkout {reference.QualifiedName}");
+                });
+                menu.AddItem(new GUIContent($"Reset/{contextMenuname}"), false, () => {
+                    if (EditorUtility.DisplayDialog("Are you sure you want RESET to COMMIT", reference.QualifiedName, "Yes", "No"))
+                        _ = module.RunGit($"reset --soft {reference.QualifiedName}");
+                });
+                menu.AddItem(new GUIContent($"Reset Hard/{contextMenuname}"), false, () => {
+                    if (EditorUtility.DisplayDialog("Are you sure you want RESET HARD to COMMIT.", reference.QualifiedName, "Yes", "No"))
+                        _ = module.RunGit($"reset --hard {reference.QualifiedName}");
+                });
+            }
+            menu.ShowAsContext();
+        }
+
+        static void ShowFileContextMenu(Module module, IEnumerable<string> files, string selectedCommit)
         {
             if (!files.Any())
                 return;

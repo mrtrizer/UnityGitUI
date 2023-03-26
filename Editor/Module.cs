@@ -28,10 +28,10 @@ namespace Abuksigun.PackageShortcuts
     }
     public record FileStatus(string ModuleGuid, string FullPath, string OldName, char X, char Y, NumStat UnstagedNumStat, NumStat StagedNumStat)
     {
-        public bool IsInIndex => Y is not '?';
+        public bool IsInIndex => Y is not '?' and not '!';
         public bool IsUnstaged => Y is not ' ';
-        public bool IsStaged => !IsUnresolved && X is not ' ' and not '?';
-        public bool IsUnresolved => Y is 'U' || X is 'U';
+        public bool IsStaged => !IsUnresolved && X is not ' ' and not '?' and not '!';
+        public bool IsUnresolved => Y is 'U' || X is 'U' || (X == Y && X == 'D') || (X == Y && X == 'A');
     }
     public record GitStatus(FileStatus[] Files)
     {
@@ -53,7 +53,7 @@ namespace Abuksigun.PackageShortcuts
         Task<Remote> defaultRemote;
         Task<RemoteStatus> remoteStatus;
         Task<GitStatus> gitStatus;
-        Dictionary<string, Task<FileStatus[]>> diffCache;
+        Dictionary<int, Task<FileStatus[]>> diffCache;
 
         List<IOData> processLog = new();
         FileSystemWatcher fsWatcher;
@@ -91,11 +91,7 @@ namespace Abuksigun.PackageShortcuts
         }
         FileSystemWatcher CreateFileWatcher()
         {
-            var fsWatcher = new FileSystemWatcher(ProjectDirPath) {
-                NotifyFilter = (NotifyFilters)0xFFFF,
-                EnableRaisingEvents = true
-            };
-
+            var fsWatcher = new FileSystemWatcher(ProjectDirPath) { NotifyFilter = (NotifyFilters)0xFFFF, EnableRaisingEvents = true };
             fsWatcher.Changed += Reset;
             fsWatcher.Created += Reset;
             fsWatcher.Deleted += Reset;
@@ -138,8 +134,8 @@ namespace Abuksigun.PackageShortcuts
         public Task<FileStatus[]> DiffFiles(string firstCommit, string lastCommit)
         {
             diffCache ??= new();
-            var diffId = firstCommit + lastCommit;
-            return diffCache.GetValueOrDefault(diffId) is { } diff ? diff : diffCache[diffId] = GetDiffFiles(firstCommit, lastCommit);
+            int diffId = firstCommit?.GetHashCode() ?? 0 ^ lastCommit?.GetHashCode() ?? 0;
+            return diffCache.TryGetValue(diffId, out var diff) ? diff : diffCache[diffId] = GetDiffFiles(firstCommit, lastCommit);
         }
         async Task<string> GetRepoPath()
         {
@@ -187,7 +183,7 @@ namespace Abuksigun.PackageShortcuts
         async Task<string> GetCurrentBranch()
         {
             string branch = (await RunGit("branch --show-current")).Output.Trim();
-            return !string.IsNullOrEmpty(branch) ? branch : (await RunGit("rev-parse HEAD")).Output.Trim()[0..7];
+            return string.IsNullOrEmpty(branch) ? null : branch;
         }
 
         async Task<Remote[]> GetRemotes()
@@ -235,7 +231,7 @@ namespace Abuksigun.PackageShortcuts
 
             var numStatUnstaged = ParseNumStat(numStatUnstagedTask.Result.Output);
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
-            return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, false, numStatUnstaged, numStatStaged));
+            return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged));
         }
         async Task<FileStatus[]> GetDiffFiles(string firstCommit, string lastCommit)
         {
@@ -245,25 +241,16 @@ namespace Abuksigun.PackageShortcuts
             await Task.WhenAll(gitRepoPathTask, statusTask, numStatTask);
             var numStat = ParseNumStat(numStatTask.Result.Output);
 
-            return ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, true, numStat, numStat);
+            return ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStat, numStat);
         }
-        // TODO: File status should be separate for staged and unstaged files
-        FileStatus[] ParseStatus(string statusOutput, string gitRepoPath, bool singleColumn, Dictionary<string, NumStat> numStatUnstaged, Dictionary<string, NumStat> numStatStaged)
+        FileStatus[] ParseStatus(string statusOutput, string gitRepoPath, Dictionary<string, NumStat> numStatUnstaged, Dictionary<string, NumStat> numStatStaged)
         {
             return statusOutput.SplitLines().Select(line => {
                 string[] paths = line[2..].Split(new[] { " ->", "\t" }, RemoveEmptyEntries);
                 string path = paths.Length > 1 ? paths[1].Trim() : paths[0].Trim();
-                string oldPath = paths.Length > 1 ? paths[0].Trim() : null;
+                string oldPath = paths.Length > 1 ? paths[0].Trim().Trim('"') : null;
                 string fullPath = Path.Join(gitRepoPath, path.Trim('"')).NormalizePath();
-                return new FileStatus(
-                    ModuleGuid: Guid,
-                    FullPath: fullPath,
-                    OldName: oldPath?.Trim('"'),
-                    X: line[0],
-                    Y: singleColumn ? line[0] : line[1],
-                    UnstagedNumStat: numStatUnstaged.GetValueOrDefault(path),
-                    StagedNumStat: numStatStaged.GetValueOrDefault(path)
-                );
+                return new FileStatus(Guid, fullPath, oldPath, X: line[0], Y: line[1], numStatUnstaged.GetValueOrDefault(path), numStatStaged.GetValueOrDefault(path));
             }).ToArray();
         }
         Dictionary<string, NumStat> ParseNumStat(string numStatOutput)

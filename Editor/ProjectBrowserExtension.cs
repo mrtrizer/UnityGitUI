@@ -30,9 +30,9 @@ namespace Abuksigun.PackageShortcuts
                 drawRect.height = 20;
                 labelStyle ??= new GUIStyle(EditorStyles.label) { fontSize = 8 };
 
-                if (module.CurrentBranch.GetResultOrDefault() is { } currentBranch)
+                if ((module.CurrentBranch.GetResultOrDefault() ?? module.CurrentCommit.GetResultOrDefault()) is { } currentHead)
                 {
-                    string currentBranchClamp = currentBranch[..Math.Min(20, currentBranch.Length)];
+                    string currentBranchClamp = currentHead[..Math.Min(20, currentHead.Length)];
 
                     var rect = drawRect;
                     rect.x = rect.x + rect.width - (int)labelStyle.CalcSize(new GUIContent(currentBranchClamp)).x - 5;
