@@ -32,7 +32,7 @@ namespace Abuksigun.PackageShortcuts
 
                 if (module.CurrentBranch.GetResultOrDefault() is { } currentBranch)
                 {
-                    string currentBranchClamp = currentBranch.Substring(0, Math.Min(20, currentBranch.Length));
+                    string currentBranchClamp = currentBranch[..Math.Min(20, currentBranch.Length)];
 
                     var rect = drawRect;
                     rect.x = rect.x + rect.width - (int)labelStyle.CalcSize(new GUIContent(currentBranchClamp)).x - 5;
@@ -48,7 +48,7 @@ namespace Abuksigun.PackageShortcuts
                     var rect = drawRect;
                     rect.x = rect.x + rect.width - offset;
                     rect.y += 1.5f;
-                    GUI.Label(rect, $"+{gitStatus.Unindexed.Count(x => !x.Hidden)} *{gitStatus.IndexedUnstaged.Count(x => !x.Hidden)}", labelStyle);
+                    GUI.Label(rect, $"+{gitStatus.Unindexed.Count()} *{gitStatus.IndexedUnstaged.Count()}", labelStyle);
                 }
 
                 if (module.RemoteStatus.GetResultOrDefault() is { } result)

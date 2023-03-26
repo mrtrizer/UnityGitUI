@@ -18,7 +18,6 @@ namespace Abuksigun.PackageShortcuts
         {
             this.multiSelection = multiSelection;
         }
-
         public void Draw(Vector2 size, IList<TreeViewItem> items, Action<int> contextMenuCallback = null)
         {
             this.items = items;
@@ -26,19 +25,16 @@ namespace Abuksigun.PackageShortcuts
             Reload();
             OnGUI(GUILayoutUtility.GetRect(size.x, size.y));
         }
-
         protected override TreeViewItem BuildRoot()
         {
             var root = new TreeViewItem { id = 0, depth = -1, displayName = "Root" };
             SetupParentsAndChildrenFromDepths(root, items);
             return root;
         }
-
         protected override bool CanMultiSelect(TreeViewItem item)
         {
             return multiSelection;
         }
-
         protected override void ContextClickedItem(int id)
         {
             contextMenuCallback?.Invoke(id);
@@ -46,26 +42,17 @@ namespace Abuksigun.PackageShortcuts
         }
     }
 
-
-    public class RefComparer : EqualityComparer<Reference>
+    public class ReferenceComparer : EqualityComparer<Reference>
     {
-        public override bool Equals(Reference x, Reference y)
-        {
-            return (x is LocalBranch localBranchX && y is LocalBranch localBranchY && localBranchX.Name == localBranchY.Name)
-                || (x is RemoteBranch remoteBranchX && y is RemoteBranch remoteBranchY && remoteBranchX.QualifiedName == remoteBranchY.QualifiedName);
-        }
-
-        public override int GetHashCode(Reference obj)
-        {
-            return obj.QualifiedName.GetHashCode();
-        }
+        public override bool Equals(Reference x, Reference y) => x.GetType() == y.GetType() && x.QualifiedName == y.QualifiedName;
+        public override int GetHashCode(Reference obj) => obj.QualifiedName.GetHashCode() ^ obj.GetType().GetHashCode();
     }
     
     class GitBranchesWindow : DefaultWindow
     {
-        static RefComparer refComparer = new();
-
         const int BottomPanelHeight = 25;
+
+        static readonly ReferenceComparer referenceComparer = new();
 
         bool showAllBranches = false;
         Task checkoutTask = null;
@@ -83,8 +70,8 @@ namespace Abuksigun.PackageShortcuts
                 return;
 
             Reference[] references = branchesPerRepo.Count() == 1 ? branchesPerRepo.First()
-                : showAllBranches ? branchesPerRepo.SelectMany(x => x).Distinct(refComparer).ToArray()
-                : branchesPerRepo.Skip(1).Aggregate(branchesPerRepo.First().AsEnumerable(), (result, nextArray) => result.Intersect(nextArray, refComparer)).ToArray();
+                : showAllBranches ? branchesPerRepo.SelectMany(x => x).Distinct(referenceComparer).ToArray()
+                : branchesPerRepo.Skip(1).Aggregate(branchesPerRepo.First().AsEnumerable(), (result, nextArray) => result.Intersect(nextArray, referenceComparer)).ToArray();
 
             simpleTreeView ??= new SimpleTreeView(treeViewState ??= new TreeViewState(), false);
 
@@ -99,17 +86,13 @@ namespace Abuksigun.PackageShortcuts
             BranchesToItems(modules, references, x => x is Stash, 1, items);
             
             simpleTreeView.Draw(new Vector2(position.width, position.height - BottomPanelHeight), items, id => {
-                var genericMenu = new GenericMenu();
                 if (checkoutTask == null || checkoutTask.IsCompleted)
                     ShowContextMenu(modules, references.FirstOrDefault(x => x.QualifiedName.GetHashCode() == id));
-                if (genericMenu.GetItemCount() > 0)
-                    genericMenu.ShowAsContext();
             });
 
             showAllBranches = GUILayout.Toggle(showAllBranches, "Show All Branches");
             base.OnGUI();
         }
-        
         static async void MakeBranch()
         {
             string branchName = "";
@@ -120,17 +103,13 @@ namespace Abuksigun.PackageShortcuts
                 branchName = EditorGUILayout.TextField(branchName);
                 checkout = GUILayout.Toggle(checkout, "Checkout to this branch");
                 GUILayout.Space(40);
-                using (new GUILayout.HorizontalScope())
+                if (GUILayout.Button("Ok", GUILayout.Width(200)))
                 {
-                    if (GUILayout.Button("Ok", GUILayout.Width(200)))
-                    {
-                        _ = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.RunGit(checkout ? $"checkout -b {branchName}" : $"branch {branchName}")));
-                        window.Close();
-                    }
+                    _ = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.RunGit(checkout ? $"checkout -b {branchName}" : $"branch {branchName}")));
+                    window.Close();
                 }
             });
         }
-
         static async void MakeTag()
         {
             string tagName = "";
@@ -142,21 +121,17 @@ namespace Abuksigun.PackageShortcuts
                 GUILayout.Label("Annotation (optional): ");
                 tagName = EditorGUILayout.TextArea(annotation, GUILayout.Height(30));
                 GUILayout.Space(30);
-                using (new GUILayout.HorizontalScope())
+                if (GUILayout.Button("Ok", GUILayout.Width(200)))
                 {
-                    if (GUILayout.Button("Ok", GUILayout.Width(200)))
-                    {
-                        string message = string.IsNullOrEmpty(annotation) ? "" : $"-m {annotation}";
-                        _ = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.RunGit($"tag {tagName} {message}")));
-                        window.Close();
-                    }
+                    string message = string.IsNullOrEmpty(annotation) ? "" : $"-m {annotation}";
+                    _ = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.RunGit($"tag {tagName} {message}")));
+                    window.Close();
                 }
             });
         }
-
         void ShowContextMenu(IEnumerable<Module> modules, Reference selectedReference)
         {
-            GenericMenu menu = new GenericMenu();
+            var menu = new GenericMenu();
             
             string branchName = selectedReference?.QualifiedName?.Replace("/", "\u2215");
             if (selectedReference is LocalBranch localBranch)
@@ -171,7 +146,6 @@ namespace Abuksigun.PackageShortcuts
             }
             else if (selectedReference is RemoteBranch remoteBranch)
             {
-                
                 menu.AddItem(new GUIContent($"Checkout & Track [{branchName}]"), false, () => {
                     checkoutTask = Task.WhenAll(modules.Select(module => GUIShortcuts.RunGitAndErrorCheck(module, $"switch {remoteBranch.Name}")));
                 });
@@ -224,18 +198,15 @@ namespace Abuksigun.PackageShortcuts
             menu.AddItem(new GUIContent($"New Tag"), false, MakeTag);
             menu.ShowAsContext();
         }
-
         List<TreeViewItem> BranchesToItems(IEnumerable<Module> modules, Reference[] branches, Func<Reference, bool> filter, int rootDepth, List<TreeViewItem> items)
         {
-            var branchesPerRepo = modules.Select(module => module.References.GetResultOrDefault());
-            var currentBranchPerRepo = modules.ToDictionary(module => module, module => module.CurrentBranch.GetResultOrDefault());
             string currentPath = "";
             foreach (var branch in branches.Where(filter).OrderBy(x => x.QualifiedName))
             {
                 int lastSlashIndex = branch.QualifiedName.LastIndexOf('/');
-                if (lastSlashIndex != -1 && currentPath != branch.QualifiedName.Substring(0, lastSlashIndex))
+                if (lastSlashIndex != -1 && currentPath != branch.QualifiedName[..lastSlashIndex])
                 {
-                    currentPath = branch.QualifiedName.Substring(0, lastSlashIndex);
+                    currentPath = branch.QualifiedName[..lastSlashIndex];
                     var parts = currentPath.Split('/');
                     for (int i = 0; i < parts.Length; i++)
                     {
@@ -245,27 +216,32 @@ namespace Abuksigun.PackageShortcuts
                     }
                 }
                 int depth = branch.QualifiedName.Count(x => x == '/');
-                string reposOnBranch = currentBranchPerRepo.Where(x => x.Value == branch.QualifiedName).Select(x => x.Key.Name).Join(',');
-                int reposHaveBranch = branchesPerRepo.Count(x => x.Any(y => y.QualifiedName == branch.QualifiedName));
+                string reposOnBranch = modules
+                    .Select(module => (module, currentBranch: module.CurrentBranch.GetResultOrDefault()))
+                    .Where(x => x.currentBranch == branch.QualifiedName)
+                    .Select(x => x.module.Name.AfterLast('.'))
+                    .Join(", ");
+                int reposHaveBranch = modules
+                    .Select(module => module.References.GetResultOrDefault())
+                    .Count(x => x.Any(y => referenceComparer.Equals(y, branch)));
                 string reposHaveBranchStr = reposHaveBranch.ToString().WrapUp("(", ")");
                 string itemText = 
-                    $"{branch.QualifiedName.Substring(lastSlashIndex + 1)} " +
+                    $"{branch.QualifiedName[(lastSlashIndex + 1)..]} " +
                     $"{reposHaveBranchStr.When(reposHaveBranch != modules.Count())} " +
                     $"{reposOnBranch.WrapUp("[", "]").When(reposOnBranch != "")}";
-                var item = new TreeViewItem(branch.QualifiedName.GetHashCode(), rootDepth + depth, itemText);
+                var item = new TreeViewItem(referenceComparer.GetHashCode(branch), rootDepth + depth, itemText);
                 items.Add(item);
             }
             return items;
         }
     }
-
     public static class GitBranches
     {
         [MenuItem("Assets/Git Branches", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
 
         [MenuItem("Assets/Git Branches", priority = 100)]
-        public static async void Invoke()
+        public static void Invoke()
         {
             var window = ScriptableObject.CreateInstance<GitBranchesWindow>();
             window.titleContent = new GUIContent("Git Branches");

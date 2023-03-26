@@ -1,9 +1,7 @@
-using PlasticGui.WorkspaceWindow.Merge;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.AccessControl;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
@@ -28,7 +26,7 @@ namespace Abuksigun.PackageShortcuts
         public int Added;
         public int Removed;
     }
-    public record FileStatus(string ModuleGuid, string FullPath, string OldName, char X, char Y, NumStat UnstagedNumStat, NumStat StagedNumStat, bool Hidden)
+    public record FileStatus(string ModuleGuid, string FullPath, string OldName, char X, char Y, NumStat UnstagedNumStat, NumStat StagedNumStat)
     {
         public bool IsInIndex => Y is not '?';
         public bool IsUnstaged => Y is not ' ';
@@ -64,7 +62,6 @@ namespace Abuksigun.PackageShortcuts
 
         public string Guid { get; }
         public string Name { get; }
-        public string ShortName => Name.Length > 20 ? Name[0] + ".." + Name[^17..] : Name;
         public string LogicalPath { get; }
         public string PhysicalPath => Path.GetFullPath(FileUtil.GetPhysicalPath(LogicalPath)).NormalizePath();
         public string ProjectDirPath => PhysicalPath == Application.dataPath ? Directory.GetParent(PhysicalPath).FullName.NormalizePath() : PhysicalPath;
@@ -243,8 +240,7 @@ namespace Abuksigun.PackageShortcuts
             }
             return null;
         }
-
-        // TODO: File status should be separate for staged and unstaged files
+        
         async Task<GitStatus> GetGitStatus()
         {
             string hiddenFilesStr = EditorPrefs.GetString(HiddenFilesKey, "");
@@ -257,27 +253,9 @@ namespace Abuksigun.PackageShortcuts
 
             var numStatUnstaged = ParseNumStat(numStatUnstagedTask.Result.Output);
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
-            string[] statusLines = statusTask.Result.Output.SplitLines();
-            var files = statusLines.Select(line => {
-                string[] paths = line[2..].Split(" ->", RemoveEmptyEntries);
-                string path = paths.Length > 1 ? paths[1].Trim() : paths[0].Trim();
-                string oldPath = paths.Length > 1 ? paths[0].Trim() : null;
-                string fullPath = Path.Join(gitRepoPathTask.Result, path.Trim('"')).NormalizePath();
-                return new FileStatus(
-                    ModuleGuid: Guid,
-                    FullPath: fullPath,
-                    OldName: oldPath?.Trim('"'),
-                    X: line[0],
-                    Y: line[1],
-                    UnstagedNumStat: numStatUnstaged.GetValueOrDefault(path),
-                    StagedNumStat: numStatStaged.GetValueOrDefault(path),
-                    Hidden: hiddenFiles.Any(ignored => fullPath.Contains(ignored))
-                );
-            });
-            return new GitStatus(files.ToArray());
+            return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, false, numStatUnstaged, numStatStaged));
         }
 
-        // TODO: Code duplication
         async Task<FileStatus[]> GetDiffFiles(string firstCommit, string lastCommit)
         {
             var gitRepoPathTask = GitRepoPath;
@@ -286,23 +264,27 @@ namespace Abuksigun.PackageShortcuts
             await Task.WhenAll(gitRepoPathTask, statusTask, numStatTask);
             var numStat = ParseNumStat(numStatTask.Result.Output);
 
-            string[] statusLines = statusTask.Result.Output.SplitLines();
-            var files = statusLines.Select(line => {
-                string[] paths = line.Split(new[] { " ->", "\t" }, RemoveEmptyEntries)[1..];
+            return ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, true, numStat, numStat);
+        }
+
+        // TODO: File status should be separate for staged and unstaged files
+        FileStatus[] ParseStatus(string statusOutput, string gitRepoPath, bool singleColumn, Dictionary<string, NumStat> numStatUnstaged, Dictionary<string, NumStat> numStatStaged)
+        {
+            return statusOutput.SplitLines().Select(line => {
+                string[] paths = line[2..].Split(new[] { " ->", "\t" }, RemoveEmptyEntries);
                 string path = paths.Length > 1 ? paths[1].Trim() : paths[0].Trim();
                 string oldPath = paths.Length > 1 ? paths[0].Trim() : null;
+                string fullPath = Path.Join(gitRepoPath, path.Trim('"')).NormalizePath();
                 return new FileStatus(
                     ModuleGuid: Guid,
-                    FullPath: Path.Join(gitRepoPathTask.Result, path.Trim('"')).NormalizePath(),
+                    FullPath: fullPath,
                     OldName: oldPath?.Trim('"'),
                     X: line[0],
-                    Y: line[0],
-                    UnstagedNumStat: numStat.GetValueOrDefault(path),
-                    StagedNumStat: numStat.GetValueOrDefault(path),
-                    Hidden: false
+                    Y: singleColumn ? line[0] : line[1],
+                    UnstagedNumStat: numStatUnstaged.GetValueOrDefault(path),
+                    StagedNumStat: numStatStaged.GetValueOrDefault(path)
                 );
-            });
-            return files.ToArray();
+            }).ToArray();
         }
 
         Dictionary<string, NumStat> ParseNumStat(string numStatOutput)
@@ -318,7 +300,7 @@ namespace Abuksigun.PackageShortcuts
         }
 
         [SettingsProvider]
-        public static SettingsProvider CreateMyCustomSettingsProvider() => new SettingsProvider("Preferences/External Tools/Package Shortcuts", SettingsScope.User) {
+        public static SettingsProvider CreateMyCustomSettingsProvider() => new ("Preferences/External Tools/Package Shortcuts", SettingsScope.User) {
             activateHandler = (_, rootElement) => rootElement.Add(new IMGUIContainer(() => {
                 GUILayout.Label(nameof(HiddenFilesKey)[0..^3]);
                 EditorPrefs.SetString(HiddenFilesKey, GUILayout.TextField(EditorPrefs.GetString(HiddenFilesKey, "")));

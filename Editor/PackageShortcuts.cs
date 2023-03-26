@@ -23,7 +23,6 @@ namespace Abuksigun.PackageShortcuts
 
     public record AssetGitInfo(Module Module, FileStatus[] FileStatuses);
     
-    [InitializeOnLoad]
     public static class PackageShortcuts
     {
         static Dictionary<string, Module> modules = new();

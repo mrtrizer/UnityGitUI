@@ -13,7 +13,7 @@ namespace Abuksigun.PackageShortcuts
         const int MiddlePanelWidth = 40;
         const int BottomPanelHeight = 17;
 
-        record Selection(ListState unstaged, ListState staged);
+        record Selection(ListState Unstaged, ListState Staged);
 
         [MenuItem("Assets/Git Staging", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
@@ -25,8 +25,6 @@ namespace Abuksigun.PackageShortcuts
             string guid = null;
             var tasksInProgress = new List<Task<CommandResult>>();
             var selectionPerModule = new Dictionary<Module, Selection>();
-
-            bool showHidden = false;
 
             await GUIShortcuts.ShowModalWindow("Commit", new Vector2Int(800, 500), (window) => {
 
@@ -89,28 +87,25 @@ namespace Abuksigun.PackageShortcuts
                     using (new EditorGUI.DisabledGroupScope(tasksInProgress.Any()))
                     using (new GUILayout.HorizontalScope())
                     {
-                        var unstaged = status.Unstaged.Where(x => showHidden || !x.Hidden);
-                        void ShowUnstagedContextMenu(FileStatus file) => _ = ShowContextMenu(module, unstaged.Where(x => selection.unstaged.Contains(x.FullPath)));
-                        GUIShortcuts.DrawList(unstaged, selection.unstaged, false, ShowUnstagedContextMenu, scrollHeight, scrollWidth);
+                        void ShowUnstagedContextMenu(FileStatus file) => _ = ShowContextMenu(module, status.Unstaged.Where(x => selection.Unstaged.Contains(x.FullPath)));
+                        GUIShortcuts.DrawList(status.Unstaged, selection.Unstaged, false, ShowUnstagedContextMenu, scrollHeight, scrollWidth);
                         using (new GUILayout.VerticalScope())
                         {
                             if (GUILayout.Button(">>", GUILayout.Width(MiddlePanelWidth)))
                             {
-                                tasksInProgress.Add(module.RunGit($"add -f -- {PackageShortcuts.JoinFileNames(selection.unstaged)}"));
-                                selection.unstaged.Clear();
+                                tasksInProgress.Add(module.RunGit($"add -f -- {PackageShortcuts.JoinFileNames(selection.Unstaged)}"));
+                                selection.Unstaged.Clear();
                             }
                             if (GUILayout.Button("<<", GUILayout.Width(MiddlePanelWidth)))
                             {
-                                tasksInProgress.Add(module.RunGit($"reset -q -- {PackageShortcuts.JoinFileNames(selection.staged)}"));
-                                selection.staged.Clear();
+                                tasksInProgress.Add(module.RunGit($"reset -q -- {PackageShortcuts.JoinFileNames(selection.Staged)}"));
+                                selection.Staged.Clear();
                             }
                         }
-                        var staged = status.Staged.Where(x => showHidden || !x.Hidden);
-                        void ShowStagedContextMenu(FileStatus file) => _ = ShowContextMenu(module, staged.Where(x => selection.staged.Contains(x.FullPath)));
-                        GUIShortcuts.DrawList(staged, selection.staged, true, ShowStagedContextMenu, scrollHeight, scrollWidth);
+                        void ShowStagedContextMenu(FileStatus file) => _ = ShowContextMenu(module, status.Staged.Where(x => selection.Staged.Contains(x.FullPath)));
+                        GUIShortcuts.DrawList(status.Staged, selection.Staged, true, ShowStagedContextMenu, scrollHeight, scrollWidth);
                     }
                 }
-                showHidden = GUILayout.Toggle(showHidden, "Show Hidden");
             });
             await Task.WhenAll(tasksInProgress.Where(x => x != null));
         }
@@ -120,7 +115,7 @@ namespace Abuksigun.PackageShortcuts
             if (!files.Any())
                 return;
             Task task = null;
-            GenericMenu menu = new GenericMenu();
+            var menu = new GenericMenu();
             string filesList = PackageShortcuts.JoinFileNames(files.Select(x => x.FullPath));
             if (files.Any(x => x.IsInIndex))
             {

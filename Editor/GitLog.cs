@@ -107,7 +107,7 @@ namespace Abuksigun.PackageShortcuts
         {
             if (!files.Any())
                 return;
-            GenericMenu menu = new GenericMenu();
+            var menu = new GenericMenu();
             menu.AddItem(new GUIContent("Diff"), false, () => _ = Diff.ShowDiff(module, files, false, $"{selectedCommit}~1", selectedCommit));
             menu.AddItem(new GUIContent($"Revert to this commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
