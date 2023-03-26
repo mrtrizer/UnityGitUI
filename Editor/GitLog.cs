@@ -27,6 +27,7 @@ namespace Abuksigun.PackageShortcuts
             Task<string> currentBranchTask = null;
             var selectionPerModule = new Dictionary<string, ListState>();
             int tab = 0;
+            bool viewStash = false;
             string selectedCommit = null;
 
             await GUIShortcuts.ShowModalWindow("Git Log", new Vector2Int(800, 650), (window) => {
@@ -35,12 +36,20 @@ namespace Abuksigun.PackageShortcuts
                     return;
                 tab = modules.Count() > 1 ? GUILayout.Toolbar(tab, modules.Select(x => x.Name).ToArray()) : 0;
 
+                if (GUILayout.Toggle(viewStash, "View Stash", "Button") != viewStash)
+                {
+                    viewStash = !viewStash;
+                    logTask = null;
+                }
+
                 var module = modules.Skip(tab).First();
 
                 if (logTask == null || currentBranchTask != module.CurrentBranch)
                 {
                     currentBranchTask = module.CurrentBranch;
-                    logTask = module.RunGit($"log --graph --abbrev-commit --decorate --format=format:\"%h - %an (%ar) <b>%d</b> %s\" --branches --remotes --tags");
+                    string settings = viewStash ? "-g" : "--graph --abbrev-commit --decorate";
+                    string filter = viewStash ? "refs/stash" : "--branches --remotes --tags";
+                    logTask = module.RunGit($"log {settings} --format=format:\"%h - %an (%ar) <b>%d</b> %s\" {filter}");
                 }
 
                 var selection = selectionPerModule.GetValueOrDefault(module.Guid) ?? (selectionPerModule[module.Guid] = new ListState());

@@ -17,7 +17,7 @@ namespace Abuksigun.PackageShortcuts
 
     public record Reference(string Name, string QualifiedName, string Hash);
     public record Tag(string Name, string Hash) : Reference(Name, Name, Hash);
-    public record Stash(string Message, int Id, string Hash) : Reference(Message, $"stash@{{{Id}}}", Hash);
+    public record Stash(string Message, int Id, string Hash) : Reference(Message, Message.Replace("/", "\u2215"), Hash);
     public record Branch(string Name, string QualifiedName, string Hash) : Reference(Name, QualifiedName, Hash);
     public record LocalBranch(string Name, string Hash, string TrackingBranch) : Branch(Name, Name, Hash);
     public record RemoteBranch(string Name, string Hash, string RemoteAlias) : Branch(Name, RemoteAlias + '/' +Name, Hash);
@@ -49,7 +49,7 @@ namespace Abuksigun.PackageShortcuts
 
         Task<bool> isGitRepo;
         Task<string> gitRepoPath;
-        Task<Branch[]> branches;
+        Task<Reference[]> references;
         Task<string> currentBranch;
         Task<string> currentCommit;
         Task<bool> isMergeInProgress;
@@ -71,7 +71,7 @@ namespace Abuksigun.PackageShortcuts
         public PackageInfo PackageInfo { get; }
         public Task<bool> IsGitRepo => isGitRepo ??= GetIsGitRepo();
         public Task<string> GitRepoPath => gitRepoPath ??= GetRepoPath();
-        public Task<Branch[]> Branches => branches ??= GetBranches();
+        public Task<Reference[]> References => references ??= GetReferences();
         public Task<string> CurrentBranch => currentBranch ??= GetCurrentBranch();
         public Task<string> CurrentCommit => currentCommit ??= GetCommit();
         public Task<bool> IsMergeInProgress => isMergeInProgress ??= GetIsMergeInProgress();
@@ -116,7 +116,7 @@ namespace Abuksigun.PackageShortcuts
                 {
                     isGitRepo = null;
                     gitRepoPath = null;
-                    branches = null;
+                    references = null;
                     currentBranch = null;
                     currentCommit = null;
                     isMergeInProgress = null;
@@ -175,10 +175,10 @@ namespace Abuksigun.PackageShortcuts
             return File.Exists(Path.Combine(await GitRepoPath, ".git", "MERGE_HEAD"));
         }
 
-        async Task<Branch[]> GetBranches()
+        async Task<Reference[]> GetReferences()
         {
-            var result = await RunGit($"branch -a --format=\"%(refname)\t%(objectname)\t%(upstream)\"");
-            return result.Output.SplitLines()
+            var branchesResult = await RunGit($"branch -a --format=\"%(refname)\t%(objectname)\t%(upstream)\"");
+            var branches = branchesResult.Output.SplitLines()
                 .Where(x => !x.StartsWith("(HEAD detached"))
                 .Select(x => x.Split('\t', RemoveEmptyEntries))
                 .Select<string[], Branch>(x => {
@@ -186,8 +186,18 @@ namespace Abuksigun.PackageShortcuts
                     return split[1] == "remotes"
                         ? new RemoteBranch(split[3..].Join('/'), x[1], split[2])
                         : new LocalBranch(split[2..].Join('/'), x[1], x.Length > 2 ? x[2] : null);
-                })
-                .ToArray();
+                });
+            var stashesResult = await RunGit($"log -g --format=\"%gd %H %s\" refs/stash");
+            var stashes = stashesResult.Output.SplitLines()
+                .Select(x => Regex.Match(x, @"stash@\{([0-9]+)\} ([a-f0-9]{40}) (.*) --"))
+                .Select(x => new Stash(x.Groups[3].Value, int.Parse(x.Groups[1].Value), x.Groups[2].Value))
+                .Cast<Reference>();
+            var tagsResult = await RunGit($"show-ref --tags");
+            var tags = tagsResult.Output.SplitLines()
+                .Select(x => Regex.Match(x, @"([a-f0-9]{40}) refs/tags/(.*)"))
+                .Select(x => new Tag(x.Groups[2].Value, x.Groups[1].Value))
+                .Cast<Reference>();
+            return branches.Concat(stashes).Concat(tags).ToArray();
         }
 
         async Task<string> GetCurrentBranch()
@@ -218,7 +228,7 @@ namespace Abuksigun.PackageShortcuts
             string currentBranch = await CurrentBranch;
             await RunGit("fetch");
             string remoteAlias = remotes[0].Alias;
-            var branches = await Branches;
+            var branches = await References;
             if (!branches.Any(x => x is RemoteBranch remoteBranch && remoteBranch.RemoteAlias == remoteAlias && remoteBranch.Name == currentBranch))
                 return null;
             try
