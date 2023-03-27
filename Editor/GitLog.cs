@@ -8,6 +8,8 @@ using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
 {
+    // Graphical log - https://github.com/pvigier/gitamine/blob/master/src/renderer/components/graph-canvas.tsx
+
     public static class GitLog
     {
         const int BottomPanelHeight = 200;
@@ -53,15 +55,16 @@ namespace Abuksigun.PackageShortcuts
                     {
                         foreach (var commit in log.Output.Trim().Split('\n'))
                         {
-                            string commitHash = Regex.Match(commit, @"([0-9a-f]{7}) - ")?.Groups[1].Value;
+                            string commitHash = Regex.Match(commit, @"([0-9a-f]+) - ")?.Groups[1].Value;
                             var style = selectedCommit == commitHash ? SelectedLogStyle.Value : IdleLogStyle.Value;
                             if (GUILayout.Toggle(selectedCommit == commitHash, commit, style) && !string.IsNullOrEmpty(commitHash))
                             {
                                 if (commitHash != selectedCommit)
                                     selection.Clear();
-                                selectedCommit = commitHash;
-                                if (Event.current.button == 1)
+                                if (Event.current.button == 1 && GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition))
                                     _ = ShowCommitContextMenu(module, commitHash);
+                                selectedCommit = commitHash;
+
                             }
                         }
                     }

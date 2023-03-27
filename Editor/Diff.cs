@@ -31,7 +31,7 @@ namespace Abuksigun.PackageShortcuts
                 return;
             Vector2 scrollPosition = Vector2.zero;
             string windowName = $"Diff {(staged ? "Staged" : "Unstaged").When(firstCommit == null)} {filePaths.Count()} files";
-            await GUIShortcuts.ShowModalWindow(windowName, new Vector2Int(600, 700), (window) => {
+            await GUIShortcuts.ShowModalWindow(windowName, new Vector2Int(700, 600), (window) => {
                 GUIShortcuts.DrawGitDiff(result.Output, window.position.size, null, null, null, ref scrollPosition);
             });
         }

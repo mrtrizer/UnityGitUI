@@ -6,7 +6,6 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.UIElements;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 namespace Abuksigun.PackageShortcuts
@@ -170,7 +169,7 @@ namespace Abuksigun.PackageShortcuts
                 });
             var stashesResult = await RunGit($"log -g --format=\"%gd %H %s\" refs/stash");
             var stashes = stashesResult.Output.SplitLines()
-                .Select(x => Regex.Match(x, @"stash@\{([0-9]+)\} ([a-f0-9]{40}) (.*) --"))
+                .Select(x => Regex.Match(x, @"stash@\{([0-9]+)\} ([a-f0-9]{40}) (.*?)(--|$)"))
                 .Select(x => new Stash(x.Groups[3].Value, int.Parse(x.Groups[1].Value), x.Groups[2].Value))
                 .Cast<Reference>();
             var tagsResult = await RunGit($"show-ref --tags");
