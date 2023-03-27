@@ -133,12 +133,12 @@ namespace Abuksigun.PackageShortcuts
                     i += 3;
                     hunkIndex = -1;
                     currentFile = lines[i][6..];
-                    EditorGUILayout.SelectableLabel(currentFile, Style.FileName.Value, GUILayout.Height(15));
+                    EditorGUILayout.SelectableLabel(currentFile, Style.FileName.Value, layout);
                 }
                 else if (lines[i].StartsWith("@@"))
                 {
                     var match = Regex.Match(lines[i], @"@@ -(\d+),(\d+) \+(\d+),(\d+) @@");
-                    EditorGUILayout.SelectableLabel(match.Value, Style.FileName.Value, GUILayout.Height(15));
+                    EditorGUILayout.SelectableLabel(match.Value, Style.FileName.Value, layout);
                     currentLine = int.Parse(match.Groups[1].Value);
                     hunkIndex++;
                     using (new GUILayout.HorizontalScope())

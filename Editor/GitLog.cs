@@ -20,9 +20,12 @@ namespace Abuksigun.PackageShortcuts
 
         [MenuItem("Assets/Git Log", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
-
         [MenuItem("Assets/Git Log", priority = 100)]
         public static async void Invoke()
+        {
+            await ShowLog(null, false);
+        }
+        public static async Task ShowLog(IEnumerable<string> filePaths, bool viewStash)
         {
             var scrollPosition = Vector2.zero;
             Task<CommandResult> logTask = null;
@@ -30,7 +33,6 @@ namespace Abuksigun.PackageShortcuts
             var selectionPerModule = new Dictionary<string, ListState>();
             // TODO: Use default tab selector
             int tab = 0;
-            bool viewStash = false;
             string selectedCommit = null;
 
             await GUIShortcuts.ShowModalWindow("Git Log", new Vector2Int(800, 650), (window) => {
@@ -51,7 +53,7 @@ namespace Abuksigun.PackageShortcuts
                 var windowWidth = GUILayout.Width(window.position.width);
                 using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, windowWidth, GUILayout.Height(window.position.height - BottomPanelHeight)))
                 {
-                    if (logTask.GetResultOrDefault() is { }  log)
+                    if (logTask.GetResultOrDefault() is { } log)
                     {
                         foreach (var commit in log.Output.Trim().Split('\n'))
                         {
@@ -70,11 +72,6 @@ namespace Abuksigun.PackageShortcuts
                     }
                     scrollPosition = scroll.scrollPosition;
                 }
-                if (GUILayout.Toggle(viewStash, "View Stash", "Button", GUILayout.Width(150)) != viewStash)
-                {
-                    viewStash = !viewStash;
-                    logTask = null;
-                }
                 if (module.GitRepoPath.GetResultOrDefault() is { } gitRepoPath && module.DiffFiles($"{selectedCommit}~1", selectedCommit).GetResultOrDefault() is { } diffFiles)
                 {
                     void ShowSelectionContextMenu(FileStatus file) => ShowFileContextMenu(module, selection, selectedCommit);
@@ -82,7 +79,6 @@ namespace Abuksigun.PackageShortcuts
                 }
             });
         }
-
         static async Task ShowCommitContextMenu(Module module, string selectedCommit)
         {
             var menu = new GenericMenu();
@@ -106,7 +102,6 @@ namespace Abuksigun.PackageShortcuts
             }
             menu.ShowAsContext();
         }
-
         static void ShowFileContextMenu(Module module, IEnumerable<string> files, string selectedCommit)
         {
             if (!files.Any())
