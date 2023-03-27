@@ -56,7 +56,7 @@ namespace Abuksigun.PackageShortcuts
                 background = GetColorTexture(new Color(0.505f, 0.99f, 0.618f))
             }
         });
-        public static Lazy<GUIStyle> DiffRemove => new(() => new(DiffUnchanged.Value) {
+        public static Lazy<GUIStyle> DiffRemoved => new(() => new(DiffUnchanged.Value) {
             normal = new GUIStyleState {
                 background = GetColorTexture(new Color(0.990f, 0.564f, 0.564f))
             }

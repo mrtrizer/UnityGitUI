@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -119,8 +120,9 @@ namespace Abuksigun.PackageShortcuts
             string[] lines = diff.SplitLines();
             int longestLine = lines.Max(x => x.Length);
             float width = Mathf.Max(Style.DiffUnchanged.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x);
-
+            int currentLine = 1;
             using var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
+            var layout = new[] { GUILayout.Height(15), GUILayout.Width(width) };
 
             string currentFile = null;
             int hunkIndex = -1;
@@ -135,6 +137,9 @@ namespace Abuksigun.PackageShortcuts
                 }
                 else if (lines[i].StartsWith("@@"))
                 {
+                    var match = Regex.Match(lines[i], @"@@ -(\d+),(\d+) \+(\d+),(\d+) @@");
+                    EditorGUILayout.SelectableLabel(match.Value, Style.FileName.Value, GUILayout.Height(15));
+                    currentLine = int.Parse(match.Groups[1].Value);
                     hunkIndex++;
                     using (new GUILayout.HorizontalScope())
                     {
@@ -148,11 +153,8 @@ namespace Abuksigun.PackageShortcuts
                 }
                 else if (hunkIndex >= 0)
                 {
-                    EditorGUILayout.SelectableLabel(lines[i],
-                          lines[i][0] == '+' ? Style.DiffAdded.Value
-                        : lines[i][0] == '-' ? Style.DiffRemove.Value
-                        : Style.DiffUnchanged.Value,
-                          GUILayout.Height(15), GUILayout.Width(width));
+                    var style = lines[i][0] switch { '+' => Style.DiffAdded.Value, '-' => Style.DiffRemoved.Value, _ => Style.DiffUnchanged.Value };
+                    EditorGUILayout.SelectableLabel($"{lines[i][0]} {currentLine++, 4} {lines[i][1..]}", style, layout);
                 }
             }
             scrollPosition = scroll.scrollPosition;
