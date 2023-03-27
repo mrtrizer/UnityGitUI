@@ -91,12 +91,12 @@ namespace Abuksigun.PackageShortcuts
                         GUIShortcuts.DrawList(status.Unstaged, selection.Unstaged, false, ShowUnstagedContextMenu, scrollHeight, scrollWidth);
                         using (new GUILayout.VerticalScope())
                         {
-                            if (GUILayout.Button(">>", GUILayout.Width(MiddlePanelWidth)))
+                            if (GUILayout.Button(EditorGUIUtility.IconContent("tab_next@2x"), GUILayout.Width(MiddlePanelWidth)))
                             {
                                 tasksInProgress.Add(module.RunGit($"add -f -- {PackageShortcuts.JoinFileNames(selection.Unstaged)}"));
                                 selection.Unstaged.Clear();
                             }
-                            if (GUILayout.Button("<<", GUILayout.Width(MiddlePanelWidth)))
+                            if (GUILayout.Button(EditorGUIUtility.IconContent("tab_prev@2x"), GUILayout.Width(MiddlePanelWidth)))
                             {
                                 tasksInProgress.Add(module.RunGit($"reset -q -- {PackageShortcuts.JoinFileNames(selection.Staged)}"));
                                 selection.Staged.Clear();

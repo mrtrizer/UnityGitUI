@@ -76,13 +76,13 @@ namespace Abuksigun.PackageShortcuts
             simpleTreeView ??= new SimpleTreeView(treeViewState ??= new TreeViewState(), false);
 
             var items = new List<TreeViewItem>();
-            items.Add(new TreeViewItem(0, 0, "Branches"));
+            items.Add(new TreeViewItem(0, 0, "Branches") { icon = EditorGUIUtility.IconContent("UnityEditor.VersionControl").image as Texture2D });
             BranchesToItems(modules, references, x => x is LocalBranch, 1, items);
-            items.Add(new TreeViewItem(1, 0, "Remotes"));
+            items.Add(new TreeViewItem(1, 0, "Remotes") { icon = EditorGUIUtility.IconContent("CloudConnect@2x").image as Texture2D });
             BranchesToItems(modules, references, x => x is RemoteBranch, 1, items);
-            items.Add(new TreeViewItem(2, 0, "Tags"));
+            items.Add(new TreeViewItem(2, 0, "Tags") { icon = EditorGUIUtility.IconContent("FilterByLabel@2x").image as Texture2D });
             BranchesToItems(modules, references, x => x is Tag, 1, items);
-            items.Add(new TreeViewItem(3, 0, "Stashes"));
+            items.Add(new TreeViewItem(3, 0, "Stashes") { icon = EditorGUIUtility.IconContent("Package Manager@2x").image as Texture2D });
             BranchesToItems(modules, references, x => x is Stash, 1, items);
             
             simpleTreeView.Draw(new Vector2(position.width, position.height - BottomPanelHeight), items, id => {
@@ -244,7 +244,7 @@ namespace Abuksigun.PackageShortcuts
         public static void Invoke()
         {
             var window = ScriptableObject.CreateInstance<GitBranchesWindow>();
-            window.titleContent = new GUIContent("Git Branches");
+            window.titleContent = new GUIContent("Git Branches", EditorGUIUtility.IconContent("UnityEditor.VersionControl").image);
             window.Show();
         }
     }

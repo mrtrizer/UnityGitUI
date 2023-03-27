@@ -82,6 +82,8 @@ namespace Abuksigun.PackageShortcuts
             return result;
         }
         
+        public static string MakePrintableStatus(char status) => $"<color={status switch { 'U' => "red", '?' => "purple", 'M' or 'R' => "darkblue", _ => "black" }}>{status}</color>";
+
         public static Module ModuleGuidToolbar(IReadOnlyList<Module> modules, string guid)
         {
             if (modules.Count == 0)
@@ -175,6 +177,7 @@ namespace Abuksigun.PackageShortcuts
                         listState.Clear();
                 }
                 using (var scroll = new GUILayout.ScrollViewScope(listState.ScrollPosition, false, false, layoutOptions))
+                using (new EditorGUIUtility.IconSizeScope(Vector2.one * 16))
                 {
                     foreach (var file in files)
                     {
@@ -183,7 +186,9 @@ namespace Abuksigun.PackageShortcuts
                         string relativePath = Path.GetRelativePath(module.GitRepoPath.GetResultOrDefault(), file.FullPath);
                         var numStat = staged ? file.StagedNumStat : file.UnstagedNumStat;
                         var style = wasSelected ? Style.Selected.Value : Style.Idle.Value;
-                        bool isSelected = GUILayout.Toggle(wasSelected, $"{(staged ? file.X : file.Y)} {relativePath} +{numStat.Added} -{numStat.Removed}", style);
+                        var texture = AssetDatabase.GetCachedIcon(FileUtil.GetLogicalPath(file.FullPath)) ?? EditorGUIUtility.IconContent("DefaultAsset Icon").image;
+                        var content = new GUIContent($"<b>{MakePrintableStatus(staged ? file.X : file.Y)}</b> {relativePath} +{numStat.Added} -{numStat.Removed}", texture);
+                        bool isSelected = GUILayout.Toggle(wasSelected, content, style);
 
                         if (Event.current.button == 1 && wasSelected != isSelected)
                         {

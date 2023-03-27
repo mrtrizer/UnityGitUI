@@ -28,16 +28,15 @@ namespace Abuksigun.PackageShortcuts
             if (drawRect.height <= 20 && module != null && module.IsGitRepo.GetResultOrDefault())
             {
                 drawRect.height = 20;
-                labelStyle ??= new GUIStyle(EditorStyles.label) { fontSize = 8 };
+                labelStyle ??= new GUIStyle(EditorStyles.label) { fontSize = 8, richText = true };
 
                 if ((module.CurrentBranch.GetResultOrDefault() ?? module.CurrentCommit.GetResultOrDefault()) is { } currentHead)
                 {
                     string currentBranchClamp = currentHead[..Math.Min(20, currentHead.Length)];
-
                     var rect = drawRect;
                     rect.x = rect.x + rect.width - (int)labelStyle.CalcSize(new GUIContent(currentBranchClamp)).x - 5;
                     rect.y -= 6.5f;
-                    GUI.Label(rect, currentBranchClamp, labelStyle);
+                    GUI.Label(rect, currentBranchClamp.WrapUp("<b>", "</b>"), labelStyle);
                 }
 
                 int offset = 0;
@@ -65,12 +64,15 @@ namespace Abuksigun.PackageShortcuts
             {
                 if (PackageShortcuts.GetAssetGitInfo(guid) is { } assetInfo)
                 {
-                    fileMarkStyle ??= new GUIStyle(labelStyle) { fontStyle = FontStyle.Bold, fontSize = 15 };
+                    fileMarkStyle ??= new GUIStyle(labelStyle) { fontStyle = FontStyle.Bold, fontSize = 10, richText = true };
                     var rect = drawRect;
                     rect.height = 15;
-                    rect.y += 3;
-                    rect.x -= 5;
-                    GUI.Label(rect, assetInfo.FileStatuses.Any(x => x.IsInIndex) ? "*" : "+", fileMarkStyle);
+                    rect.y += 2;
+                    rect.x -= 8;
+                    if (assetInfo.FileStatuses.FirstOrDefault(x => x.IsUnstaged) is { } unstagedStatus)
+                        GUI.Label(rect, GUIShortcuts.MakePrintableStatus(unstagedStatus.Y), fileMarkStyle);
+                    else if (assetInfo.FileStatuses.FirstOrDefault(x => x.IsStaged) is { } stagedStatus)
+                        GUI.Label(rect, "<color=green>✓</color>", fileMarkStyle);
                 }
             }
         }
