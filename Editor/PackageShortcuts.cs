@@ -97,7 +97,7 @@ namespace Abuksigun.PackageShortcuts
 
         public static string JoinFileNames(IEnumerable<string> fileNames)
         {
-            return fileNames.Select(x => $"\"{x}\"").Join(' ');
+            return fileNames?.Select(x => $"\"{x}\"")?.Join(' ');
         }
 
         public static Task<CommandResult> RunCommand(string workingDir, string command, string args, Func<Process, IOData, bool> dataHandler = null)

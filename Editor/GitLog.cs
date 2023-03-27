@@ -31,25 +31,24 @@ namespace Abuksigun.PackageShortcuts
             Task<CommandResult> logTask = null;
             Task<string> currentBranchTask = null;
             var selectionPerModule = new Dictionary<string, ListState>();
-            // TODO: Use default tab selector
-            int tab = 0;
+            string guid = "";
             string selectedCommit = null;
 
             await GUIShortcuts.ShowModalWindow("Git Log", new Vector2Int(800, 650), (window) => {
-                var modules = PackageShortcuts.GetSelectedGitModules();
-                if (!modules.Any())
-                    return;
-                tab = modules.Count() > 1 ? GUILayout.Toolbar(tab, modules.Select(x => x.Name).ToArray()) : 0;
-
-                var module = modules.Skip(tab).First();
+                var module = GUIShortcuts.ModuleGuidToolbar(PackageShortcuts.GetSelectedGitModules().ToList(), guid);
+                guid = module.Guid;
+                
                 if (logTask == null || currentBranchTask != module.CurrentBranch)
                 {
                     currentBranchTask = module.CurrentBranch;
                     string settings = viewStash ? "-g" : "--graph --abbrev-commit --decorate";
                     string filter = viewStash ? "refs/stash" : "--branches --remotes --tags";
-                    logTask = module.RunGit($"log {settings} --format=format:\"%h - %an (%ar) <b>%d</b> %s\" {filter}");
+                    string files = PackageShortcuts.JoinFileNames(filePaths)?.WrapUp("-- ", "");
+                    logTask = module.RunGit($"log {settings} --format=format:\"%h - %an (%ar) <b>%d</b> %s\" {filter} {files}");
                 }
                 var selection = selectionPerModule.GetValueOrDefault(module.Guid) ?? (selectionPerModule[module.Guid] = new ListState());
+                if (filePaths != null)
+                    selection.AddRange(filePaths);
                 var windowWidth = GUILayout.Width(window.position.width);
                 using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, windowWidth, GUILayout.Height(window.position.height - BottomPanelHeight)))
                 {

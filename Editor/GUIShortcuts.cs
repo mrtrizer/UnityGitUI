@@ -137,9 +137,9 @@ namespace Abuksigun.PackageShortcuts
                 }
                 else if (lines[i].StartsWith("@@"))
                 {
-                    var match = Regex.Match(lines[i], @"@@ -(\d+),(\d+) \+(\d+),(\d+) @@");
+                    var match = Regex.Match(lines[i], @"@@ -(\d+),(\d+) \+(\d+),?(\d+)? @@");
                     EditorGUILayout.SelectableLabel(match.Value, Style.FileName.Value, layout);
-                    currentLine = int.Parse(match.Groups[1].Value);
+                    currentLine = match.Groups[1].Value != "0" ? int.Parse(match.Groups[1].Value) : int.Parse(match.Groups[3].Value);
                     hunkIndex++;
                     using (new GUILayout.HorizontalScope())
                     {
