@@ -45,7 +45,7 @@ namespace Abuksigun.PackageShortcuts
             var index = self.LastIndexOf(separator);
             return index == -1 ? self : self[(index + 1)..];
         }
-        public static string NormalizePath(this string self)
+        public static string NormalizeSlashes(this string self)
         {
             return self.Replace('\\', '/');
         }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
@@ -27,10 +28,11 @@ namespace Abuksigun.PackageShortcuts
         }
         public static async Task ShowLog(IEnumerable<string> filePaths, bool viewStash)
         {
+            TreeViewState treeViewStateFiles = new();
+            LazyTreeView<GitStatus> treeViewFiles = new(statuses => GUIShortcuts.GenerateFileItems(statuses, true), treeViewStateFiles, true);
             var scrollPosition = Vector2.zero;
             Task<CommandResult> logTask = null;
             Task<string> currentBranchTask = null;
-            var selectionPerModule = new Dictionary<string, ListState>();
             string guid = "";
             string selectedCommit = null;
 
@@ -46,9 +48,6 @@ namespace Abuksigun.PackageShortcuts
                     string files = PackageShortcuts.JoinFileNames(filePaths)?.WrapUp("-- ", "");
                     logTask = module.RunGit($"log {settings} --format=format:\"%h - %an (%ar) <b>%d</b> %s\" {filter} {files}");
                 }
-                var selection = selectionPerModule.GetValueOrDefault(module.Guid) ?? (selectionPerModule[module.Guid] = new ListState());
-                if (filePaths != null)
-                    selection.AddRange(filePaths);
                 var windowWidth = GUILayout.Width(window.position.width);
                 using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, windowWidth, GUILayout.Height(window.position.height - BottomPanelHeight)))
                 {
@@ -61,7 +60,7 @@ namespace Abuksigun.PackageShortcuts
                             if (GUILayout.Toggle(selectedCommit == commitHash, commit, style) && !string.IsNullOrEmpty(commitHash))
                             {
                                 if (commitHash != selectedCommit)
-                                    selection.Clear();
+                                    treeViewStateFiles.selectedIDs.Clear();
                                 if (Event.current.button == 1 && GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition))
                                     _ = ShowCommitContextMenu(module, commitHash);
                                 selectedCommit = commitHash;
@@ -73,8 +72,10 @@ namespace Abuksigun.PackageShortcuts
                 }
                 if (module.GitRepoPath.GetResultOrDefault() is { } gitRepoPath && module.DiffFiles($"{selectedCommit}~1", selectedCommit).GetResultOrDefault() is { } diffFiles)
                 {
-                    void ShowSelectionContextMenu(FileStatus file) => ShowFileContextMenu(module, selection, selectedCommit);
-                    GUIShortcuts.DrawList(diffFiles, selection, true, ShowSelectionContextMenu, windowWidth, GUILayout.Height(FileListHeight));
+                    var statuses = new[] { new GitStatus (diffFiles, module.Guid) };
+                    treeViewFiles.Draw(new Vector2(window.position.width, FileListHeight), statuses, (int id) => {
+                        ShowFileContextMenu(module, diffFiles.Where(x => treeViewStateFiles.selectedIDs.Contains(x.FullPath.GetHashCode())).Select(x => x.FullPath), selectedCommit);
+                    });
                 }
             });
         }
@@ -109,7 +110,7 @@ namespace Abuksigun.PackageShortcuts
             menu.AddItem(new GUIContent("Diff"), false, () => _ = Diff.ShowDiff(module, files, false, $"{selectedCommit}~1", selectedCommit));
             menu.AddItem(new GUIContent($"Revert to this commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
-                    _ = GUIShortcuts.RunGitAndErrorCheck(module, $"checkout {selectedCommit} -- {PackageShortcuts.JoinFileNames(files)}");
+                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, $"checkout {selectedCommit} -- {PackageShortcuts.JoinFileNames(files)}");
             });
             menu.ShowAsContext();
         }

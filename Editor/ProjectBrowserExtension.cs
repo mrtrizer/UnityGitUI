@@ -60,20 +60,19 @@ namespace Abuksigun.PackageShortcuts
                 }
             }
 
-            if (module == null)
+            if (module == null && PackageShortcuts.GetAssetGitInfo(guid) is { } assetInfo)
             {
-                if (PackageShortcuts.GetAssetGitInfo(guid) is { } assetInfo)
-                {
-                    fileMarkStyle ??= new GUIStyle(labelStyle) { fontStyle = FontStyle.Bold, fontSize = 10, richText = true };
-                    var rect = drawRect;
-                    rect.height = 15;
-                    rect.y += 2;
-                    rect.x -= 8;
-                    if (assetInfo.FileStatuses.FirstOrDefault(x => x.IsUnstaged) is { } unstagedStatus)
-                        GUI.Label(rect, GUIShortcuts.MakePrintableStatus(unstagedStatus.Y), fileMarkStyle);
-                    else if (assetInfo.FileStatuses.FirstOrDefault(x => x.IsStaged) is { } stagedStatus)
-                        GUI.Label(rect, "<color=green>✓</color>", fileMarkStyle);
-                }
+                fileMarkStyle ??= new GUIStyle(labelStyle) { fontStyle = FontStyle.Bold, fontSize = 10, richText = true };
+                var rect = drawRect;
+                rect.height = 15;
+                rect.y += 2;
+                rect.x -= 8;
+                if (assetInfo.NestedFileModified)
+                    GUI.Label(rect, "     <color=blue>*</color>", fileMarkStyle);
+                else if (assetInfo.FileStatus.IsUnstaged)
+                    GUI.Label(rect, GUIShortcuts.MakePrintableStatus(assetInfo.FileStatus.Y), fileMarkStyle);
+                else if (assetInfo.FileStatus.IsStaged)
+                    GUI.Label(rect, "<color=green>✓</color>", fileMarkStyle);
             }
         }
     }

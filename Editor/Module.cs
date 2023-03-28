@@ -32,7 +32,7 @@ namespace Abuksigun.PackageShortcuts
         public bool IsStaged => !IsUnresolved && X is not ' ' and not '?' and not '!';
         public bool IsUnresolved => Y is 'U' || X is 'U' || (X == Y && X == 'D') || (X == Y && X == 'A');
     }
-    public record GitStatus(FileStatus[] Files)
+    public record GitStatus(FileStatus[] Files, string ModuleGuid)
     {
         public IEnumerable<FileStatus> Staged => Files.Where(file => file.IsStaged);
         public IEnumerable<FileStatus> Unstaged => Files.Where(file => file.IsUnstaged);
@@ -60,8 +60,8 @@ namespace Abuksigun.PackageShortcuts
         public string Guid { get; }
         public string Name { get; }
         public string LogicalPath { get; }
-        public string PhysicalPath => Path.GetFullPath(FileUtil.GetPhysicalPath(LogicalPath)).NormalizePath();
-        public string ProjectDirPath => PhysicalPath == Application.dataPath ? Directory.GetParent(PhysicalPath).FullName.NormalizePath() : PhysicalPath;
+        public string PhysicalPath => Path.GetFullPath(FileUtil.GetPhysicalPath(LogicalPath)).NormalizeSlashes();
+        public string ProjectDirPath => PhysicalPath == Application.dataPath ? Directory.GetParent(PhysicalPath).FullName.NormalizeSlashes() : PhysicalPath;
         public PackageInfo PackageInfo { get; }
         public Task<bool> IsGitRepo => isGitRepo ??= GetIsGitRepo();
         public Task<string> GitRepoPath => gitRepoPath ??= GetRepoPath();
@@ -230,7 +230,7 @@ namespace Abuksigun.PackageShortcuts
 
             var numStatUnstaged = ParseNumStat(numStatUnstagedTask.Result.Output);
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
-            return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged));
+            return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged), Guid);
         }
         async Task<FileStatus[]> GetDiffFiles(string firstCommit, string lastCommit)
         {
@@ -248,7 +248,7 @@ namespace Abuksigun.PackageShortcuts
                 string[] paths = line[2..].Split(new[] { " ->", "\t" }, RemoveEmptyEntries);
                 string path = paths.Length > 1 ? paths[1].Trim() : paths[0].Trim();
                 string oldPath = paths.Length > 1 ? paths[0].Trim().Trim('"') : null;
-                string fullPath = Path.Join(gitRepoPath, path.Trim('"')).NormalizePath();
+                string fullPath = Path.Join(gitRepoPath, path.Trim('"')).NormalizeSlashes();
                 return new FileStatus(Guid, fullPath, oldPath, X: line[0], Y: line[1], numStatUnstaged.GetValueOrDefault(path), numStatStaged.GetValueOrDefault(path));
             }).ToArray();
         }

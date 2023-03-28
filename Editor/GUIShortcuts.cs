@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditor.IMGUI.Controls;
+using UnityEditor.PackageManager;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -23,7 +24,48 @@ namespace Abuksigun.PackageShortcuts
     {
         public Vector2 ScrollPosition { get; set; }
     }
-    
+
+    class LazyTreeView<T> : TreeView where T : class
+    {
+        Action<int> contextMenuCallback;
+        Func<IEnumerable<T>, List<TreeViewItem>> generateItems;
+        bool multiSelection;
+        List<T> sourceObjects;
+
+        public LazyTreeView(Func<IEnumerable<T>, List<TreeViewItem>> generateItems, TreeViewState treeViewState, bool multiSelection) : base(treeViewState)
+        {
+            this.generateItems = generateItems;
+            this.multiSelection = multiSelection;
+        }
+        public void Draw(Vector2 size, IEnumerable<T> sourceObjects, Action<int> contextMenuCallback = null)
+        {
+            if (this.sourceObjects == null || !this.sourceObjects.SequenceEqual(sourceObjects))
+            {
+                this.sourceObjects = sourceObjects.ToList();
+                Reload();
+                ExpandAll();
+            }
+            this.contextMenuCallback = contextMenuCallback;
+            OnGUI(GUILayoutUtility.GetRect(size.x, size.y));
+        }
+        protected override TreeViewItem BuildRoot()
+        {
+            var root = new TreeViewItem { id = 0, depth = -1, displayName = "Root" };
+            var generatedItems = generateItems(sourceObjects);
+            SetupParentsAndChildrenFromDepths(root, generatedItems);
+            return root;
+        }
+        protected override bool CanMultiSelect(TreeViewItem item)
+        {
+            return multiSelection;
+        }
+        protected override void ContextClickedItem(int id)
+        {
+            contextMenuCallback?.Invoke(id);
+            base.ContextClickedItem(id);
+        }
+    }
+
     public static class GUIShortcuts
     {
         static Dictionary<Module, Vector2> logScrollPositions = new();
@@ -61,22 +103,48 @@ namespace Abuksigun.PackageShortcuts
             };
             return tcs.Task;
         }
-        
-        public static async Task<CommandResult> RunGitAndErrorCheck(Module module, string args)
+
+        public static List<TreeViewItem> GenerateFileItems(IEnumerable<GitStatus> statuses, bool staged)
+        {
+            var items = new List<TreeViewItem>();
+            var validStatuses = statuses.Where(x => x != null);
+            foreach (var status in validStatuses)
+            {
+                var module = PackageShortcuts.GetModule(status.ModuleGuid);
+                var visibleFiles = status.Files.Where(x => x.IsUnstaged && !staged || x.IsStaged && staged);
+                if (validStatuses.Count() > 1 && visibleFiles.Any())
+                    items.Add(new TreeViewItem(module.Guid.GetHashCode(), 0, module.Name));
+                foreach (var file in visibleFiles)
+                {
+                    var icon = AssetDatabase.GetCachedIcon(PackageShortcuts.GetUnityLogicalPath(file.FullPath));
+                    if (!icon)
+                        icon = EditorGUIUtility.IconContent("DefaultAsset Icon").image;
+                    string relativePath = Path.GetRelativePath(module.GitRepoPath.GetResultOrDefault(), file.FullPath);
+                    var numStat = staged ? file.StagedNumStat : file.UnstagedNumStat;
+                    var content = $"{(staged ? file.X : file.Y)} {relativePath} +{numStat.Added} -{numStat.Removed}";
+                    items.Add(new TreeViewItem(file.FullPath.GetHashCode(), validStatuses.Count() > 1 ? 1 : 0, content) { icon = icon as Texture2D });
+                }
+            }
+            return items;
+        }
+
+        public static async Task<CommandResult> RunGitAndErrorCheck(IEnumerable<Module> modules, string args)
         {
             CommandResult result = null;
-            try
-            {
-                var commandLog = new List<IOData>();
-                PushReloadAssemblies();
-                result = await module.RunGit(args, (data) => commandLog.Add(data));
-                if (result.ExitCode != 0)
-                    EditorUtility.DisplayDialog($"Error in {module.Name}", $">> git {args}\n{commandLog.Where(x => x.Error).Select(x => x.Data).Join('\n')}", "Ok");
-            }
-            finally
-            {
-                PopReloadAssemblies();
-            }
+            await Task.WhenAll(modules.Select(async module => {
+                try
+                {
+                    var commandLog = new List<IOData>();
+                    PushReloadAssemblies();
+                    result = await module.RunGit(args, (data) => commandLog.Add(data));
+                    if (result.ExitCode != 0)
+                        EditorUtility.DisplayDialog($"Error in {module.Name}", $">> git {args}\n{commandLog.Where(x => x.Error).Select(x => x.Data).Join('\n')}", "Ok");
+                }
+                finally
+                {
+                    PopReloadAssemblies();
+                }
+            }));
             return result;
         }
         
@@ -113,69 +181,6 @@ namespace Abuksigun.PackageShortcuts
                 EditorGUILayout.SelectableLabel(module.ProcessLog[i].Data, lineStyle, GUILayout.Height(15), GUILayout.Width(maxWidth));
             }
             logScrollPositions[module] = scroll.scrollPosition;
-        }
-
-        public static void DrawList(IEnumerable<FileStatus> files, ListState listState, bool staged, Action<FileStatus> contextMenu = null, params GUILayoutOption[] layoutOptions)
-        {
-            using (new GUILayout.VerticalScope())
-            {
-                using (new GUILayout.HorizontalScope())
-                {
-                    if (GUILayout.Button("All", GUILayout.MaxWidth(50)))
-                    {
-                        listState.Clear();
-                        listState.AddRange(files.Select(x => x.FullPath));
-                    }
-                    if (GUILayout.Button("None", GUILayout.MaxWidth(50)))
-                        listState.Clear();
-                }
-                using (var scroll = new GUILayout.ScrollViewScope(listState.ScrollPosition, false, false, GUI.skin.verticalScrollbar, GUI.skin.horizontalScrollbar, GUI.skin.textArea, layoutOptions))
-                using (new EditorGUIUtility.IconSizeScope(Vector2.one * 16))
-                {
-                    foreach (var file in files)
-                    {
-                        bool wasSelected = listState.Contains(file.FullPath);
-                        var module = PackageShortcuts.GetModule(file.ModuleGuid);
-                        string relativePath = Path.GetRelativePath(module.GitRepoPath.GetResultOrDefault(), file.FullPath);
-                        var numStat = staged ? file.StagedNumStat : file.UnstagedNumStat;
-                        var style = wasSelected ? Style.Selected.Value : Style.Idle.Value;
-                        var texture = AssetDatabase.GetCachedIcon(FileUtil.GetLogicalPath(file.FullPath)) ?? EditorGUIUtility.IconContent("DefaultAsset Icon").image;
-                        var content = new GUIContent($"<b>{MakePrintableStatus(staged ? file.X : file.Y)}</b> {relativePath} +{numStat.Added} -{numStat.Removed}", texture);
-                        bool isSelected = GUILayout.Toggle(wasSelected, content, style);
-
-                        if (Event.current.button == 1 && wasSelected != isSelected)
-                        {
-                            contextMenu?.Invoke(file);
-                        }
-                        else if (Event.current.control)
-                        {
-                            if (isSelected != wasSelected && wasSelected)
-                                listState.Remove(file.FullPath);
-                            if (isSelected != wasSelected && !wasSelected)
-                                listState.Add(file.FullPath);
-                        }
-                        else if (Event.current.shift && isSelected != wasSelected && listState.LastOrDefault() != file.FullPath)
-                        {
-                            bool select = false;
-                            foreach (var selectedFile in files)
-                            {
-                                bool hitRange = selectedFile.FullPath == listState.LastOrDefault() || selectedFile.FullPath == file.FullPath;
-                                if ((hitRange || select) && !listState.Contains(selectedFile.FullPath))
-                                    listState.Add(selectedFile.FullPath);
-                                if (hitRange)
-                                    select = !select;
-                            }
-                        }
-                        else if (isSelected != wasSelected)
-                        {
-                            listState.Clear();
-                            if (!wasSelected)
-                                listState.Add(file.FullPath);
-                        }
-                    }
-                    listState.ScrollPosition = scroll.scrollPosition;
-                }
-            }
         }
         
         [SettingsProvider]

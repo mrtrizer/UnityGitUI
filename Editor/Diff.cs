@@ -31,7 +31,7 @@ namespace Abuksigun.PackageShortcuts
         });
 
         [MenuItem("Assets/Diff", true)]
-        public static bool Check() => Selection.assetGUIDs.Any(x => PackageShortcuts.GetAssetGitInfo(x)?.FileStatuses.Any(x => x.IsInIndex) ?? false);
+        public static bool Check() => Selection.assetGUIDs.Any(x => PackageShortcuts.GetAssetGitInfo(x)?.FileStatus != null);
 
         [MenuItem("Assets/Diff")]
         public static void Invoke()
@@ -39,7 +39,7 @@ namespace Abuksigun.PackageShortcuts
             var assetsInfo = Selection.assetGUIDs.Select(x => PackageShortcuts.GetAssetGitInfo(x)).Where(x => x != null);
             foreach (var module in assetsInfo.Select(x => x.Module).Distinct())
             {
-                var statuses = assetsInfo.Where(x => x.Module == module).SelectMany(x => x.FileStatuses);
+                var statuses = assetsInfo.Where(x => x.Module == module).Select(x => x.FileStatus);
                 _ = ShowDiff(module, statuses.Where(x => x.IsStaged).Select(x => x.FullPath), true);
                 _ = ShowDiff(module, statuses.Where(x => x.IsUnstaged).Select(x => x.FullPath), false);
             }
