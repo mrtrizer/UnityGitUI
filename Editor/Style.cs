@@ -13,7 +13,6 @@ namespace Abuksigun.PackageShortcuts
 
         public static Lazy<GUIStyle> Idle => new(() => new() {
             normal = new() {
-                background = GetColorTexture(Color.clear),
                 textColor = GUI.skin.label.normal.textColor
             }
         });
@@ -42,23 +41,6 @@ namespace Abuksigun.PackageShortcuts
             normal = new() {
                 textColor = Color.red,
                 background = GetColorTexture(new Color(0.2f, 0.2f, 0.2f))
-            }
-        });
-        public static Lazy<GUIStyle> DiffUnchanged => new(() => new() {
-            normal = new GUIStyleState { 
-                background = GetColorTexture(Color.white) 
-            },
-            font = MonospacedFont.Value,
-            fontSize = 10
-        });
-        public static Lazy<GUIStyle> DiffAdded => new(() => new(DiffUnchanged.Value) {
-            normal = new GUIStyleState {
-                background = GetColorTexture(new Color(0.505f, 0.99f, 0.618f))
-            }
-        });
-        public static Lazy<GUIStyle> DiffRemoved => new(() => new(DiffUnchanged.Value) {
-            normal = new GUIStyleState {
-                background = GetColorTexture(new Color(0.990f, 0.564f, 0.564f))
             }
         });
 

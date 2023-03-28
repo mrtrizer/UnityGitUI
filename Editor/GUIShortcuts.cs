@@ -26,8 +26,6 @@ namespace Abuksigun.PackageShortcuts
     
     public static class GUIShortcuts
     {
-        public delegate void HunkAction(string fileName, int hunkIndex);
-
         static Dictionary<Module, Vector2> logScrollPositions = new();
 
         static int reloadAssembliesStack = 0;
@@ -114,52 +112,7 @@ namespace Abuksigun.PackageShortcuts
                 var lineStyle = module.ProcessLog[i].Error ? Style.ProcessLogError.Value : Style.ProcessLog.Value;
                 EditorGUILayout.SelectableLabel(module.ProcessLog[i].Data, lineStyle, GUILayout.Height(15), GUILayout.Width(maxWidth));
             }
-
             logScrollPositions[module] = scroll.scrollPosition;
-        }
-        public static void DrawGitDiff(string diff, Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, ref Vector2 scrollPosition)
-        {
-            string[] lines = diff.SplitLines();
-            int longestLine = lines.Max(x => x.Length);
-            float width = Mathf.Max(Style.DiffUnchanged.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x);
-            int currentLine = 1;
-            using var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
-            var layout = new[] { GUILayout.Height(15), GUILayout.Width(width) };
-
-            string currentFile = null;
-            int hunkIndex = -1;
-            for (int i = 0; i < lines.Length; i++)
-            {
-                if (lines[i][0] == 'd')
-                {
-                    i += 3;
-                    hunkIndex = -1;
-                    currentFile = lines[i][6..];
-                    EditorGUILayout.SelectableLabel(currentFile, Style.FileName.Value, layout);
-                }
-                else if (lines[i].StartsWith("@@"))
-                {
-                    var match = Regex.Match(lines[i], @"@@ -(\d+),(\d+) \+(\d+),?(\d+)? @@");
-                    EditorGUILayout.SelectableLabel(match.Value, Style.FileName.Value, layout);
-                    currentLine = match.Groups[1].Value != "0" ? int.Parse(match.Groups[1].Value) : int.Parse(match.Groups[3].Value);
-                    hunkIndex++;
-                    using (new GUILayout.HorizontalScope())
-                    {
-                        if (stageHunk != null && GUILayout.Button($"Stage hunk {hunkIndex + 1}", GUILayout.Width(100)))
-                            stageHunk.Invoke(currentFile, hunkIndex);
-                        if (unstageHunk != null && GUILayout.Button($"Unstage hunk {hunkIndex + 1}", GUILayout.Width(100)))
-                            unstageHunk.Invoke(currentFile, hunkIndex);
-                        if (discardHunk != null && GUILayout.Button($"Discard hunk {hunkIndex + 1}", GUILayout.Width(100)))
-                            discardHunk.Invoke(currentFile, hunkIndex);
-                    }
-                }
-                else if (hunkIndex >= 0)
-                {
-                    var style = lines[i][0] switch { '+' => Style.DiffAdded.Value, '-' => Style.DiffRemoved.Value, _ => Style.DiffUnchanged.Value };
-                    EditorGUILayout.SelectableLabel($"{lines[i][0]} {currentLine++, 4} {lines[i][1..]}", style, layout);
-                }
-            }
-            scrollPosition = scroll.scrollPosition;
         }
 
         public static void DrawList(IEnumerable<FileStatus> files, ListState listState, bool staged, Action<FileStatus> contextMenu = null, params GUILayoutOption[] layoutOptions)
@@ -168,15 +121,15 @@ namespace Abuksigun.PackageShortcuts
             {
                 using (new GUILayout.HorizontalScope())
                 {
-                    if (files.Any() && GUILayout.Button("All", GUILayout.MaxWidth(50)))
+                    if (GUILayout.Button("All", GUILayout.MaxWidth(50)))
                     {
                         listState.Clear();
                         listState.AddRange(files.Select(x => x.FullPath));
                     }
-                    if (files.Any() && GUILayout.Button("None", GUILayout.MaxWidth(50)))
+                    if (GUILayout.Button("None", GUILayout.MaxWidth(50)))
                         listState.Clear();
                 }
-                using (var scroll = new GUILayout.ScrollViewScope(listState.ScrollPosition, false, false, layoutOptions))
+                using (var scroll = new GUILayout.ScrollViewScope(listState.ScrollPosition, false, false, GUI.skin.verticalScrollbar, GUI.skin.horizontalScrollbar, GUI.skin.textArea, layoutOptions))
                 using (new EditorGUIUtility.IconSizeScope(Vector2.one * 16))
                 {
                     foreach (var file in files)

@@ -91,6 +91,7 @@ namespace Abuksigun.PackageShortcuts
                         GUIShortcuts.DrawList(status.Unstaged, selection.Unstaged, false, ShowUnstagedContextMenu, scrollHeight, scrollWidth);
                         using (new GUILayout.VerticalScope())
                         {
+                            GUILayout.Space(50);
                             if (GUILayout.Button(EditorGUIUtility.IconContent("tab_next@2x"), GUILayout.Width(MiddlePanelWidth)))
                             {
                                 tasksInProgress.Add(module.RunGit($"add -f -- {PackageShortcuts.JoinFileNames(selection.Unstaged)}"));
