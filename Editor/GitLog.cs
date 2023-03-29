@@ -57,7 +57,6 @@ namespace Abuksigun.PackageShortcuts
         }
 
         LogGraphCell[,] cells;
-        Vector2 scrollPosition;
         string[] lastLog;
         List<string> lines;
 
@@ -67,44 +66,22 @@ namespace Abuksigun.PackageShortcuts
         const float infoPanelWidth = 300;
 
         [SerializeField]
-        TreeViewState treeViewState = new();
+        TreeViewState treeViewLogState = new();
         [SerializeField]
-        MultiColumnHeaderState multiColumnHeaderState = new(new[] { 
-            new MultiColumnHeaderState.Column { headerContent = new GUIContent("Graph") },
-            new MultiColumnHeaderState.Column { headerContent = new GUIContent("Hash"), width = 80 },
-            new MultiColumnHeaderState.Column { headerContent = new GUIContent("Author"), width = 100 },
-            new MultiColumnHeaderState.Column { headerContent = new GUIContent("Date"), width = 100 },
-            new MultiColumnHeaderState.Column { headerContent = new GUIContent("Message"), width = 400 },
+        MultiColumnHeaderState multiColumnHeaderState = new(new MultiColumnHeaderState.Column[] { 
+            new () { headerContent = new GUIContent("Graph") },
+            new () { headerContent = new GUIContent("Hash"), width = 80 },
+            new () { headerContent = new GUIContent("Author"), width = 100 },
+            new () { headerContent = new GUIContent("Date"), width = 100 },
+            new () { headerContent = new GUIContent("Message"), width = 400 },
         });
         MultiColumnHeader multiColumnHeader;
-        LazyTreeView<string[]> treeView;
+        LazyTreeView<string[]> treeViewLog;
 
         [SerializeField]
         TreeViewState treeViewStateFiles = new();
         LazyTreeView<GitStatus> treeViewFiles;
 
-        void DrawRow(TreeViewItem item, int columnIndex, Rect rect)
-        {
-            if (item is CommitTreeViewItem { } commit)
-            {
-                if (columnIndex == 1)
-                {
-                    EditorGUI.LabelField(rect, commit.Hash);
-                }
-                else if (columnIndex == 2)
-                {
-                    EditorGUI.LabelField(rect, commit.Author);
-                }
-                else if (columnIndex == 3)
-                {
-                    EditorGUI.LabelField(rect, commit.Date);
-                }
-                else if (columnIndex == 4)
-                {
-                    EditorGUI.LabelField(rect, commit.Message);
-                }
-            }
-        }
         protected override void OnGUI()
         {
             var module = GUIShortcuts.ModuleGuidToolbar(PackageShortcuts.GetSelectedGitModules().ToList(), guid);
@@ -117,25 +94,24 @@ namespace Abuksigun.PackageShortcuts
                 guid = module.Guid;
                 lines = log.Where(x => x.Contains('*')).ToList();
                 cells = ParseGraph(lines);
-                treeView = new(statuses => GenerateLogItems(lines), treeViewState, multiColumnHeader ??= new (multiColumnHeaderState), DrawRow, false);
+                treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, multiColumnHeader ??= new (multiColumnHeaderState), DrawRow, false);
                 treeViewFiles = new(statuses => GUIShortcuts.GenerateFileItems(statuses, true), treeViewStateFiles, true);
             }
 
-            var colors = new Color[] { new (0.86f, 0.92f, 0.75f), new (0.41f, 0.84f, 0.91f), new (0.68f, 0.90f, 0.24f), new (0.79f, 0.47f, 0.90f), new (0.92f, 0.60f, 0.34f), new (0.90f, 0.40f, 0.44f), new (0.42f, 0.48f, 0.91f) };
+            var colors = new Color[] { new (0.86f, 0.92f, 0.75f), new(0.92f, 0.60f, 0.34f), new (0.41f, 0.84f, 0.91f), new (0.68f, 0.90f, 0.24f), new (0.79f, 0.47f, 0.90f), new (0.90f, 0.40f, 0.44f), new (0.42f, 0.48f, 0.91f) };
 
             float scrollHeight = position.size.y;
-            
+
+            var scrollPosition = treeViewLogState.scrollPos;
             int firstY = (int)(scrollPosition.y / space);
             int itemNum = (int)(scrollHeight / space);
 
-            treeView.Draw(new Vector2(position.width, position.height - filesPanelHeight), new[] { lastLog }, id => {
+            treeViewLog.Draw(new Vector2(position.width, position.height - filesPanelHeight), new[] { lastLog }, id => {
                 string commit = lines.FirstOrDefault(x => x.GetHashCode() == id);
                 string selectedCommit = commit != null ? Regex.Match(commit, @"([0-9a-f]+)")?.Groups[1].Value : null;
                 _ = ShowCommitContextMenu(module, selectedCommit);
             });
-
-            scrollPosition = treeViewState.scrollPos;
-
+            
             if (Event.current.type == EventType.Repaint)
             {
                 var firstPoint = GUILayoutUtility.GetLastRect().position;
@@ -159,7 +135,7 @@ namespace Abuksigun.PackageShortcuts
             }
             using (new EditorGUILayout.HorizontalScope(GUILayout.Height(filesPanelHeight)))
             {
-                string commit = lines.FirstOrDefault(x => x.GetHashCode() == treeViewState.selectedIDs.FirstOrDefault());
+                string commit = lines.FirstOrDefault(x => x.GetHashCode() == treeViewLogState.selectedIDs.FirstOrDefault());
                 string selectedCommit = commit != null ? Regex.Match(commit, @"([0-9a-f]+)")?.Groups[1].Value : null;
                 if (module.GitRepoPath.GetResultOrDefault() is { } gitRepoPath && module.DiffFiles($"{selectedCommit}~1", selectedCommit).GetResultOrDefault() is { } diffFiles)
                 {
@@ -171,13 +147,27 @@ namespace Abuksigun.PackageShortcuts
                 using (new EditorGUILayout.VerticalScope(GUILayout.Height(filesPanelHeight)))
                 {
                     EditorGUILayout.SelectableLabel(selectedCommit);
-                    EditorGUILayout.SelectableLabel(commit, new GUIStyle {wordWrap = true } );
+                    EditorGUILayout.SelectableLabel(commit.AfterFirst('-'), new GUIStyle {wordWrap = true } );
                 }
             }
         }
         List<TreeViewItem> GenerateLogItems(List<string> lines)
         {
             return lines.Select(x => new CommitTreeViewItem(x.GetHashCode(), 0, x.AfterFirst('#')) as TreeViewItem).ToList();
+        }
+        void DrawRow(TreeViewItem item, int columnIndex, Rect rect)
+        {
+            if (item is CommitTreeViewItem { } commit)
+            {
+                if (columnIndex == 1)
+                    EditorGUI.LabelField(rect, commit.Hash);
+                else if (columnIndex == 2)
+                    EditorGUI.LabelField(rect, commit.Author);
+                else if (columnIndex == 3)
+                    EditorGUI.LabelField(rect, commit.Date);
+                else if (columnIndex == 4)
+                    EditorGUI.LabelField(rect, commit.Message);
+            }
         }
         IEnumerable<Vector2Int> FindCells(int fromY, params string[] hashes)
         {
