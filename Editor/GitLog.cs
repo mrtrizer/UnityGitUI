@@ -24,6 +24,22 @@ namespace Abuksigun.PackageShortcuts
             window.Show();
         }
     }
+
+    public class CommitTreeViewItem : TreeViewItem
+    {
+        public CommitTreeViewItem(int id, int depth, string logLine) : base(id, depth)
+        {
+            var match = Regex.Match(logLine, @"([0-9a-f]+).*?- (.*?) \((.*?)\) (.*)");
+            Hash = match.Groups[1].Value;
+            Author = match.Groups[2].Value;
+            Date = match.Groups[3].Value;
+            Message = match.Groups[4].Value;
+        }
+        public string Hash { get; set; }
+        public string Author { get; set; }
+        public string Date { get; set; }
+        public string Message { get; set; }
+    }
     
     public class GitLogWindow : DefaultWindow
     {
@@ -45,22 +61,55 @@ namespace Abuksigun.PackageShortcuts
         string[] lastLog;
         List<string> lines;
 
+        const float tableHeaderHeight = 27;
         const float space = 16;
         const float filesPanelHeight = 200;
         const float infoPanelWidth = 300;
 
         [SerializeField]
         TreeViewState treeViewState = new();
+        [SerializeField]
+        MultiColumnHeaderState multiColumnHeaderState = new(new[] { 
+            new MultiColumnHeaderState.Column { headerContent = new GUIContent("Graph") },
+            new MultiColumnHeaderState.Column { headerContent = new GUIContent("Hash"), width = 80 },
+            new MultiColumnHeaderState.Column { headerContent = new GUIContent("Author"), width = 100 },
+            new MultiColumnHeaderState.Column { headerContent = new GUIContent("Date"), width = 100 },
+            new MultiColumnHeaderState.Column { headerContent = new GUIContent("Message"), width = 400 },
+        });
+        MultiColumnHeader multiColumnHeader;
         LazyTreeView<string[]> treeView;
 
         [SerializeField]
         TreeViewState treeViewStateFiles = new();
         LazyTreeView<GitStatus> treeViewFiles;
 
+        void DrawRow(TreeViewItem item, int columnIndex, Rect rect)
+        {
+            if (item is CommitTreeViewItem { } commit)
+            {
+                if (columnIndex == 1)
+                {
+                    EditorGUI.LabelField(rect, commit.Hash);
+                }
+                else if (columnIndex == 2)
+                {
+                    EditorGUI.LabelField(rect, commit.Author);
+                }
+                else if (columnIndex == 3)
+                {
+                    EditorGUI.LabelField(rect, commit.Date);
+                }
+                else if (columnIndex == 4)
+                {
+                    EditorGUI.LabelField(rect, commit.Message);
+                }
+            }
+        }
         protected override void OnGUI()
         {
             var module = GUIShortcuts.ModuleGuidToolbar(PackageShortcuts.GetSelectedGitModules().ToList(), guid);
-
+            if (module == null)
+                return;
             var log = module.Log.GetResultOrDefault();
             if (log != lastLog)
             {
@@ -68,7 +117,7 @@ namespace Abuksigun.PackageShortcuts
                 guid = module.Guid;
                 lines = log.Where(x => x.Contains('*')).ToList();
                 cells = ParseGraph(lines);
-                treeView = new(statuses => GenerateLogItems(lines), treeViewState, true);
+                treeView = new(statuses => GenerateLogItems(lines), treeViewState, multiColumnHeader ??= new (multiColumnHeaderState), DrawRow, false);
                 treeViewFiles = new(statuses => GUIShortcuts.GenerateFileItems(statuses, true), treeViewStateFiles, true);
             }
 
@@ -90,7 +139,8 @@ namespace Abuksigun.PackageShortcuts
             if (Event.current.type == EventType.Repaint)
             {
                 var firstPoint = GUILayoutUtility.GetLastRect().position;
-                GUI.BeginClip(new Rect(firstPoint, position.size - Vector2.up * filesPanelHeight));
+                var graphSize = new Vector2(multiColumnHeaderState.columns[0].width, position.size.y - filesPanelHeight + tableHeaderHeight);
+                GUI.BeginClip(new Rect(firstPoint + Vector2.up * tableHeaderHeight, graphSize));
                 for (int y = firstY; y < Mathf.Min(cells.GetLength(0), firstY + itemNum); y++)
                 {
                     for (int x = 0; x < cells.GetLength(1); x++)
@@ -127,7 +177,7 @@ namespace Abuksigun.PackageShortcuts
         }
         List<TreeViewItem> GenerateLogItems(List<string> lines)
         {
-            return lines.Select(x => new TreeViewItem(x.GetHashCode(), 0, new string(' ', 10) + x.AfterFirst('-'))).ToList();
+            return lines.Select(x => new CommitTreeViewItem(x.GetHashCode(), 0, x.AfterFirst('#')) as TreeViewItem).ToList();
         }
         IEnumerable<Vector2Int> FindCells(int fromY, params string[] hashes)
         {

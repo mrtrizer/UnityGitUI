@@ -27,15 +27,29 @@ namespace Abuksigun.PackageShortcuts
 
     class LazyTreeView<T> : TreeView where T : class
     {
+        public delegate List<TreeViewItem> GenerateItemsCallback(IEnumerable<T> data);
+        public delegate void DrawRowCallback(TreeViewItem item, int columnIndex, Rect rect);
+
+        DrawRowCallback drawRowCallback;
         Action<int> contextMenuCallback;
-        Func<IEnumerable<T>, List<TreeViewItem>> generateItems;
+        GenerateItemsCallback generateItems;
         bool multiSelection;
         List<T> sourceObjects;
 
-        public LazyTreeView(Func<IEnumerable<T>, List<TreeViewItem>> generateItems, TreeViewState treeViewState, bool multiSelection) : base(treeViewState)
+        public LazyTreeView(GenerateItemsCallback generateItems, TreeViewState treeViewState, bool multiSelection) 
+            : base(treeViewState)
         {
             this.generateItems = generateItems;
             this.multiSelection = multiSelection;
+            showBorder = true;
+        }
+        public LazyTreeView(GenerateItemsCallback generateItems, TreeViewState treeViewState, MultiColumnHeader multicolumnHeader, DrawRowCallback drawRowCallback, bool multiSelection) 
+            : base(treeViewState, multicolumnHeader)
+        {
+            this.generateItems = generateItems;
+            this.multiSelection = multiSelection;
+            this.drawRowCallback = drawRowCallback;
+            showBorder = true;
         }
         public void Draw(Vector2 size, IEnumerable<T> sourceObjects, Action<int> contextMenuCallback = null)
         {
@@ -63,6 +77,15 @@ namespace Abuksigun.PackageShortcuts
         {
             contextMenuCallback?.Invoke(id);
             base.ContextClickedItem(id);
+        }
+        protected override void RowGUI(RowGUIArgs args)
+        {
+            if (multiColumnHeader != null)
+            {
+                for (int i = 0; i < args.GetNumVisibleColumns(); ++i)
+                    drawRowCallback?.Invoke(args.item, args.GetColumn(i), args.GetCellRect(i));
+            }
+            base.RowGUI(args);
         }
     }
 

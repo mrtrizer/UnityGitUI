@@ -10,7 +10,7 @@ namespace Abuksigun.PackageShortcuts
 {
     public static class GitStaging
     {
-        const int TopPanelHeight = 120;
+        const int TopPanelHeight = 130;
         const int MiddlePanelWidth = 40;
 
         record Selection(ListState Unstaged, ListState Staged);
