@@ -10,7 +10,7 @@ namespace Abuksigun.PackageShortcuts
         [MenuItem("Assets/Git Stash", priority = 100)]
         public static async void Invoke()
         {
-            await GitLog.ShowLog(null, true);
+            //await GitLog.ShowLog(null, true);
         }
     }
 }

@@ -10,6 +10,7 @@ namespace Abuksigun.PackageShortcuts
     {
         static GUIStyle labelStyle;
         static GUIStyle fileMarkStyle;
+        static int spinCounter;
 
         static ProjectBrowserExtension()
         {
@@ -57,6 +58,13 @@ namespace Abuksigun.PackageShortcuts
                     rect.x = rect.x + rect.width - offset;
                     rect.y += 1.5f;
                     GUI.Label(rect, $"{result.Behind}↓{result.Ahead}↑", labelStyle);
+                }
+                else if (module.Remotes.GetResultOrDefault()?.Any() ?? false)
+                {
+                    var rect = drawRect;
+                    rect.height = 15;
+                    rect.x = rect.width - 40;
+                    GUI.Label(rect, EditorGUIUtility.IconContent($"WaitSpin{(spinCounter++ % 1100) / 100:00}"), labelStyle);
                 }
             }
 

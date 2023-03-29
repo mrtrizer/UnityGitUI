@@ -127,20 +127,24 @@ namespace Abuksigun.PackageShortcuts
                         _ = Diff.ShowDiff(module, files.Where(x => x.ModuleGuid == module.Guid && x.IsUnstaged).Select(x => x.FullPath), false);
                     }
                 });
-                menu.AddItem(new GUIContent("Log"), false, () => _ = GitLog.ShowLog(files.Select(x => x.FullPath), false));
+                //menu.AddItem(new GUIContent("Log"), false, () => _ = GitLog.ShowLog(files.Select(x => x.FullPath), false));
                 menu.AddSeparator("");
                 string message = filesList.Select(x => x.Value).Join('\n');
                 if (files.Any(x => x.IsUnstaged))
                 {
                     menu.AddItem(new GUIContent("Discrad"), false, () => {
                         if (EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", message, "Yes", "No"))
-                            _ = modules.Select(module => module.RunGit($"checkout -q -- {filesList[module]}"));
+                        {
+                            foreach (var module in modules)
+                                module.RunGit($"checkout -q -- {filesList[module]}");
+                        }
                     });
                 }
                 if (files.Any(x => x.IsStaged))
                 {
                     menu.AddItem(new GUIContent("Unstage"), false, () => {
-                        _ = modules.Select(module => module.RunGit($"reset -q -- {filesList[module]}"));
+                        foreach (var module in modules)
+                            module.RunGit($"reset -q -- {filesList[module]}");
                     });
                 }
             }

@@ -45,6 +45,7 @@ namespace Abuksigun.PackageShortcuts
         Task<bool> isGitRepo;
         Task<string> gitRepoPath;
         Task<Reference[]> references;
+        Task<string[]> log;
         Task<string> currentBranch;
         Task<string> currentCommit;
         Task<bool> isMergeInProgress;
@@ -66,6 +67,7 @@ namespace Abuksigun.PackageShortcuts
         public Task<bool> IsGitRepo => isGitRepo ??= GetIsGitRepo();
         public Task<string> GitRepoPath => gitRepoPath ??= GetRepoPath();
         public Task<Reference[]> References => references ??= GetReferences();
+        public Task<string[]> Log => log ??= GetLog();
         public Task<string> CurrentBranch => currentBranch ??= GetCurrentBranch();
         public Task<string> CurrentCommit => currentCommit ??= GetCommit();
         public Task<bool> IsMergeInProgress => isMergeInProgress ??= GetIsMergeInProgress();
@@ -179,12 +181,16 @@ namespace Abuksigun.PackageShortcuts
                 .Cast<Reference>();
             return branches.Concat(stashes).Concat(tags).ToArray();
         }
+        async Task<string[]> GetLog()
+        {
+            string log = (await RunGit($"log --graph --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ar) %d %s\" --branches --remotes --tags")).Output;
+            return log.SplitLines();
+        }
         async Task<string> GetCurrentBranch()
         {
             string branch = (await RunGit("branch --show-current")).Output.Trim();
             return string.IsNullOrEmpty(branch) ? null : branch;
         }
-
         async Task<Remote[]> GetRemotes()
         {
             string[] remoteLines = (await RunGit("remote -v")).Output.Trim().SplitLines();

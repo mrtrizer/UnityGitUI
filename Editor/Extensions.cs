@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 using System.Threading.Tasks;
 
 namespace Abuksigun.PackageShortcuts
@@ -45,6 +46,11 @@ namespace Abuksigun.PackageShortcuts
             var index = self.LastIndexOf(separator);
             return index == -1 ? self : self[(index + 1)..];
         }
+        public static string AfterFirst(this string self, char separator)
+        {
+            var index = self.IndexOf(separator);
+            return index == -1 ? self : self[(index + 1)..];
+        }
         public static string NormalizeSlashes(this string self)
         {
             return self.Replace('\\', '/');
@@ -56,6 +62,18 @@ namespace Abuksigun.PackageShortcuts
         public static TValue GetOrCreate<TKey, TValue>(this IDictionary<TKey, TValue> dict, TKey key, Func<TValue> createNew)
         {
             return dict.TryGetValue(key, out var value) ? value : dict[key] = createNew();
+        }
+        public static Vector3 ToX0Y(this Vector2 self)
+        {
+            return new Vector3(self.x, 0, self.y);
+        }
+        public static Vector3 ToXY0(this Vector2 self)
+        {
+            return new Vector3(self.x, self.y, 0);
+        }
+        public static Vector2 ToXZ(this Vector3 self)
+        {
+            return new Vector2(self.x, self.z);
         }
     }
 }

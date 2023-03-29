@@ -34,7 +34,7 @@ namespace Abuksigun.PackageShortcuts
                 {
                     using (new GUILayout.VerticalScope(GUILayout.MaxWidth(150)))
                     {
-                        if (GUILayout.Button($"Fetch {modules.Length} modules"))
+                        if (GUILayout.Button(new GUIContent($"Fetch {modules.Length} modules", EditorGUIUtility.IconContent("Refresh@2x").image)))
                         {
                             tasks = modules.ToDictionary(x => x.Guid, async module => {
                                 var remote = await module.DefaultRemote;
@@ -46,7 +46,7 @@ namespace Abuksigun.PackageShortcuts
                     }
                     using (new GUILayout.VerticalScope(GUILayout.MaxWidth(150)))
                     {
-                        if (GUILayout.Button($"Pull {modules.Length} modules"))
+                        if (GUILayout.Button(new GUIContent($"Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image)))
                         {
                             tasks = modules.ToDictionary(x => x.Guid, async module => {
                                 var remote = await module.DefaultRemote;
@@ -57,7 +57,7 @@ namespace Abuksigun.PackageShortcuts
                     }
                     using (new GUILayout.VerticalScope(GUILayout.MaxWidth(150)))
                     {
-                        if (GUILayout.Button($"Push {modules.Length} modules"))
+                        if (GUILayout.Button(new GUIContent($"Push {modules.Length} modules", EditorGUIUtility.IconContent("Update-Available@2x").image)))
                         {
                             tasks = modules.ToDictionary(x => x.Guid, async module => {
                                 string branch = await module.CurrentBranch;
@@ -84,9 +84,9 @@ namespace Abuksigun.PackageShortcuts
                             if (task != null)
                             {
                                 string status = !task.IsCompleted ? "In progress"
-                                    : task.IsCompletedSuccessfully && task.Result.ExitCode == 0 ? "Done"
-                                    : "Errored";
-                                GUILayout.Label(status, GUILayout.Width(100));
+                                    : task.IsCompletedSuccessfully && task.Result.ExitCode == 0 ? "<color=green><b>Done</b></color>"
+                                    : "<color=red><b>Errored</b></color>";
+                                GUILayout.Label(status, Style.Idle.Value, GUILayout.Width(100));
                             }
                         }
                     }

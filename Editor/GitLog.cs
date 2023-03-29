@@ -1,83 +1,199 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
+using UnityEditor.PackageManager.UI;
 using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
 {
-    // Graphical log - https://github.com/pvigier/gitamine/blob/master/src/renderer/components/graph-canvas.tsx
-
     public static class GitLog
     {
-        const int BottomPanelHeight = 200;
-        const int FileListHeight = 150;
-
-        static Lazy<GUIStyle> IdleLogStyle = new(() => new (Style.Idle.Value) { font = Style.MonospacedFont.Value, fontSize = 12, richText = true });
-        static Lazy<GUIStyle> SelectedLogStyle = new(() => new (Style.Selected.Value) { font = Style.MonospacedFont.Value, fontSize = 12, richText = true });
-
         [MenuItem("Assets/Git Log", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
+
         [MenuItem("Assets/Git Log", priority = 100)]
-        public static async void Invoke()
+        public static void Invoke()
         {
-            await ShowLog(null, false);
+            var window = ScriptableObject.CreateInstance<GitLogWindow>();
+            window.titleContent = new GUIContent("Git Log", EditorGUIUtility.IconContent("UnityEditor.VersionControl").image);
+            window.Show();
         }
-        public static async Task ShowLog(IEnumerable<string> filePaths, bool viewStash)
+    }
+    
+    public class GitLogWindow : DefaultWindow
+    {
+        [SerializeField]
+        string guid = "";
+
+        struct LogGraphCell
         {
-            TreeViewState treeViewStateFiles = new();
-            LazyTreeView<GitStatus> treeViewFiles = new(statuses => GUIShortcuts.GenerateFileItems(statuses, true), treeViewStateFiles, true);
-            var scrollPosition = Vector2.zero;
-            Task<CommandResult> logTask = null;
-            Task<string> currentBranchTask = null;
-            string guid = "";
-            string selectedCommit = null;
+            public bool commit;
+            public string hash;
+            public string child;
+            public string parent;
+            public string mergeParent;
+            public int branch;
+        }
 
-            await GUIShortcuts.ShowModalWindow("Git Log", new Vector2Int(800, 650), (window) => {
-                var module = GUIShortcuts.ModuleGuidToolbar(PackageShortcuts.GetSelectedGitModules().ToList(), guid);
+        LogGraphCell[,] cells;
+        Vector2 scrollPosition;
+        string[] lastLog;
+        List<string> lines;
+
+        const float space = 16;
+        const float filesPanelHeight = 200;
+        const float infoPanelWidth = 300;
+
+        [SerializeField]
+        TreeViewState treeViewState = new();
+        LazyTreeView<string[]> treeView;
+
+        [SerializeField]
+        TreeViewState treeViewStateFiles = new();
+        LazyTreeView<GitStatus> treeViewFiles;
+
+        protected override void OnGUI()
+        {
+            var module = GUIShortcuts.ModuleGuidToolbar(PackageShortcuts.GetSelectedGitModules().ToList(), guid);
+
+            var log = module.Log.GetResultOrDefault();
+            if (log != lastLog)
+            {
+                lastLog = log;
                 guid = module.Guid;
-                
-                if (logTask == null || currentBranchTask != module.CurrentBranch)
-                {
-                    currentBranchTask = module.CurrentBranch;
-                    string settings = viewStash ? "-g" : "--graph --abbrev-commit --decorate";
-                    string filter = viewStash ? "refs/stash" : "--branches --remotes --tags";
-                    string files = PackageShortcuts.JoinFileNames(filePaths)?.WrapUp("-- ", "");
-                    logTask = module.RunGit($"log {settings} --format=format:\"%h - %an (%ar) <b>%d</b> %s\" {filter} {files}");
-                }
-                var windowWidth = GUILayout.Width(window.position.width);
-                using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, windowWidth, GUILayout.Height(window.position.height - BottomPanelHeight)))
-                {
-                    if (logTask.GetResultOrDefault() is { } log)
-                    {
-                        foreach (var commit in log.Output.Trim().Split('\n'))
-                        {
-                            string commitHash = Regex.Match(commit, @"([0-9a-f]+) - ")?.Groups[1].Value;
-                            var style = selectedCommit == commitHash ? SelectedLogStyle.Value : IdleLogStyle.Value;
-                            if (GUILayout.Toggle(selectedCommit == commitHash, commit, style) && !string.IsNullOrEmpty(commitHash))
-                            {
-                                if (commitHash != selectedCommit)
-                                    treeViewStateFiles.selectedIDs.Clear();
-                                if (Event.current.button == 1 && GUILayoutUtility.GetLastRect().Contains(Event.current.mousePosition))
-                                    _ = ShowCommitContextMenu(module, commitHash);
-                                selectedCommit = commitHash;
+                lines = log.Where(x => x.Contains('*')).ToList();
+                cells = ParseGraph(lines);
+                treeView = new(statuses => GenerateLogItems(lines), treeViewState, true);
+                treeViewFiles = new(statuses => GUIShortcuts.GenerateFileItems(statuses, true), treeViewStateFiles, true);
+            }
 
-                            }
-                        }
+            var colors = new Color[] { new (0.86f, 0.92f, 0.75f), new (0.41f, 0.84f, 0.91f), new (0.68f, 0.90f, 0.24f), new (0.79f, 0.47f, 0.90f), new (0.92f, 0.60f, 0.34f), new (0.90f, 0.40f, 0.44f), new (0.42f, 0.48f, 0.91f) };
+
+            float scrollHeight = position.size.y;
+            
+            int firstY = (int)(scrollPosition.y / space);
+            int itemNum = (int)(scrollHeight / space);
+
+            treeView.Draw(new Vector2(position.width, position.height - filesPanelHeight), new[] { lastLog }, id => {
+                string commit = lines.FirstOrDefault(x => x.GetHashCode() == id);
+                string selectedCommit = commit != null ? Regex.Match(commit, @"([0-9a-f]+)")?.Groups[1].Value : null;
+                _ = ShowCommitContextMenu(module, selectedCommit);
+            });
+
+            scrollPosition = treeViewState.scrollPos;
+
+            if (Event.current.type == EventType.Repaint)
+            {
+                var firstPoint = GUILayoutUtility.GetLastRect().position;
+                GUI.BeginClip(new Rect(firstPoint, position.size - Vector2.up * filesPanelHeight));
+                for (int y = firstY; y < Mathf.Min(cells.GetLength(0), firstY + itemNum); y++)
+                {
+                    for (int x = 0; x < cells.GetLength(1); x++)
+                    {
+                        var cell = cells[y, x];
+                        var oldColor = Handles.color;
+                        Handles.color = colors[cell.branch % colors.Length];
+                        var offset = new Vector3(10, 10 - scrollPosition.y);
+                        if (cell.commit)
+                            Handles.DrawSolidDisc(offset + new Vector3(x * space, y * space), new Vector3(0, 0, 1), 3);
+                        DrawConnection(cell, offset, x, y);
+                        Handles.color = oldColor;
                     }
-                    scrollPosition = scroll.scrollPosition;
                 }
+                GUI.EndClip();
+            }
+            using (new EditorGUILayout.HorizontalScope(GUILayout.Height(filesPanelHeight)))
+            {
+                string commit = lines.FirstOrDefault(x => x.GetHashCode() == treeViewState.selectedIDs.FirstOrDefault());
+                string selectedCommit = commit != null ? Regex.Match(commit, @"([0-9a-f]+)")?.Groups[1].Value : null;
                 if (module.GitRepoPath.GetResultOrDefault() is { } gitRepoPath && module.DiffFiles($"{selectedCommit}~1", selectedCommit).GetResultOrDefault() is { } diffFiles)
                 {
-                    var statuses = new[] { new GitStatus (diffFiles, module.Guid) };
-                    treeViewFiles.Draw(new Vector2(window.position.width, FileListHeight), statuses, (int id) => {
+                    var statuses = new[] { new GitStatus(diffFiles, module.Guid) };
+                    treeViewFiles.Draw(new Vector2(position.width - infoPanelWidth, filesPanelHeight), statuses, (int id) => {
                         ShowFileContextMenu(module, diffFiles.Where(x => treeViewStateFiles.selectedIDs.Contains(x.FullPath.GetHashCode())).Select(x => x.FullPath), selectedCommit);
                     });
                 }
-            });
+                using (new EditorGUILayout.VerticalScope(GUILayout.Height(filesPanelHeight)))
+                {
+                    EditorGUILayout.SelectableLabel(selectedCommit);
+                    EditorGUILayout.SelectableLabel(commit, new GUIStyle {wordWrap = true } );
+                }
+            }
+        }
+        List<TreeViewItem> GenerateLogItems(List<string> lines)
+        {
+            return lines.Select(x => new TreeViewItem(x.GetHashCode(), 0, new string(' ', 10) + x.AfterFirst('-'))).ToList();
+        }
+        IEnumerable<Vector2Int> FindCells(int fromY, params string[] hashes)
+        {
+            foreach (string hash in hashes)
+            {
+                if (hash == null)
+                    continue;
+                for (int parentY = fromY; parentY < cells.GetLength(0); parentY++)
+                {
+                    for (int parentX = 0; parentX < cells.GetLength(1); parentX++)
+                    {
+                        if (hash == cells[parentY, parentX].hash)
+                        {
+                            yield return new Vector2Int(parentX, parentY);
+                            parentX = int.MaxValue - 1;
+                            parentY = int.MaxValue - 1;
+                        }
+                    }
+                }
+            }
+        }
+        void DrawConnection(LogGraphCell cell, Vector3 offset, int x, int y)
+        {
+            if (cell.parent == null)
+                return;
+
+            foreach (var parentPosition in FindCells(y + 1, cell.parent, cell.mergeParent))
+            {
+                var first = offset + new Vector3(x, y) * space;
+                var last = offset + new Vector3(parentPosition.x, parentPosition.y) * space;
+
+                if (parentPosition.x < x)
+                    Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, offset + new Vector3(x, parentPosition.y - 0.5f) * space, last);
+                else if (parentPosition.x > x)
+                    Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, offset + new Vector3(parentPosition.x, y + 0.5f) * space, last);
+                else
+                    Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, last);
+            }
+        }
+        LogGraphCell[,] ParseGraph(List<string> lines)
+        {
+            var cells = new LogGraphCell[lines.Count, 20];
+            int currentBranchIndex = 0;
+            for (int y = 0; y < cells.GetLength(0); y++)
+            {
+                string line = lines[y];
+                var match = Regex.Match(line, @"#([0-9a-f]+) ?([0-9a-f]+)?\s?([0-9a-f]+)?\s-");
+                if (match.Success && match.Groups is { } parts)
+                {
+                    for (int x = 0; line[x * 2] != '#'; x++)
+                    {
+                        bool commitMark = line[x * 2] == '*';
+                        LogGraphCell prevCell = y > 0 ? cells[y - 1, x] : default;
+                        string hash = commitMark ? parts[1].Value : prevCell.parent;
+                        cells[y, x] = new LogGraphCell {
+                            commit = commitMark,
+                            hash = hash,
+                            child = prevCell.hash,
+                            parent = commitMark ? parts[2].Value : prevCell.parent,
+                            mergeParent = commitMark ? parts[3].Value : null,
+                            branch = prevCell.branch != 0 && prevCell.parent == hash ? prevCell.branch : ++currentBranchIndex
+                        };
+                    }
+                }
+            }
+            return cells;
         }
         static async Task ShowCommitContextMenu(Module module, string selectedCommit)
         {
