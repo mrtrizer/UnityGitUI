@@ -110,10 +110,8 @@ namespace Abuksigun.PackageShortcuts
             }
         }
 
-        public static Task ShowModalWindow(string title, Vector2Int size, Action<EditorWindow> onGUI)
+        public static Task ShowModalWindow(DefaultWindow window, Vector2Int size, Action<EditorWindow> onGUI = null)
         {
-            var window = ScriptableObject.CreateInstance<DefaultWindow>();
-            window.titleContent = new GUIContent(title);
             window.onGUI = onGUI;
             PushReloadAssemblies();
             // True modal window in unity blocks execution of thread. So, instread I just fake it's behaviour.
@@ -125,6 +123,13 @@ namespace Abuksigun.PackageShortcuts
                 PopReloadAssemblies();
             };
             return tcs.Task;
+        }
+
+        public static Task ShowModalWindow(string title, Vector2Int size, Action<EditorWindow> onGUI)
+        {
+            var window = ScriptableObject.CreateInstance<DefaultWindow>();
+            window.titleContent = new GUIContent(title);
+            return ShowModalWindow(window, size, onGUI);
         }
 
         public static List<TreeViewItem> GenerateFileItems(IEnumerable<GitStatus> statuses, bool staged)
@@ -209,7 +214,6 @@ namespace Abuksigun.PackageShortcuts
         [SettingsProvider]
         public static SettingsProvider CreateMyCustomSettingsProvider() => new("Preferences/External Tools/Package Shortcuts", SettingsScope.User) {
             activateHandler = (_, rootElement) => rootElement.Add(new IMGUIContainer(() => {
-
             }))
         };
     }

@@ -57,7 +57,11 @@ namespace Abuksigun.PackageShortcuts
                     ShowContextMenu(modules, references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id));
             });
 
-            showAllBranches = GUILayout.Toggle(showAllBranches, "Show All Branches");
+            if (showAllBranches != GUILayout.Toggle(showAllBranches, "Show All Branches"))
+            {
+                showAllBranches = !showAllBranches;
+                simpleTreeView.Reload();
+            }
             base.OnGUI();
         }
         List<TreeViewItem> GenerateItems(IEnumerable<Reference[]> branchesPerRepo)

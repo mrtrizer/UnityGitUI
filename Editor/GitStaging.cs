@@ -127,7 +127,15 @@ namespace Abuksigun.PackageShortcuts
                         _ = Diff.ShowDiff(module, files.Where(x => x.ModuleGuid == module.Guid && x.IsUnstaged).Select(x => x.FullPath), false);
                     }
                 });
-                //menu.AddItem(new GUIContent("Log"), false, () => _ = GitLog.ShowLog(files.Select(x => x.FullPath), false));
+                menu.AddItem(new GUIContent("Log"), false, async () => {
+                    foreach ((var module, var files) in filesList)
+                    {
+                        var window = ScriptableObject.CreateInstance<GitLogWindow>();
+                        window.titleContent = new GUIContent("Log Files");
+                        window.LogFiles = files;
+                        await GUIShortcuts.ShowModalWindow(window, new Vector2Int(800, 700));
+                    }
+                });
                 menu.AddSeparator("");
                 string message = filesList.Select(x => x.Value).Join('\n');
                 if (files.Any(x => x.IsUnstaged))

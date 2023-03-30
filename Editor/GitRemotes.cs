@@ -26,7 +26,7 @@ namespace Abuksigun.PackageShortcuts
             var tasks = new Dictionary<string, Task<CommandResult>>();
             string currentLogGuid = null;
 
-            await GUIShortcuts.ShowModalWindow("Remotes", new Vector2Int(500, 600), (window) => {
+            await GUIShortcuts.ShowModalWindow("Remotes", new Vector2Int(500, 400), (window) => {
                 var modules = PackageShortcuts.GetSelectedGitModules().ToArray();
 
                 using (new GUILayout.HorizontalScope())

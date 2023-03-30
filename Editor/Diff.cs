@@ -1,9 +1,11 @@
+using Codice.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditor.PackageManager.UI;
 using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
@@ -30,10 +32,10 @@ namespace Abuksigun.PackageShortcuts
             }
         });
 
-        [MenuItem("Assets/Diff", true)]
+        [MenuItem("Assets/Git File Diff", true)]
         public static bool Check() => Selection.assetGUIDs.Any(x => PackageShortcuts.GetAssetGitInfo(x)?.FileStatus != null);
 
-        [MenuItem("Assets/Diff")]
+        [MenuItem("Assets/Git File Diff", priority = 200)]
         public static void Invoke()
         {
             var assetsInfo = Selection.assetGUIDs.Select(x => PackageShortcuts.GetAssetGitInfo(x)).Where(x => x != null);
@@ -48,14 +50,11 @@ namespace Abuksigun.PackageShortcuts
         {
             if (!filePaths.Any())
                 return;
-            var result = await module.RunGit($"diff {(staged ? "--staged" : "")} {firstCommit} {lastCommit} -- {PackageShortcuts.JoinFileNames(filePaths)}");
-            if (result.ExitCode != 0)
-                return;
-            Vector2 scrollPosition = Vector2.zero;
-            string windowName = $"Diff {(staged ? "Staged" : "Unstaged").When(firstCommit == null)} {filePaths.Count()} files";
-            await GUIShortcuts.ShowModalWindow(windowName, new Vector2Int(700, 600), (window) => {
-                DrawGitDiff(result.Output, window.position.size, null, null, null, ref scrollPosition);
-            });
+            var window = ScriptableObject.CreateInstance<DiffWindow>();
+            window.titleContent = new GUIContent($"Diff {(staged ? "Staged" : "Unstaged").When(firstCommit == null)} {filePaths.Count()} files");
+            window.FirstCommit = firstCommit;
+            window.LastCommit = lastCommit;
+            window.Show();
         }
 
         public static void DrawGitDiff(string diff, Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, ref Vector2 scrollPosition)
@@ -101,6 +100,37 @@ namespace Abuksigun.PackageShortcuts
                 }
             }
             scrollPosition = scroll.scrollPosition;
+        }
+    }
+
+    public class DiffWindow : DefaultWindow
+    {
+        public Dictionary<int, Task<CommandResult[]>> stagedResults = new();
+        public Dictionary<int, Task<CommandResult[]>> unstagedResults = new();
+
+        public string FirstCommit { get; set; }
+        public string LastCommit { get; set; }
+
+        Vector2 scrollPosition;
+        
+        protected override void OnGUI()
+        {
+            var selectedAssets = Selection.assetGUIDs.Select(x => PackageShortcuts.GetAssetGitInfo(x)).Where(x => x != null);
+            if (!selectedAssets.Any())
+                return;
+            int id = 0;
+            foreach (var asset in selectedAssets)
+                id ^= asset.FullPath.GetHashCode();
+            if (!stagedResults.TryGetValue(id, out var stagedResult))
+                stagedResult = stagedResults[id] = Task.WhenAll(selectedAssets.Select(x => x.Module.RunGit($"diff --staged {FirstCommit} {LastCommit} -- \"{x.FileStatus.FullPath}\"")));
+            if (!unstagedResults.TryGetValue(id, out var unstagedResult))
+                unstagedResult = unstagedResults[id] = Task.WhenAll(selectedAssets.Select(x => x.Module.RunGit($"diff {FirstCommit} {LastCommit} -- \"{x.FileStatus.FullPath}\"")));
+            if (!unstagedResult.IsCompleted || !stagedResult.IsCompleted)
+                return;
+            if (unstagedResult.Result.Any(x => x.ExitCode != 0) || unstagedResult.Result.Any(x => x.ExitCode != 0))
+                return;
+            Diff.DrawGitDiff(unstagedResult.Result.Select(x => x.Output).Join('\n'), position.size, null, null, null, ref scrollPosition);
+            base.OnGUI();
         }
     }
 }

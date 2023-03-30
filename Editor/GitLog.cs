@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -17,11 +18,28 @@ namespace Abuksigun.PackageShortcuts
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
 
         [MenuItem("Assets/Git Log", priority = 100)]
-        public static void Invoke()
+        public static void Invoke() 
         {
             var window = ScriptableObject.CreateInstance<GitLogWindow>();
             window.titleContent = new GUIContent("Git Log", EditorGUIUtility.IconContent("UnityEditor.VersionControl").image);
             window.Show();
+        }
+    }
+
+    public static class GitFileLog
+    {
+        [MenuItem("Assets/Git File Log", true)]
+        public static bool Check() => Selection.assetGUIDs.Any(x => PackageShortcuts.GetAssetGitInfo(x)?.Module != null);
+
+        [MenuItem("Assets/Git File Log", priority = 200)]
+        public static void Invoke()
+        {
+            var assetsInfo = Selection.assetGUIDs.Select(x => PackageShortcuts.GetAssetGitInfo(x)).Where(x => x != null);
+            var window = ScriptableObject.CreateInstance<GitLogWindow>();
+            window.titleContent = new GUIContent("Log Files");
+            window.LogFiles = PackageShortcuts.JoinFileNames(assetsInfo.Select(x => x.FullPath));
+            window.LockedModules = assetsInfo.Select(x => x.Module).Distinct().ToList();
+            _ = GUIShortcuts.ShowModalWindow(window, new Vector2Int(800, 700));
         }
     }
 
@@ -43,6 +61,11 @@ namespace Abuksigun.PackageShortcuts
     
     public class GitLogWindow : DefaultWindow
     {
+        const float TableHeaderHeight = 27;
+        const float Space = 16;
+        const float FilesPanelHeight = 200;
+        const float InfoPanelWidth = 300;
+
         [SerializeField]
         string guid = "";
 
@@ -59,16 +82,16 @@ namespace Abuksigun.PackageShortcuts
         LogGraphCell[,] cells;
         string[] lastLog;
         List<string> lines;
-
-        const float tableHeaderHeight = 27;
-        const float space = 16;
-        const float filesPanelHeight = 200;
-        const float infoPanelWidth = 300;
+        
+        public bool ShowStash { get; set; }
+        public string LogFiles { get; set; } = null;
+        public List<Module> LockedModules { get; set; } = null;
+        bool HideGraph => ShowStash || !string.IsNullOrEmpty(LogFiles);
 
         [SerializeField]
         TreeViewState treeViewLogState = new();
         [SerializeField]
-        MultiColumnHeaderState multiColumnHeaderState = new(new MultiColumnHeaderState.Column[] { 
+        MultiColumnHeaderState multiColumnHeaderState = new(new MultiColumnHeaderState.Column[] {
             new () { headerContent = new GUIContent("Graph") },
             new () { headerContent = new GUIContent("Hash"), width = 80 },
             new () { headerContent = new GUIContent("Author"), width = 100 },
@@ -84,10 +107,12 @@ namespace Abuksigun.PackageShortcuts
 
         protected override void OnGUI()
         {
-            var module = GUIShortcuts.ModuleGuidToolbar(PackageShortcuts.GetSelectedGitModules().ToList(), guid);
+            var module = GUIShortcuts.ModuleGuidToolbar(LockedModules ?? PackageShortcuts.GetSelectedGitModules().ToList(), guid);
             if (module == null)
                 return;
-            var log = module.Log.GetResultOrDefault();
+            var log = (ShowStash ? module.Stash : module.LogFiles(LogFiles)).GetResultOrDefault();
+            if (log == null)
+                return;
             if (log != lastLog)
             {
                 lastLog = log;
@@ -97,76 +122,81 @@ namespace Abuksigun.PackageShortcuts
                 treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, multiColumnHeader ??= new (multiColumnHeaderState), DrawRow, false);
                 treeViewFiles = new(statuses => GUIShortcuts.GenerateFileItems(statuses, true), treeViewStateFiles, true);
             }
-
-            var colors = new Color[] { new (0.86f, 0.92f, 0.75f), new(0.92f, 0.60f, 0.34f), new (0.41f, 0.84f, 0.91f), new (0.68f, 0.90f, 0.24f), new (0.79f, 0.47f, 0.90f), new (0.90f, 0.40f, 0.44f), new (0.42f, 0.48f, 0.91f) };
-
-            float scrollHeight = position.size.y;
+            multiColumnHeaderState.visibleColumns = Enumerable.Range(HideGraph ? 1 : 0, multiColumnHeaderState.columns.Length - (HideGraph ? 1 : 0)).ToArray();
 
             var scrollPosition = treeViewLogState.scrollPos;
-            int firstY = (int)(scrollPosition.y / space);
-            int itemNum = (int)(scrollHeight / space);
+            int firstY = Mathf.Max((int)(scrollPosition.y / Space) - 1, 0);
+            int itemNum = (int)(position.size.y / Space);
 
-            treeViewLog.Draw(new Vector2(position.width, position.height - filesPanelHeight), new[] { lastLog }, id => {
+            treeViewLog.Draw(new Vector2(position.width, position.height - FilesPanelHeight), new[] { lastLog }, id => {
                 string commit = lines.FirstOrDefault(x => x.GetHashCode() == id);
                 string selectedCommit = commit != null ? Regex.Match(commit, @"([0-9a-f]+)")?.Groups[1].Value : null;
                 _ = ShowCommitContextMenu(module, selectedCommit);
             });
             
-            if (Event.current.type == EventType.Repaint)
+            if (!HideGraph && Event.current.type == EventType.Repaint)
             {
                 var firstPoint = GUILayoutUtility.GetLastRect().position;
-                var graphSize = new Vector2(multiColumnHeaderState.columns[0].width, position.size.y - filesPanelHeight + tableHeaderHeight);
-                GUI.BeginClip(new Rect(firstPoint + Vector2.up * tableHeaderHeight, graphSize));
+                var graphSize = new Vector2(multiColumnHeaderState.columns[0].width, position.size.y - FilesPanelHeight - TableHeaderHeight);
+                GUI.BeginClip(new Rect(firstPoint + Vector2.up * TableHeaderHeight, graphSize));
                 for (int y = firstY; y < Mathf.Min(cells.GetLength(0), firstY + itemNum); y++)
                 {
                     for (int x = 0; x < cells.GetLength(1); x++)
                     {
                         var cell = cells[y, x];
                         var oldColor = Handles.color;
-                        Handles.color = colors[cell.branch % colors.Length];
+                        Handles.color = Style.GraphColors[cell.branch % Style.GraphColors.Length];
                         var offset = new Vector3(10, 10 - scrollPosition.y);
                         if (cell.commit)
-                            Handles.DrawSolidDisc(offset + new Vector3(x * space, y * space), new Vector3(0, 0, 1), 3);
+                            Handles.DrawSolidDisc(offset + new Vector3(x * Space, y * Space), new Vector3(0, 0, 1), 3);
                         DrawConnection(cell, offset, x, y);
                         Handles.color = oldColor;
                     }
                 }
                 GUI.EndClip();
             }
-            using (new EditorGUILayout.HorizontalScope(GUILayout.Height(filesPanelHeight)))
+            using (new EditorGUILayout.HorizontalScope(GUILayout.Height(FilesPanelHeight)))
             {
-                string commit = lines.FirstOrDefault(x => x.GetHashCode() == treeViewLogState.selectedIDs.FirstOrDefault());
-                string selectedCommit = commit != null ? Regex.Match(commit, @"([0-9a-f]+)")?.Groups[1].Value : null;
-                if (module.GitRepoPath.GetResultOrDefault() is { } gitRepoPath && module.DiffFiles($"{selectedCommit}~1", selectedCommit).GetResultOrDefault() is { } diffFiles)
+                if (lines.FirstOrDefault(x => x.GetHashCode() == treeViewLogState.selectedIDs.FirstOrDefault()) is { } commit)
                 {
-                    var statuses = new[] { new GitStatus(diffFiles, module.Guid) };
-                    treeViewFiles.Draw(new Vector2(position.width - infoPanelWidth, filesPanelHeight), statuses, (int id) => {
-                        ShowFileContextMenu(module, diffFiles.Where(x => treeViewStateFiles.selectedIDs.Contains(x.FullPath.GetHashCode())).Select(x => x.FullPath), selectedCommit);
-                    });
-                }
-                using (new EditorGUILayout.VerticalScope(GUILayout.Height(filesPanelHeight)))
-                {
-                    EditorGUILayout.SelectableLabel(selectedCommit);
-                    EditorGUILayout.SelectableLabel(commit.AfterFirst('-'), new GUIStyle {wordWrap = true } );
+                    string selectedCommit = Regex.Match(commit, @"([0-9a-f]+)")?.Groups[1].Value;
+                    if (module.DiffFiles($"{selectedCommit}~1", selectedCommit).GetResultOrDefault() is { } diffFiles)
+                    {
+                        var panelSize = new Vector2(position.width - InfoPanelWidth, FilesPanelHeight);
+                        treeViewFiles.Draw(panelSize, new[] { diffFiles }, (_) =>
+                        {
+                            var selectedFiles = diffFiles.Files.Where(x => treeViewStateFiles.selectedIDs.Contains(x.FullPath.GetHashCode()));
+                            ShowFileContextMenu(module, selectedFiles, selectedCommit);
+                        });
+                    }
+                    else
+                    {
+                        GUILayout.Space(position.width - InfoPanelWidth);
+                    }
+                    using (new EditorGUILayout.VerticalScope(GUILayout.Height(FilesPanelHeight)))
+                    {
+                        EditorGUILayout.SelectableLabel(selectedCommit);
+                        EditorGUILayout.SelectableLabel(commit.AfterFirst('-'), new GUIStyle (Style.Idle.Value) { wordWrap = true });
+                    }
                 }
             }
+            base.OnGUI();
         }
         List<TreeViewItem> GenerateLogItems(List<string> lines)
         {
-            return lines.Select(x => new CommitTreeViewItem(x.GetHashCode(), 0, x.AfterFirst('#')) as TreeViewItem).ToList();
+            return lines.ConvertAll(x => new CommitTreeViewItem(x.GetHashCode(), 0, x.AfterFirst('#')) as TreeViewItem);
         }
         void DrawRow(TreeViewItem item, int columnIndex, Rect rect)
         {
             if (item is CommitTreeViewItem { } commit)
             {
-                if (columnIndex == 1)
-                    EditorGUI.LabelField(rect, commit.Hash);
-                else if (columnIndex == 2)
-                    EditorGUI.LabelField(rect, commit.Author);
-                else if (columnIndex == 3)
-                    EditorGUI.LabelField(rect, commit.Date);
-                else if (columnIndex == 4)
-                    EditorGUI.LabelField(rect, commit.Message);
+                EditorGUI.LabelField(rect, columnIndex switch {
+                    1 => commit.Hash,
+                    2 => commit.Author,
+                    3 => commit.Date,
+                    4 => commit.Message,
+                    _ => "",
+                }, Style.Idle.Value);
             }
         }
         IEnumerable<Vector2Int> FindCells(int fromY, params string[] hashes)
@@ -196,13 +226,13 @@ namespace Abuksigun.PackageShortcuts
 
             foreach (var parentPosition in FindCells(y + 1, cell.parent, cell.mergeParent))
             {
-                var first = offset + new Vector3(x, y) * space;
-                var last = offset + new Vector3(parentPosition.x, parentPosition.y) * space;
+                var first = offset + new Vector3(x, y) * Space;
+                var last = offset + new Vector3(parentPosition.x, parentPosition.y) * Space;
 
                 if (parentPosition.x < x)
-                    Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, offset + new Vector3(x, parentPosition.y - 0.5f) * space, last);
+                    Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, offset + new Vector3(x, parentPosition.y - 0.5f) * Space, last);
                 else if (parentPosition.x > x)
-                    Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, offset + new Vector3(parentPosition.x, y + 0.5f) * space, last);
+                    Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, offset + new Vector3(parentPosition.x, y + 0.5f) * Space, last);
                 else
                     Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, last);
             }
@@ -258,15 +288,16 @@ namespace Abuksigun.PackageShortcuts
             }
             menu.ShowAsContext();
         }
-        static void ShowFileContextMenu(Module module, IEnumerable<string> files, string selectedCommit)
+        static void ShowFileContextMenu(Module module, IEnumerable<FileStatus> files, string selectedCommit)
         {
             if (!files.Any())
                 return;
             var menu = new GenericMenu();
-            menu.AddItem(new GUIContent("Diff"), false, () => _ = Diff.ShowDiff(module, files, false, $"{selectedCommit}~1", selectedCommit));
+            var filePaths = files.Select(x => x.FullPath);
+            menu.AddItem(new GUIContent("Diff"), false, () => _ = Diff.ShowDiff(module, filePaths, false, $"{selectedCommit}~1", selectedCommit));
             menu.AddItem(new GUIContent($"Revert to this commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
-                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, $"checkout {selectedCommit} -- {PackageShortcuts.JoinFileNames(files)}");
+                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, $"checkout {selectedCommit} -- {PackageShortcuts.JoinFileNames(filePaths)}");
             });
             menu.ShowAsContext();
         }

@@ -21,11 +21,12 @@ namespace Abuksigun.PackageShortcuts
     }
     public record CommandResult(int ExitCode, string Output);
 
-    public record AssetGitInfo(Module Module, FileStatus FileStatus, bool NestedFileModified);
+    public record AssetGitInfo(Module Module, string FullPath, FileStatus FileStatus, bool NestedFileModified);
     
     public static class PackageShortcuts
     {
         static Dictionary<string, Module> modules = new();
+        static List<string> lastModulesSelection = new();
 
         public static Module GetModule(string guid)
         {
@@ -66,7 +67,17 @@ namespace Abuksigun.PackageShortcuts
 
         public static IEnumerable<Module> GetSelectedModules()
         {
-            return Selection.assetGUIDs.Where(IsModule).Select(guid => GetModule(guid));
+            var selectedModules = Selection.assetGUIDs.Where(IsModule);
+            if (selectedModules.Any())
+            {
+                if (lastModulesSelection == null || (!selectedModules.SequenceEqual(lastModulesSelection)))
+                    lastModulesSelection = selectedModules.ToList();
+                return selectedModules.Select(guid => GetModule(guid));
+            }
+            else
+            {
+                return lastModulesSelection.Select(guid => GetModule(guid));
+            }
         }
 
         public static IEnumerable<Module> GetSelectedGitModules()
@@ -97,9 +108,11 @@ namespace Abuksigun.PackageShortcuts
                 return null;
             var allFiles = gitModules.Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null).SelectMany(x => x.Files);
             if (allFiles.FirstOrDefault(x => x.FullPath == filePath) is { } fileStatus)
-                return new AssetGitInfo(GetModule(fileStatus.ModuleGuid), fileStatus, false);
+                return new AssetGitInfo(GetModule(fileStatus.ModuleGuid), filePath, fileStatus, false);
             if (allFiles.FirstOrDefault(x => x.FullPath.Contains(filePath)) is { } nestedFileStatus)
-                return new AssetGitInfo(GetModule(nestedFileStatus.ModuleGuid), nestedFileStatus, true);
+                return new AssetGitInfo(GetModule(nestedFileStatus.ModuleGuid), filePath, nestedFileStatus, true);
+            if (gitModules.FirstOrDefault(x => filePath.Contains(x.ProjectDirPath)) is { } module)
+                return new AssetGitInfo(module, filePath, null, false);
             return null;
         }
 

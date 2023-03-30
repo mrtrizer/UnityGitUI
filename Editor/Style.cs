@@ -11,6 +11,16 @@ namespace Abuksigun.PackageShortcuts
 
         public static Lazy<Font> MonospacedFont = new(() => EditorGUIUtility.Load("Fonts/RobotoMono/RobotoMono-Regular.ttf") as Font);
 
+        public static readonly Color[] GraphColors = new Color[] { 
+            new(0.86f, 0.92f, 0.75f), 
+            new(0.92f, 0.60f, 0.34f), 
+            new(0.41f, 0.84f, 0.91f), 
+            new(0.68f, 0.90f, 0.24f), 
+            new(0.79f, 0.47f, 0.90f), 
+            new(0.90f, 0.40f, 0.44f), 
+            new(0.42f, 0.48f, 0.91f)
+        };
+
         public static Lazy<GUIStyle> Idle => new(() => new() {
             normal = new() {
                 textColor = GUI.skin.label.normal.textColor

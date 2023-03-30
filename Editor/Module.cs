@@ -45,7 +45,7 @@ namespace Abuksigun.PackageShortcuts
         Task<bool> isGitRepo;
         Task<string> gitRepoPath;
         Task<Reference[]> references;
-        Task<string[]> log;
+        Task<string[]> stash;
         Task<string> currentBranch;
         Task<string> currentCommit;
         Task<bool> isMergeInProgress;
@@ -53,7 +53,8 @@ namespace Abuksigun.PackageShortcuts
         Task<Remote> defaultRemote;
         Task<RemoteStatus> remoteStatus;
         Task<GitStatus> gitStatus;
-        Dictionary<int, Task<FileStatus[]>> diffCache;
+        Dictionary<int, Task<GitStatus>> diffCache;
+        Dictionary<int, Task<string[]>> fileLogCache;
 
         List<IOData> processLog = new();
         FileSystemWatcher fsWatcher;
@@ -67,7 +68,8 @@ namespace Abuksigun.PackageShortcuts
         public Task<bool> IsGitRepo => isGitRepo ??= GetIsGitRepo();
         public Task<string> GitRepoPath => gitRepoPath ??= GetRepoPath();
         public Task<Reference[]> References => references ??= GetReferences();
-        public Task<string[]> Log => log ??= GetLog();
+        public Task<string[]> Log => LogFiles(null);
+        public Task<string[]> Stash => stash ??= GetStash();
         public Task<string> CurrentBranch => currentBranch ??= GetCurrentBranch();
         public Task<string> CurrentCommit => currentCommit ??= GetCommit();
         public Task<bool> IsMergeInProgress => isMergeInProgress ??= GetIsMergeInProgress();
@@ -107,12 +109,14 @@ namespace Abuksigun.PackageShortcuts
                     isGitRepo = null;
                     gitRepoPath = null;
                     references = null;
+                    stash = null;
                     currentBranch = null;
                     currentCommit = null;
                     isMergeInProgress = null;
                     remotes = null;
                     defaultRemote = null;
                     remoteStatus = null;
+                    fileLogCache = null;
                 }
                 gitStatus = null;
                 diffCache = null;
@@ -132,11 +136,17 @@ namespace Abuksigun.PackageShortcuts
                 return true;
             });
         }
-        public Task<FileStatus[]> DiffFiles(string firstCommit, string lastCommit)
+        public Task<GitStatus> DiffFiles(string firstCommit, string lastCommit)
         {
             diffCache ??= new();
             int diffId = firstCommit?.GetHashCode() ?? 0 ^ lastCommit?.GetHashCode() ?? 0;
             return diffCache.TryGetValue(diffId, out var diff) ? diff : diffCache[diffId] = GetDiffFiles(firstCommit, lastCommit);
+        }
+        public Task<string[]> LogFiles(string files)
+        {
+            fileLogCache ??= new();
+            int fileLogId = files?.GetHashCode() ?? 0;
+            return fileLogCache.TryGetValue(fileLogId, out var diff) ? diff : fileLogCache[fileLogId] = GetLog(files);
         }
         async Task<string> GetRepoPath()
         {
@@ -181,9 +191,14 @@ namespace Abuksigun.PackageShortcuts
                 .Cast<Reference>();
             return branches.Concat(stashes).Concat(tags).ToArray();
         }
-        async Task<string[]> GetLog()
+        async Task<string[]> GetLog(string files = null)
         {
-            string log = (await RunGit($"log --graph --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ar) %d %s\" --branches --remotes --tags")).Output;
+            string log = (await RunGit($"log --graph --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ar) <b>%d</b> %s\" --branches --remotes --tags {files?.WrapUp("-- ", "")}")).Output;
+            return log.SplitLines();
+        }
+        async Task<string[]> GetStash()
+        {
+            string log = (await RunGit($"log -g --format=format:\"* #%h %p - %an (%ar) %d %s\" refs/stash")).Output;
             return log.SplitLines();
         }
         async Task<string> GetCurrentBranch()
@@ -238,7 +253,7 @@ namespace Abuksigun.PackageShortcuts
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
             return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged), Guid);
         }
-        async Task<FileStatus[]> GetDiffFiles(string firstCommit, string lastCommit)
+        async Task<GitStatus> GetDiffFiles(string firstCommit, string lastCommit)
         {
             var gitRepoPathTask = GitRepoPath;
             var statusTask = RunGit($"diff --name-status {firstCommit} {lastCommit}");
@@ -246,7 +261,7 @@ namespace Abuksigun.PackageShortcuts
             await Task.WhenAll(gitRepoPathTask, statusTask, numStatTask);
             var numStat = ParseNumStat(numStatTask.Result.Output);
 
-            return ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStat, numStat);
+            return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStat, numStat), Guid);
         }
         FileStatus[] ParseStatus(string statusOutput, string gitRepoPath, Dictionary<string, NumStat> numStatUnstaged, Dictionary<string, NumStat> numStatStaged)
         {

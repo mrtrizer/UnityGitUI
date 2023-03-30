@@ -75,11 +75,11 @@ namespace Abuksigun.PackageShortcuts
                 rect.height = 15;
                 rect.y += 2;
                 rect.x -= 8;
-                if (assetInfo.NestedFileModified)
+                if (assetInfo.FileStatus != null && assetInfo.NestedFileModified)
                     GUI.Label(rect, "     <color=blue>*</color>", fileMarkStyle);
-                else if (assetInfo.FileStatus.IsUnstaged)
+                else if (assetInfo.FileStatus?.IsUnstaged ?? false)
                     GUI.Label(rect, GUIShortcuts.MakePrintableStatus(assetInfo.FileStatus.Y), fileMarkStyle);
-                else if (assetInfo.FileStatus.IsStaged)
+                else if (assetInfo.FileStatus?.IsStaged ?? false)
                     GUI.Label(rect, "<color=green>✓</color>", fileMarkStyle);
             }
         }
