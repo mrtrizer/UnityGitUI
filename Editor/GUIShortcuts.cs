@@ -8,6 +8,7 @@ using UnityEditor.IMGUI.Controls;
 using UnityEditor.PackageManager;
 using UnityEngine;
 using UnityEngine.UIElements;
+using static UnityEngine.UI.InputField;
 
 namespace Abuksigun.PackageShortcuts
 {
@@ -203,11 +204,14 @@ namespace Abuksigun.PackageShortcuts
             var scrollHeight = GUILayout.Height(size.y - topPanelHeight);
             using var scroll = new GUILayout.ScrollViewScope(logScrollPositions.GetValueOrDefault(module, Vector2.zero), false, false, GUILayout.Width(size.x));
 
-            for (int i = logStartLines?.GetValueOrDefault(guid, int.MaxValue) ?? 0; i < module.ProcessLog.Count; i++)
-            {
-                var lineStyle = module.ProcessLog[i].Error ? Style.ProcessLogError.Value : Style.ProcessLog.Value;
-                EditorGUILayout.SelectableLabel(module.ProcessLog[i].Data, lineStyle, GUILayout.Height(15), GUILayout.Width(maxWidth));
-            }
+            const int maxLines = 2000;
+            int count = module.ProcessLog.Count();
+            int skipLinesCount = Mathf.Max(count - maxLines, 0);
+            int totalLinesVisible = count - skipLinesCount;
+            var allLines = module.ProcessLog.Skip(skipLinesCount).Select(x => x.Error ? x.Data.WrapUp("<color=red>", "</color>") : x.Data);
+            string allData = allLines.Join('\n');
+            EditorGUILayout.SelectableLabel(allData, Style.ProcessLog.Value, GUILayout.Height(totalLinesVisible * 13), GUILayout.Width(maxWidth));
+
             logScrollPositions[module] = scroll.scrollPosition;
         }
         

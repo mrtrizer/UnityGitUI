@@ -36,19 +36,12 @@ namespace Abuksigun.PackageShortcuts
         [MenuItem("Assets/Git File Diff", priority = 200)]
         public static void Invoke()
         {
-            var assetsInfo = Selection.assetGUIDs.Select(x => PackageShortcuts.GetAssetGitInfo(x)).Where(x => x != null);
-            foreach (var module in assetsInfo.Select(x => x.Module).Distinct())
-            {
-                var statuses = assetsInfo.Where(x => x.Module == module).Select(x => x.FileStatus);
-                ShowDiff(statuses.Where(x => x.IsStaged).Select(x => x.FullPath));
-            }
+            ShowDiff(null);
         }
         public static void ShowDiff(IEnumerable<string> filePaths, string firstCommit = null, string lastCommit = null)
         {
-            if (!filePaths.Any())
-                return;
             var window = ScriptableObject.CreateInstance<DiffWindow>();
-            window.titleContent = new GUIContent($"Diff {filePaths.Count()} files");
+            window.titleContent = new GUIContent($"Git Diff");
             window.FirstCommit = firstCommit;
             window.LastCommit = lastCommit;
             window.Show();
