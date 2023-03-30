@@ -1,11 +1,9 @@
-using Codice.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
-using UnityEditor.PackageManager.UI;
 using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
@@ -42,21 +40,19 @@ namespace Abuksigun.PackageShortcuts
             foreach (var module in assetsInfo.Select(x => x.Module).Distinct())
             {
                 var statuses = assetsInfo.Where(x => x.Module == module).Select(x => x.FileStatus);
-                _ = ShowDiff(module, statuses.Where(x => x.IsStaged).Select(x => x.FullPath), true);
-                _ = ShowDiff(module, statuses.Where(x => x.IsUnstaged).Select(x => x.FullPath), false);
+                ShowDiff(statuses.Where(x => x.IsStaged).Select(x => x.FullPath));
             }
         }
-        public static async Task ShowDiff(Module module, IEnumerable<string> filePaths, bool staged, string firstCommit = null, string lastCommit = null)
+        public static void ShowDiff(IEnumerable<string> filePaths, string firstCommit = null, string lastCommit = null)
         {
             if (!filePaths.Any())
                 return;
             var window = ScriptableObject.CreateInstance<DiffWindow>();
-            window.titleContent = new GUIContent($"Diff {(staged ? "Staged" : "Unstaged").When(firstCommit == null)} {filePaths.Count()} files");
+            window.titleContent = new GUIContent($"Diff {filePaths.Count()} files");
             window.FirstCommit = firstCommit;
             window.LastCommit = lastCommit;
             window.Show();
         }
-
         public static void DrawGitDiff(string diff, Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, ref Vector2 scrollPosition)
         {
             string[] lines = diff.SplitLines();
@@ -115,7 +111,7 @@ namespace Abuksigun.PackageShortcuts
         
         protected override void OnGUI()
         {
-            var selectedAssets = Selection.assetGUIDs.Select(x => PackageShortcuts.GetAssetGitInfo(x)).Where(x => x != null);
+            var selectedAssets = Selection.assetGUIDs.Select(x => PackageShortcuts.GetAssetGitInfo(x)).Where(x => x != null && x.FileStatus != null);
             if (!selectedAssets.Any())
                 return;
             int id = 0;

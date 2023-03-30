@@ -122,10 +122,7 @@ namespace Abuksigun.PackageShortcuts
             {
                 menu.AddItem(new GUIContent("Diff"), false, () => {
                     foreach (var module in modules)
-                    {
-                        _ = Diff.ShowDiff(module, files.Where(x => x.ModuleGuid == module.Guid && x.IsStaged).Select(x => x.FullPath), true);
-                        _ = Diff.ShowDiff(module, files.Where(x => x.ModuleGuid == module.Guid && x.IsUnstaged).Select(x => x.FullPath), false);
-                    }
+                        Diff.ShowDiff(files.Where(x => x.ModuleGuid == module.Guid && x.IsStaged).Select(x => x.FullPath));
                 });
                 menu.AddItem(new GUIContent("Log"), false, async () => {
                     foreach ((var module, var files) in filesList)
@@ -166,11 +163,17 @@ namespace Abuksigun.PackageShortcuts
                 menu.AddSeparator("");
                 menu.AddItem(new GUIContent("Take Ours"), false, () => {
                     if (EditorUtility.DisplayDialog($"Do you want to take OURS changes (git checkout --ours --)", message, "Yes", "No"))
-                        _ = modules.Select(module => module.RunGit($"checkout --ours  -- {conflictedFilesList[module]}"));
+                    {
+                        foreach (var module in modules)
+                            module.RunGit($"checkout --ours  -- {conflictedFilesList[module]}");
+                    }
                 });
                 menu.AddItem(new GUIContent("Take Theirs"), false, () => {
                     if (EditorUtility.DisplayDialog($"Do you want to take THEIRS changes (git checkout --theirs --)", message, "Yes", "No"))
-                        _ = modules.Select(module => module.RunGit($"checkout --theirs  -- {conflictedFilesList[module]}"));
+                    {
+                        foreach (var module in modules)
+                            module.RunGit($"checkout --theirs  -- {conflictedFilesList[module]}");
+                    }
                 });
             }
             menu.AddItem(new GUIContent("Delete"), false, () => {

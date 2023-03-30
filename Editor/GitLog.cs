@@ -294,7 +294,7 @@ namespace Abuksigun.PackageShortcuts
                 return;
             var menu = new GenericMenu();
             var filePaths = files.Select(x => x.FullPath);
-            menu.AddItem(new GUIContent("Diff"), false, () => _ = Diff.ShowDiff(module, filePaths, false, $"{selectedCommit}~1", selectedCommit));
+            menu.AddItem(new GUIContent("Diff"), false, () => Diff.ShowDiff(filePaths, $"{selectedCommit}~1", selectedCommit));
             menu.AddItem(new GUIContent($"Revert to this commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
                     _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, $"checkout {selectedCommit} -- {PackageShortcuts.JoinFileNames(filePaths)}");
