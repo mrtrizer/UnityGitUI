@@ -61,6 +61,8 @@ namespace Abuksigun.PackageShortcuts
     
     public class GitLogWindow : DefaultWindow
     {
+        public static Lazy<GUIStyle> CommitInfoStyle => new(() => new(Style.RichTextLabel.Value) { richText = true, wordWrap = true });
+
         const float TableHeaderHeight = 27;
         const float Space = 16;
         const float FilesPanelHeight = 200;
@@ -119,16 +121,18 @@ namespace Abuksigun.PackageShortcuts
                 guid = module.Guid;
                 lines = log.Where(x => x.Contains('*')).ToList();
                 cells = ParseGraph(lines);
-                treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, multiColumnHeader ??= new (multiColumnHeaderState), DrawRow, false);
+                treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, false, multiColumnHeader ??= new (multiColumnHeaderState), DrawCell);
                 treeViewFiles = new(statuses => GUIShortcuts.GenerateFileItems(statuses, true), treeViewStateFiles, true);
             }
             multiColumnHeaderState.visibleColumns = Enumerable.Range(HideGraph ? 1 : 0, multiColumnHeaderState.columns.Length - (HideGraph ? 1 : 0)).ToArray();
+
+            string commit = lines.FirstOrDefault(x => x.GetHashCode() == treeViewLogState.selectedIDs.FirstOrDefault());
 
             var scrollPosition = treeViewLogState.scrollPos;
             int firstY = Mathf.Max((int)(scrollPosition.y / Space) - 1, 0);
             int itemNum = (int)(position.size.y / Space);
 
-            treeViewLog.Draw(new Vector2(position.width, position.height - FilesPanelHeight), new[] { lastLog }, id => {
+            treeViewLog.Draw(new Vector2(position.width, position.height - FilesPanelHeight.When(commit != null)), new[] { lastLog }, id => {
                 string commit = lines.FirstOrDefault(x => x.GetHashCode() == id);
                 string selectedCommit = commit != null ? Regex.Match(commit, @"([0-9a-f]+)")?.Groups[1].Value : null;
                 _ = ShowCommitContextMenu(module, selectedCommit);
@@ -137,7 +141,7 @@ namespace Abuksigun.PackageShortcuts
             if (!HideGraph && Event.current.type == EventType.Repaint)
             {
                 var firstPoint = GUILayoutUtility.GetLastRect().position;
-                var graphSize = new Vector2(multiColumnHeaderState.columns[0].width, position.size.y - FilesPanelHeight - TableHeaderHeight);
+                var graphSize = new Vector2(multiColumnHeaderState.columns[0].width, position.size.y - FilesPanelHeight.When(commit != null) - TableHeaderHeight);
                 GUI.BeginClip(new Rect(firstPoint + Vector2.up * TableHeaderHeight, graphSize));
                 for (int y = firstY; y < Mathf.Min(cells.GetLength(0), firstY + itemNum); y++)
                 {
@@ -155,17 +159,21 @@ namespace Abuksigun.PackageShortcuts
                 }
                 GUI.EndClip();
             }
-            using (new EditorGUILayout.HorizontalScope(GUILayout.Height(FilesPanelHeight)))
+            using (new EditorGUILayout.HorizontalScope(GUILayout.Height(FilesPanelHeight.When(commit != null))))
             {
-                if (lines.FirstOrDefault(x => x.GetHashCode() == treeViewLogState.selectedIDs.FirstOrDefault()) is { } commit)
+                if (commit != null)
                 {
                     string selectedCommit = Regex.Match(commit, @"([0-9a-f]+)")?.Groups[1].Value;
                     if (module.DiffFiles($"{selectedCommit}~1", selectedCommit).GetResultOrDefault() is { } diffFiles)
                     {
+                        var selectedFiles = diffFiles.Files.Where(x => treeViewStateFiles.selectedIDs.Contains(x.FullPath.GetHashCode()));
+
+                        if (treeViewFiles.HasFocus())
+                            PackageShortcuts.SetSelectedFiles(selectedFiles, null, $"{selectedCommit}~1", selectedCommit);
+
                         var panelSize = new Vector2(position.width - InfoPanelWidth, FilesPanelHeight);
                         treeViewFiles.Draw(panelSize, new[] { diffFiles }, (_) =>
                         {
-                            var selectedFiles = diffFiles.Files.Where(x => treeViewStateFiles.selectedIDs.Contains(x.FullPath.GetHashCode()));
                             ShowFileContextMenu(module, selectedFiles, selectedCommit);
                         });
                     }
@@ -176,7 +184,7 @@ namespace Abuksigun.PackageShortcuts
                     using (new EditorGUILayout.VerticalScope(GUILayout.Height(FilesPanelHeight)))
                     {
                         EditorGUILayout.SelectableLabel(selectedCommit);
-                        EditorGUILayout.SelectableLabel(commit.AfterFirst('-'), new GUIStyle (Style.Idle.Value) { wordWrap = true });
+                        EditorGUILayout.SelectableLabel(commit.AfterFirst('-'), CommitInfoStyle.Value);
                     }
                 }
             }
@@ -186,7 +194,7 @@ namespace Abuksigun.PackageShortcuts
         {
             return lines.ConvertAll(x => new CommitTreeViewItem(x.GetHashCode(), 0, x.AfterFirst('#')) as TreeViewItem);
         }
-        void DrawRow(TreeViewItem item, int columnIndex, Rect rect)
+        void DrawCell(TreeViewItem item, int columnIndex, Rect rect)
         {
             if (item is CommitTreeViewItem { } commit)
             {
@@ -196,7 +204,7 @@ namespace Abuksigun.PackageShortcuts
                     3 => commit.Date,
                     4 => commit.Message,
                     _ => "",
-                }, Style.Idle.Value);
+                }, Style.RichTextLabel.Value);
             }
         }
         IEnumerable<Vector2Int> FindCells(int fromY, params string[] hashes)
@@ -294,7 +302,7 @@ namespace Abuksigun.PackageShortcuts
                 return;
             var menu = new GenericMenu();
             var filePaths = files.Select(x => x.FullPath);
-            menu.AddItem(new GUIContent("Diff"), false, () => Diff.ShowDiff(filePaths, $"{selectedCommit}~1", selectedCommit));
+            menu.AddItem(new GUIContent("Diff"), false, () => Diff.ShowDiff());
             menu.AddItem(new GUIContent($"Revert to this commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
                     _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, $"checkout {selectedCommit} -- {PackageShortcuts.JoinFileNames(filePaths)}");

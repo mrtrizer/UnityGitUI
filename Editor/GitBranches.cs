@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditor.Graphs;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
@@ -30,13 +31,12 @@ namespace Abuksigun.PackageShortcuts
     
     class GitBranchesWindow : DefaultWindow
     {
-        const int BottomPanelHeight = 25;
+        const int BottomPanelHeight = 20;
 
         static readonly ReferenceComparer referenceComparer = new();
 
         bool showAllBranches = false;
         Task task = null;
-
         LazyTreeView<Reference[]> simpleTreeView;
         [SerializeField]
         TreeViewState treeViewState;
@@ -44,6 +44,21 @@ namespace Abuksigun.PackageShortcuts
         protected override void OnGUI()
         {
             var modules = PackageShortcuts.GetSelectedGitModules();
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.FlexibleSpace();
+                GUIContent showAllBranchesContent = EditorGUIUtility.TrIconContent("scenevis_visible-mixed_hover", "Show all branches");
+                if (showAllBranches != GUILayout.Toggle(showAllBranches, showAllBranchesContent, EditorStyles.toolbarButton, GUILayout.Width(32)))
+                {
+                    showAllBranches = !showAllBranches;
+                    simpleTreeView.Reload();
+                }
+                GUIContent lockBranchesContent = EditorGUIUtility.TrIconContent("AssemblyLock", "Lock");
+                bool lockedModules = PackageShortcuts.LockedModules != null;
+                PackageShortcuts.LockModules(GUILayout.Toggle(lockedModules, lockBranchesContent, EditorStyles.toolbarButton, GUILayout.Width(32)) ? modules.ToList() : null);
+            }
+
             var branchesPerRepo = modules.Select(module => module.References.GetResultOrDefault());
             var currentBranchPerRepo = modules.ToDictionary(module => module, module => module.CurrentBranch.GetResultOrDefault());
             if (!branchesPerRepo.Any() || branchesPerRepo.Any(x => x == null))
@@ -57,11 +72,6 @@ namespace Abuksigun.PackageShortcuts
                     ShowContextMenu(modules, references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id));
             });
 
-            if (showAllBranches != GUILayout.Toggle(showAllBranches, "Show All Branches"))
-            {
-                showAllBranches = !showAllBranches;
-                simpleTreeView.Reload();
-            }
             base.OnGUI();
         }
         List<TreeViewItem> GenerateItems(IEnumerable<Reference[]> branchesPerRepo)
@@ -124,12 +134,13 @@ namespace Abuksigun.PackageShortcuts
             string branchName = selectedReference?.QualifiedName?.Replace("/", "\u2215");
             if (selectedReference is LocalBranch localBranch)
             {
+                var relevantModules = modules.Where(x => x.References.GetResultOrDefault().Contains(localBranch, referenceComparer)).ToList();
                 menu.AddItem(new GUIContent($"Checkout [{branchName}]"), false, () => {
-                    task = GUIShortcuts.RunGitAndErrorCheck(modules, $"checkout {localBranch.Name}");
+                    task = GUIShortcuts.RunGitAndErrorCheck(relevantModules, $"checkout {localBranch.Name}");
                 });
                 menu.AddItem(new GUIContent($"Delete local [{branchName}]"), false, () => {
-                    if (EditorUtility.DisplayDialog("Are you sure you want DELETE branch", $"LOCAL {localBranch.Name} in {modules.Count()} modules", "Yes", "No"))
-                        task = GUIShortcuts.RunGitAndErrorCheck(modules, $"branch -d {localBranch.Name}");
+                    if (EditorUtility.DisplayDialog("Are you sure you want DELETE branch", $"LOCAL {localBranch.Name} in {relevantModules.Count()} modules", "Yes", "No"))
+                        task = GUIShortcuts.RunGitAndErrorCheck(relevantModules, $"branch -d {localBranch.Name}");
                 });
             }
             else if (selectedReference is RemoteBranch remoteBranch)

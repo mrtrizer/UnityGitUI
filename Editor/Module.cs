@@ -53,6 +53,7 @@ namespace Abuksigun.PackageShortcuts
         Task<Remote> defaultRemote;
         Task<RemoteStatus> remoteStatus;
         Task<GitStatus> gitStatus;
+        Dictionary<int, Task<string>> fileDiffCache;
         Dictionary<int, Task<GitStatus>> diffCache;
         Dictionary<int, Task<string[]>> fileLogCache;
 
@@ -86,21 +87,23 @@ namespace Abuksigun.PackageShortcuts
             PackageInfo = PackageInfo.FindForAssetPath(path);
             Name = PackageInfo?.displayName ?? Application.productName;
             isGitRepo = GetIsGitRepo();
-            fsWatcher = CreateFileWatcher();
+            _ = CreateFileWatcher();
         }
         ~Module()
         {
             fsWatcher.Dispose();
         }
-        FileSystemWatcher CreateFileWatcher()
+        async Task CreateFileWatcher()
         {
-            var fsWatcher = new FileSystemWatcher(ProjectDirPath) { NotifyFilter = (NotifyFilters)0xFFFF, EnableRaisingEvents = true };
+            string watchPath = ProjectDirPath;
+            if (await IsGitRepo)
+                watchPath = await GitRepoPath;
+            fsWatcher = new FileSystemWatcher(watchPath) { NotifyFilter = (NotifyFilters)0xFFFF, EnableRaisingEvents = true };
             fsWatcher.Changed += Reset;
             fsWatcher.Created += Reset;
             fsWatcher.Deleted += Reset;
             fsWatcher.Renamed += Reset;
             fsWatcher.Error += (_, e) => Debug.LogException(e.GetException());
-            return fsWatcher;
 
             void Reset(object obj, FileSystemEventArgs args)
             {
@@ -119,6 +122,7 @@ namespace Abuksigun.PackageShortcuts
                     fileLogCache = null;
                 }
                 gitStatus = null;
+                fileDiffCache = null;
                 diffCache = null;
             }
         }
@@ -129,12 +133,19 @@ namespace Abuksigun.PackageShortcuts
         }
         public Task<CommandResult> RunProcess(string command, string args, Action<IOData> dataHandler = null)
         {
-            processLog.Add(new IOData { Data = $">> {command} {args}", Error = false });
-            return PackageShortcuts.RunCommand(PhysicalPath, command, args, (_, data) => {
+            var result =  PackageShortcuts.RunCommand(PhysicalPath, command, args, (_, data) => {
                 processLog.Add(data);
                 dataHandler?.Invoke(data);
                 return true;
             });
+            processLog.Add(new IOData { Data = $">> {command} {args}", Error = false, LocalProcessId = result.localProcessId });
+            return result.task;
+        }
+        public Task<string> FileDiff(PackageShortcuts.LogFileReference logFileReference)
+        {
+            fileDiffCache ??= new();
+            int diffId = logFileReference.GetHashCode();
+            return fileDiffCache.TryGetValue(diffId, out var diff) ? diff : fileDiffCache[diffId] = GetFileDiff(logFileReference);
         }
         public Task<GitStatus> DiffFiles(string firstCommit, string lastCommit)
         {
@@ -237,7 +248,7 @@ namespace Abuksigun.PackageShortcuts
             }
             catch (Exception e)
             {
-                Debug.LogException(e);
+                Debug.LogException(new(Name, e));
             }
             return null;
         }
@@ -252,6 +263,21 @@ namespace Abuksigun.PackageShortcuts
             var numStatUnstaged = ParseNumStat(numStatUnstagedTask.Result.Output);
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
             return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged), Guid);
+        }
+        async Task<string> GetFileDiff(PackageShortcuts.LogFileReference logFileReference)
+        {
+            if (logFileReference.staged is { } staged)
+            {
+                if (staged)
+                    return (await RunGit($"diff --staged -- \"{logFileReference.FullPath}\"")).Output;
+                else
+                    return (await RunGit($"diff -- \"{logFileReference.FullPath}\"")).Output;
+            }
+            else
+            {
+                string relativePath = Path.GetRelativePath(await GitRepoPath, logFileReference.FullPath);
+                return (await RunGit($"diff {logFileReference.FirstCommit} {logFileReference.LastCommit} -- \"{relativePath}\"")).Output;
+            }
         }
         async Task<GitStatus> GetDiffFiles(string firstCommit, string lastCommit)
         {

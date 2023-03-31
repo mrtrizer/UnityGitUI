@@ -86,7 +86,7 @@ namespace Abuksigun.PackageShortcuts
                                 string status = !task.IsCompleted ? "In progress"
                                     : task.IsCompletedSuccessfully && task.Result.ExitCode == 0 ? "<color=green><b>Done</b></color>"
                                     : "<color=red><b>Errored</b></color>";
-                                GUILayout.Label(status, Style.Idle.Value, GUILayout.Width(100));
+                                GUILayout.Label(status, Style.RichTextLabel.Value, GUILayout.Width(100));
                             }
                         }
                     }

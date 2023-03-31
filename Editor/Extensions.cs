@@ -55,7 +55,7 @@ namespace Abuksigun.PackageShortcuts
         {
             return self.Replace('\\', '/');
         }
-        public static T When<T>(this T self, bool condition) where T : class
+        public static T When<T>(this T self, bool condition)
         {
             return condition ? self : default;
         }
@@ -74,6 +74,14 @@ namespace Abuksigun.PackageShortcuts
         public static Vector2 ToXZ(this Vector3 self)
         {
             return new Vector2(self.x, self.z);
+        }
+        public static Vector2 ToX0(this int self)
+        {
+            return new Vector2(self, 0);
+        }
+        public static Vector2 To0Y(this int self)
+        {
+            return new Vector2(0, self);
         }
     }
 }

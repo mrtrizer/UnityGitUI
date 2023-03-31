@@ -37,14 +37,7 @@ namespace Abuksigun.PackageShortcuts
         bool multiSelection;
         List<T> sourceObjects;
 
-        public LazyTreeView(GenerateItemsCallback generateItems, TreeViewState treeViewState, bool multiSelection) 
-            : base(treeViewState)
-        {
-            this.generateItems = generateItems;
-            this.multiSelection = multiSelection;
-            showBorder = true;
-        }
-        public LazyTreeView(GenerateItemsCallback generateItems, TreeViewState treeViewState, MultiColumnHeader multicolumnHeader, DrawRowCallback drawRowCallback, bool multiSelection) 
+        public LazyTreeView(GenerateItemsCallback generateItems, TreeViewState treeViewState, bool multiSelection, MultiColumnHeader multicolumnHeader = null, DrawRowCallback drawRowCallback = null) 
             : base(treeViewState, multicolumnHeader)
         {
             this.generateItems = generateItems;
@@ -197,22 +190,27 @@ namespace Abuksigun.PackageShortcuts
             var module = ModuleGuidToolbar(modules, guid);
             guid = module.Guid;
 
+            if (module.ProcessLog.Count == 0)
+                return;
+
             int longestLine = module.ProcessLog.Max(x => x.Data.Length);
             float maxWidth = Mathf.Max(Style.ProcessLog.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x);
 
             float topPanelHeight = modules.Count > 1 ? 20 : 0;
             var scrollHeight = GUILayout.Height(size.y - topPanelHeight);
-            using var scroll = new GUILayout.ScrollViewScope(logScrollPositions.GetValueOrDefault(module, Vector2.zero), false, false, GUILayout.Width(size.x));
-
-            const int maxLines = 2000;
-            int count = module.ProcessLog.Count();
-            int skipLinesCount = Mathf.Max(count - maxLines, 0);
-            int totalLinesVisible = count - skipLinesCount;
-            var allLines = module.ProcessLog.Skip(skipLinesCount).Select(x => x.Error ? x.Data.WrapUp("<color=red>", "</color>") : x.Data);
-            string allData = allLines.Join('\n');
-            EditorGUILayout.SelectableLabel(allData, Style.ProcessLog.Value, GUILayout.Height(totalLinesVisible * 13), GUILayout.Width(maxWidth));
-
-            logScrollPositions[module] = scroll.scrollPosition;
+            using (var scroll = new GUILayout.ScrollViewScope(logScrollPositions.GetValueOrDefault(module, Vector2.zero), false, false, GUILayout.Width(size.x)))
+            {
+                const int lineHeight = 13;
+                int count = module.ProcessLog.Count();
+                int yOffset = (int)(scroll.scrollPosition.y / lineHeight);
+                GUILayout.Space(scroll.scrollPosition.y);
+                int linesVisible = (int)(size.y / lineHeight);
+                var allLines = module.ProcessLog.Skip(yOffset).Take(linesVisible).OrderBy(x => x.LocalProcessId).Select(x => x.Error ? x.Data.WrapUp("<color=red>", "</color>") : x.Data);
+                string allData = allLines.Join('\n');
+                EditorGUILayout.TextArea(allData, Style.ProcessLog.Value, GUILayout.Height(linesVisible * lineHeight), GUILayout.Width(maxWidth));
+                GUILayout.Space((module.ProcessLog.Count() - linesVisible) * lineHeight - scroll.scrollPosition.y);
+                logScrollPositions[module] = scroll.scrollPosition;
+            }
         }
         
         [SettingsProvider]

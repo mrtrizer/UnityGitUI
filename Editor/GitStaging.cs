@@ -86,13 +86,20 @@ namespace Abuksigun.PackageShortcuts
                 }
             }
             GUILayout.Space(20);
+
+            var statuses = modules.Select(x => x.GitStatus.GetResultOrDefault());
+            var unstagedSelection = statuses.SelectMany(x => x.Files).Where(x => treeViewUnstaged.HasFocus() && treeViewStateUnstaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
+            var stagedSelection = statuses.SelectMany(x => x.Files).Where(x => treeViewStaged.HasFocus() && treeViewStateStaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
+            if (unstagedSelection.Any())
+                PackageShortcuts.SetSelectedFiles(unstagedSelection, false);
+            if (stagedSelection.Any())
+                PackageShortcuts.SetSelectedFiles(stagedSelection, true);
+
             using (new EditorGUI.DisabledGroupScope(tasksInProgress.Any()))
             using (new GUILayout.HorizontalScope())
             {
                 var size = new Vector2((position.width - MiddlePanelWidth) / 2, position.height - TopPanelHeight);
-                var statuses = modules.Select(x => x.GitStatus.GetResultOrDefault());
-                var unstagedSelection = statuses.SelectMany(x => x.Files).Where(x => treeViewStateUnstaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
-                var stagedSelection = statuses.SelectMany(x => x.Files).Where(x => treeViewStateStaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
+                
                 treeViewUnstaged.Draw(size, statuses, (int id) => ShowContextMenu(modules, unstagedSelection));
                 using (new GUILayout.VerticalScope())
                 {
@@ -134,7 +141,7 @@ namespace Abuksigun.PackageShortcuts
             {
                 menu.AddItem(new GUIContent("Diff"), false, () => {
                     foreach (var module in modules)
-                        Diff.ShowDiff(files.Where(x => x.ModuleGuid == module.Guid && x.IsStaged).Select(x => x.FullPath));
+                        Diff.ShowDiff();
                 });
                 menu.AddItem(new GUIContent("Log"), false, async () => {
                     foreach ((var module, var files) in filesList)

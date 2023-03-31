@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
 using DataReceivedEventArgs = System.Diagnostics.DataReceivedEventArgs;
@@ -18,6 +19,7 @@ namespace Abuksigun.PackageShortcuts
     {
         public string Data { get; set; }
         public bool Error { get; set; }
+        public int LocalProcessId { get; set; }
     }
     public record CommandResult(int ExitCode, string Output);
 
@@ -25,8 +27,16 @@ namespace Abuksigun.PackageShortcuts
     
     public static class PackageShortcuts
     {
+        public record LogFileReference(Module Module, string FullPath, bool? staged = null, string FirstCommit = null, string LastCommit = null);
+
         static Dictionary<string, Module> modules = new();
         static List<string> lastModulesSelection = new();
+        static int lastLocalProcessId = 0;
+        static object processLock = new();
+        static LogFileReference[] lastLogFilesSelected = Array.Empty<LogFileReference>();
+        static List<Module> lockeedModules;
+
+        public static List<Module> LockedModules => lockeedModules;
 
         public static Module GetModule(string guid)
         {
@@ -55,6 +65,26 @@ namespace Abuksigun.PackageShortcuts
             return (packageInfo != null && packageInfo.assetPath == path) || path == "Assets";
         }
 
+        public static void ResetSelection()
+        {
+            lastLogFilesSelected = null;
+        }
+
+        public static void SetSelectedFiles(IEnumerable<LogFileReference> references)
+        {
+            lastLogFilesSelected = references.ToArray();
+        }
+
+        public static void SetSelectedFiles(IEnumerable<FileStatus> statuses, bool? staged, string firstCommit = null, string lastCommit = null)
+        {
+            SetSelectedFiles(statuses.Select(x => new LogFileReference(GetModule(x.ModuleGuid), x.FullPath, staged, firstCommit, lastCommit)));
+        }
+        
+        public static IEnumerable<LogFileReference> GetSelectedFiles()
+        {
+            return lastLogFilesSelected ?? Array.Empty<LogFileReference>();
+        }
+
         public static IEnumerable<Module> GetModules()
         {
             return modules.Values;
@@ -64,9 +94,11 @@ namespace Abuksigun.PackageShortcuts
         {
             return GetModules().Where(module => module != null && module.IsGitRepo.GetResultOrDefault()).Where(x => x != null);
         }
-
+        
         public static IEnumerable<Module> GetSelectedModules()
         {
+            if (lockeedModules != null)
+                return lockeedModules;
             var selectedModules = Selection.assetGUIDs.Where(IsModule);
             if (selectedModules.Any())
             {
@@ -78,6 +110,11 @@ namespace Abuksigun.PackageShortcuts
             {
                 return lastModulesSelection.Select(guid => GetModule(guid));
             }
+        }
+
+        public static void LockModules(IEnumerable<Module> modules)
+        {
+            lockeedModules = modules?.ToList();
         }
 
         public static IEnumerable<Module> GetSelectedGitModules()
@@ -121,7 +158,7 @@ namespace Abuksigun.PackageShortcuts
             return fileNames?.Select(x => $"\"{x}\"")?.Join(' ');
         }
 
-        public static Task<CommandResult> RunCommand(string workingDir, string command, string args, Func<Process, IOData, bool> dataHandler = null)
+        public static (int localProcessId, Task<CommandResult> task) RunCommand(string workingDir, string command, string args, Func<Process, IOData, bool> dataHandler = null)
         {
             var tcs = new TaskCompletionSource<CommandResult>();
 
@@ -138,6 +175,7 @@ namespace Abuksigun.PackageShortcuts
             var outputStringBuilder = new StringBuilder();
             var errorStringBuilder = new StringBuilder();
             object exitCode = null;
+            int localProcessId = lastLocalProcessId++;
 
             process.OutputDataReceived += (_, args) => HandleData(outputStringBuilder, false, args);
             process.ErrorDataReceived += (_, args) => HandleData(errorStringBuilder, true, args);
@@ -150,16 +188,20 @@ namespace Abuksigun.PackageShortcuts
                 tcs.SetResult(new((int)exitCode, str));
             };
 
-            process.Start();
-            
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
+            _ = Task.Run(() => {
+                lock (processLock)
+                {
+                    process.Start();
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
+                }
+            });
 
-            return tcs.Task;
+            return (localProcessId, tcs.Task);
 
             void HandleData(StringBuilder stringBuilder, bool error, DataReceivedEventArgs args)
             {
-                if (args.Data != null && (dataHandler?.Invoke(process, new IOData { Data = args.Data, Error = error }) ?? true))
+                if (args.Data != null && (dataHandler?.Invoke(process, new IOData { Data = args.Data, Error = error, LocalProcessId = localProcessId }) ?? true))
                     stringBuilder.AppendLine(args.Data);
             }
         }

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -36,24 +35,29 @@ namespace Abuksigun.PackageShortcuts
         [MenuItem("Assets/Git File Diff", priority = 200)]
         public static void Invoke()
         {
-            ShowDiff(null);
+            ShowDiff();
         }
-        public static void ShowDiff(IEnumerable<string> filePaths, string firstCommit = null, string lastCommit = null)
+        public static void ShowDiff()
         {
-            var window = ScriptableObject.CreateInstance<DiffWindow>();
-            window.titleContent = new GUIContent($"Git Diff");
-            window.FirstCommit = firstCommit;
-            window.LastCommit = lastCommit;
-            window.Show();
+            if (EditorWindow.GetWindow<DiffWindow>() is not { } window || !window)
+            {
+                window = ScriptableObject.CreateInstance<DiffWindow>();
+                window.titleContent = new GUIContent($"Git Diff");
+                window.Show();
+            }
+            window.Focus();
         }
         public static void DrawGitDiff(string diff, Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, ref Vector2 scrollPosition)
         {
             string[] lines = diff.SplitLines();
+            if (lines.Length == 0)
+                return;
             int longestLine = lines.Max(x => x.Length);
             float width = Mathf.Max(DiffUnchanged.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x);
             int currentLine = 1;
             using var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
-            var layout = new[] { GUILayout.Height(15), GUILayout.Width(width) };
+            var headerLayout = new[] { GUILayout.Height(15), GUILayout.Width(width) };
+            var layout = new[] { GUILayout.Height(12), GUILayout.Width(width) };
 
             string currentFile = null;
             int hunkIndex = -1;
@@ -64,12 +68,12 @@ namespace Abuksigun.PackageShortcuts
                     i += 3;
                     hunkIndex = -1;
                     currentFile = lines[i][6..];
-                    EditorGUILayout.SelectableLabel(currentFile, Style.FileName.Value, layout);
+                    EditorGUILayout.SelectableLabel(currentFile, Style.FileName.Value, headerLayout);
                 }
                 else if (lines[i].StartsWith("@@"))
                 {
                     var match = Regex.Match(lines[i], @"@@ -(\d+),(\d+) \+(\d+),?(\d+)? @@");
-                    EditorGUILayout.SelectableLabel(match.Value, Style.FileName.Value, layout);
+                    EditorGUILayout.SelectableLabel(match.Value, Style.FileName.Value, headerLayout);
                     currentLine = match.Groups[1].Value != "0" ? int.Parse(match.Groups[1].Value) : int.Parse(match.Groups[3].Value);
                     hunkIndex++;
                     using (new GUILayout.HorizontalScope())
@@ -94,31 +98,49 @@ namespace Abuksigun.PackageShortcuts
 
     public class DiffWindow : DefaultWindow
     {
-        public Dictionary<int, Task<CommandResult[]>> stagedResults = new();
-        public Dictionary<int, Task<CommandResult[]>> unstagedResults = new();
+        const int TopPanelHeight = 20;
 
-        public string FirstCommit { get; set; }
-        public string LastCommit { get; set; }
-
+        [SerializeField]
+        bool staged;
         Vector2 scrollPosition;
-        
+
         protected override void OnGUI()
         {
-            var selectedAssets = Selection.assetGUIDs.Select(x => PackageShortcuts.GetAssetGitInfo(x)).Where(x => x != null && x.FileStatus != null);
-            if (!selectedAssets.Any())
+            var selectedFiles = PackageShortcuts.GetSelectedFiles();
+            if (!selectedFiles.Any())
                 return;
-            int id = 0;
-            foreach (var asset in selectedAssets)
-                id ^= asset.FullPath.GetHashCode();
-            if (!stagedResults.TryGetValue(id, out var stagedResult))
-                stagedResult = stagedResults[id] = Task.WhenAll(selectedAssets.Select(x => x.Module.RunGit($"diff --staged {FirstCommit} {LastCommit} -- \"{x.FileStatus.FullPath}\"")));
-            if (!unstagedResults.TryGetValue(id, out var unstagedResult))
-                unstagedResult = unstagedResults[id] = Task.WhenAll(selectedAssets.Select(x => x.Module.RunGit($"diff {FirstCommit} {LastCommit} -- \"{x.FileStatus.FullPath}\"")));
-            if (!unstagedResult.IsCompleted || !stagedResult.IsCompleted)
-                return;
-            if (unstagedResult.Result.Any(x => x.ExitCode != 0) || unstagedResult.Result.Any(x => x.ExitCode != 0))
-                return;
-            Diff.DrawGitDiff(unstagedResult.Result.Select(x => x.Output).Join('\n'), position.size, null, null, null, ref scrollPosition);
+            bool viewingLog = selectedFiles.Any(x => !string.IsNullOrEmpty(x.FirstCommit));
+            bool viewingAsset = selectedFiles.Any(x => !x.staged.HasValue && string.IsNullOrEmpty(x.FirstCommit));
+
+            var diffs = selectedFiles.Select(x => (diff: x.Module.FileDiff(x), x.staged));
+            var loadedDiffs = diffs.Select(x => (diff: x.diff.GetResultOrDefault(), x.staged)).Where(x => x.diff != null);
+            
+            var stagedDiffs = loadedDiffs.Where(x => x.staged.GetValueOrDefault() == true);
+            var unstagedDiffs = loadedDiffs.Where(x => x.staged.GetValueOrDefault() == false);
+
+            using (new GUILayout.HorizontalScope())
+            {
+                var unstagedContent = new GUIContent("Unstaged", EditorGUIUtility.IconContent("d_winbtn_mac_min@2x").image);
+                var stagedContent = new GUIContent("Staged", EditorGUIUtility.IconContent("d_winbtn_mac_max@2x").image);
+                staged = stagedDiffs.Count() > 0 && (unstagedDiffs.Count() == 0 || GUILayout.Toolbar(staged ? 1 : 0, new[] { unstagedContent, stagedContent }, EditorStyles.toolbarButton, GUILayout.Width(160)) == 1);
+
+
+                GUILayout.FlexibleSpace();
+                if (!viewingLog)
+                {
+                    if (staged)
+                    {
+                        GUILayout.Button($"Unstage All ({stagedDiffs.Count()})", EditorStyles.toolbarButton, GUILayout.Width(130));
+                    }
+                    else
+                    {
+                        GUILayout.Button($"Stage All ({unstagedDiffs.Count()})", EditorStyles.toolbarButton, GUILayout.Width(130));
+                        GUILayout.Button($"Discard All ({unstagedDiffs.Count()})", EditorStyles.toolbarButton, GUILayout.Width(130));
+                    }
+                }
+            }
+            var diffStrings = staged ? stagedDiffs.Select(x => x.diff) : unstagedDiffs.Select(x => x.diff);
+            Diff.DrawGitDiff(diffStrings.Join('\n'), position.size - TopPanelHeight.To0Y(), null, null, null, ref scrollPosition);
             base.OnGUI();
         }
     }

@@ -5,6 +5,8 @@ using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
 {
+    using static PackageShortcuts;
+
     [InitializeOnLoad]
     public static class ProjectBrowserExtension
     {
@@ -14,8 +16,16 @@ namespace Abuksigun.PackageShortcuts
 
         static ProjectBrowserExtension()
         {
-            EditorApplication.projectWindowItemOnGUI -= Draw;
             EditorApplication.projectWindowItemOnGUI += Draw;
+            Selection.selectionChanged += SelectionChanged;
+        }
+
+        static void SelectionChanged()
+        {
+            var assets = Selection.assetGUIDs.Select(x => GetAssetGitInfo(x));
+            var stagedSelection = assets.Where(x => x?.FileStatus?.IsStaged ?? false).Select(x => new LogFileReference(x.Module, x.FullPath, true));
+            var unstagedSelection = assets.Where(x => x?.FileStatus?.IsUnstaged ?? false).Select(x => new LogFileReference(x.Module, x.FullPath, false));
+            SetSelectedFiles(stagedSelection.Concat(unstagedSelection));
         }
 
         static void Draw(string guid, Rect drawRect)
@@ -25,7 +35,7 @@ namespace Abuksigun.PackageShortcuts
             
             EditorApplication.RepaintProjectWindow();
 
-            var module = PackageShortcuts.GetModule(guid);
+            var module = GetModule(guid);
             if (drawRect.height <= 20 && module != null && module.IsGitRepo.GetResultOrDefault())
             {
                 drawRect.height = 20;
@@ -44,11 +54,11 @@ namespace Abuksigun.PackageShortcuts
 
                 if (module.GitStatus.GetResultOrDefault() is { } gitStatus)
                 {
-                    offset += 30;
+                    offset += 40;
                     var rect = drawRect;
                     rect.x = rect.x + rect.width - offset;
                     rect.y += 1.5f;
-                    GUI.Label(rect, $"+{gitStatus.Unindexed.Count()} *{gitStatus.IndexedUnstaged.Count()}", labelStyle);
+                    GUI.Label(rect, $"+{gitStatus.Unindexed.Count()} *{gitStatus.IndexedUnstaged.Count()} #{gitStatus.Staged.Count()}", labelStyle);
                 }
 
                 if (module.RemoteStatus.GetResultOrDefault() is { } result)
@@ -59,7 +69,7 @@ namespace Abuksigun.PackageShortcuts
                     rect.y += 1.5f;
                     GUI.Label(rect, $"{result.Behind}↓{result.Ahead}↑", labelStyle);
                 }
-                else if (module.Remotes.GetResultOrDefault()?.Any() ?? false)
+                else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
                 {
                     var rect = drawRect;
                     rect.height = 15;
@@ -68,7 +78,7 @@ namespace Abuksigun.PackageShortcuts
                 }
             }
 
-            if (module == null && PackageShortcuts.GetAssetGitInfo(guid) is { } assetInfo)
+            if (module == null && GetAssetGitInfo(guid) is { } assetInfo)
             {
                 fileMarkStyle ??= new GUIStyle(labelStyle) { fontStyle = FontStyle.Bold, fontSize = 10, richText = true };
                 var rect = drawRect;
