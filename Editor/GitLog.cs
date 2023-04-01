@@ -84,11 +84,17 @@ namespace Abuksigun.PackageShortcuts
         LogGraphCell[,] cells;
         string[] lastLog;
         List<string> lines;
+        readonly Regex commitHashRegex = new Regex(@"([0-9a-f]+)");
         
         public bool ShowStash { get; set; }
         public string LogFiles { get; set; } = null;
         public List<Module> LockedModules { get; set; } = null;
         bool HideGraph => ShowStash || !string.IsNullOrEmpty(LogFiles);
+        string GetSelectedCommitHash(int id)
+        {
+            string commitLine = lines?.FirstOrDefault(x => x.GetHashCode() == id);
+            return commitLine != null ? commitHashRegex.Match(commitLine)?.Groups[1].Value : null;
+        }
 
         [SerializeField]
         TreeViewState treeViewLogState = new();
@@ -121,27 +127,35 @@ namespace Abuksigun.PackageShortcuts
                 lastLog = log;
                 lines = log.Where(x => x.Contains('*')).ToList();
                 cells = ParseGraph(lines);
-                treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, false, multiColumnHeader ??= new (multiColumnHeaderState), DrawCell);
+                treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, false, multiColumnHeader ??= new(multiColumnHeaderState), DrawCell);
                 treeViewFiles = new(statuses => GUIShortcuts.GenerateFileItems(statuses, true), treeViewStateFiles, true);
             }
             multiColumnHeaderState.visibleColumns = Enumerable.Range(HideGraph ? 1 : 0, multiColumnHeaderState.columns.Length - (HideGraph ? 1 : 0)).ToArray();
 
-            string commit = lines.FirstOrDefault(x => x.GetHashCode() == treeViewLogState.selectedIDs.FirstOrDefault());
-
-            var scrollPosition = treeViewLogState.scrollPos;
-            int firstY = Mathf.Max((int)(scrollPosition.y / Space) - 1, 0);
+            string selectedCommitHash = GetSelectedCommitHash(treeViewLogState.selectedIDs.FirstOrDefault());
+            
+            DrawLog(module, selectedCommitHash);
+            
+            if (selectedCommitHash != null)
+                DrawFilesPanel(module, selectedCommitHash);
+            base.OnGUI();
+        }
+        private void DrawLog(Module module, string selectedCommitHash)
+        {
             int itemNum = (int)(position.size.y / Space);
 
-            treeViewLog.Draw(new Vector2(position.width, position.height - FilesPanelHeight.When(commit != null)), new[] { lastLog }, id => {
-                string commit = lines.FirstOrDefault(x => x.GetHashCode() == id);
-                string selectedCommit = commit != null ? Regex.Match(commit, @"([0-9a-f]+)")?.Groups[1].Value : null;
-                _ = ShowCommitContextMenu(module, selectedCommit);
+            float currentFilesPanelHeight = selectedCommitHash != null ? FilesPanelHeight : 0;
+
+            treeViewLog.Draw(new Vector2(position.width, position.height - currentFilesPanelHeight), new[] { lastLog }, id => {
+                _ = ShowCommitContextMenu(module, GetSelectedCommitHash(id));
             });
-            
+
             if (!HideGraph && Event.current.type == EventType.Repaint)
             {
                 var firstPoint = GUILayoutUtility.GetLastRect().position;
-                var graphSize = new Vector2(multiColumnHeaderState.columns[0].width, position.size.y - FilesPanelHeight.When(commit != null) - TableHeaderHeight);
+                var graphSize = new Vector2(multiColumnHeaderState.columns[0].width, position.size.y - currentFilesPanelHeight - TableHeaderHeight);
+                float scrollPositionY = treeViewLogState.scrollPos.y;
+                int firstY = Mathf.Max((int)(scrollPositionY / Space) - 1, 0);
                 GUI.BeginClip(new Rect(firstPoint + Vector2.up * TableHeaderHeight, graphSize));
                 for (int y = firstY; y < Mathf.Min(cells.GetLength(0), firstY + itemNum); y++)
                 {
@@ -150,7 +164,7 @@ namespace Abuksigun.PackageShortcuts
                         var cell = cells[y, x];
                         var oldColor = Handles.color;
                         Handles.color = Style.GraphColors[cell.branch % Style.GraphColors.Length];
-                        var offset = new Vector3(10, 10 - scrollPosition.y);
+                        var offset = new Vector3(10, 10 - scrollPositionY);
                         if (cell.commit)
                             Handles.DrawSolidDisc(offset + new Vector3(x * Space, y * Space), new Vector3(0, 0, 1), 3);
                         DrawConnection(cell, offset, x, y);
@@ -159,36 +173,36 @@ namespace Abuksigun.PackageShortcuts
                 }
                 GUI.EndClip();
             }
-            using (new EditorGUILayout.HorizontalScope(GUILayout.Height(FilesPanelHeight.When(commit != null))))
+        }
+        private void DrawFilesPanel(Module module, string selectedCommitHash)
+        {
+            string firstCommit = $"{selectedCommitHash}~1";
+            string lastCommit = selectedCommitHash;
+
+            var diffFiles = module.DiffFiles(firstCommit, lastCommit).GetResultOrDefault();
+            var selectedFiles = diffFiles?.Files.Where(x => treeViewStateFiles.selectedIDs.Contains(x.FullPath.GetHashCode()));
+
+            if (selectedFiles != null && treeViewFiles.HasFocus())
+                PackageShortcuts.SetSelectedFiles(selectedFiles, null, firstCommit, lastCommit);
+
+            using (new EditorGUILayout.HorizontalScope(GUILayout.Height(selectedCommitHash != null ? FilesPanelHeight : 0)))
             {
-                if (commit != null)
+                if (selectedFiles != null)
                 {
-                    string selectedCommit = Regex.Match(commit, @"([0-9a-f]+)")?.Groups[1].Value;
-                    if (module.DiffFiles($"{selectedCommit}~1", selectedCommit).GetResultOrDefault() is { } diffFiles)
-                    {
-                        var selectedFiles = diffFiles.Files.Where(x => treeViewStateFiles.selectedIDs.Contains(x.FullPath.GetHashCode()));
-
-                        if (treeViewFiles.HasFocus())
-                            PackageShortcuts.SetSelectedFiles(selectedFiles, null, $"{selectedCommit}~1", selectedCommit);
-
-                        var panelSize = new Vector2(position.width - InfoPanelWidth, FilesPanelHeight);
-                        treeViewFiles.Draw(panelSize, new[] { diffFiles }, (_) =>
-                        {
-                            ShowFileContextMenu(module, selectedFiles, selectedCommit);
-                        });
-                    }
-                    else
-                    {
-                        GUILayout.Space(position.width - InfoPanelWidth);
-                    }
-                    using (new EditorGUILayout.VerticalScope(GUILayout.Height(FilesPanelHeight)))
-                    {
-                        EditorGUILayout.SelectableLabel(selectedCommit);
-                        EditorGUILayout.SelectableLabel(commit.AfterFirst('-'), CommitInfoStyle.Value);
-                    }
+                    var panelSize = new Vector2(position.width - InfoPanelWidth, FilesPanelHeight);
+                    treeViewFiles.Draw(panelSize, new[] { diffFiles }, (_) => ShowFileContextMenu(module, selectedFiles, selectedCommitHash));
+                }
+                else
+                {
+                    GUILayout.Space(position.width - InfoPanelWidth);
+                }
+                using (new EditorGUILayout.VerticalScope(GUILayout.Height(FilesPanelHeight)))
+                {
+                    EditorGUILayout.SelectableLabel(selectedCommitHash);
+                    string commitLine = lines?.FirstOrDefault(x => x.GetHashCode() == treeViewLogState.selectedIDs.FirstOrDefault());
+                    EditorGUILayout.SelectableLabel(commitLine.AfterFirst('-'), CommitInfoStyle.Value);
                 }
             }
-            base.OnGUI();
         }
         List<TreeViewItem> GenerateLogItems(List<string> lines)
         {

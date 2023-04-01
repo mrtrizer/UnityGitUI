@@ -23,8 +23,8 @@ namespace Abuksigun.PackageShortcuts
         static void SelectionChanged()
         {
             var assets = Selection.assetGUIDs.Select(x => GetAssetGitInfo(x)).Where(x => x != null);
-            var stagedSelection = assets.SelectMany(x => x.FileStatuses).Where(x => x.IsStaged).Select(x => new LogFileReference(GetModule(x.ModuleGuid), x.FullPath, true));
-            var unstagedSelection = assets.SelectMany(x => x.FileStatuses).Where(x => x.IsUnstaged).Select(x => new LogFileReference(GetModule(x.ModuleGuid), x.FullPath, false));
+            var stagedSelection = assets.SelectMany(x => x.FileStatuses).Where(x => x.IsStaged).Select(x => new LogFileReference(x.ModuleGuid, x.FullPath, true));
+            var unstagedSelection = assets.SelectMany(x => x.FileStatuses).Where(x => x.IsUnstaged).Select(x => new LogFileReference(x.ModuleGuid, x.FullPath, false));
             SetSelectedFiles(stagedSelection.Concat(unstagedSelection));
         }
 
@@ -77,8 +77,8 @@ namespace Abuksigun.PackageShortcuts
                     GUI.Label(rect, EditorGUIUtility.IconContent($"WaitSpin{(spinCounter++ % 1100) / 100:00}"), labelStyle);
                 }
             }
-
-            if (module == null && GetAssetGitInfo(guid) is { } assetInfo)
+            var assetInfo = GetAssetGitInfo(guid);
+            if (module == null && assetInfo != null)
             {
                 fileMarkStyle ??= new GUIStyle(labelStyle) { fontStyle = FontStyle.Bold, fontSize = 10, richText = true };
                 var rect = drawRect;
@@ -91,6 +91,15 @@ namespace Abuksigun.PackageShortcuts
                     GUI.Label(rect, GUIShortcuts.MakePrintableStatus(assetInfo.FileStatuses.First().Y), fileMarkStyle);
                 else if (assetInfo.FileStatuses.Any(x => x.IsStaged))
                     GUI.Label(rect, "<color=green>✓</color>", fileMarkStyle);
+            }
+
+            if (module == null && assetInfo != null && !assetInfo.NestedFileModified && drawRect.height < 20)
+            {
+                var rect = drawRect;
+                var unstagedNumStat = assetInfo.FileStatuses.FirstOrDefault().UnstagedNumStat;
+                var text = new GUIContent($"+{unstagedNumStat.Added} -{unstagedNumStat.Removed}");
+                rect.x = rect.x + rect.width - Style.RichTextLabel.Value.CalcSize(text).x;
+                GUI.Label(rect, text, Style.RichTextLabel.Value);
             }
         }
     }

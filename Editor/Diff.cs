@@ -1,3 +1,4 @@
+using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,10 +8,13 @@ using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
 {
+    using static Const;
+    
     public class Diff
     {
         public delegate void HunkAction(string fileName, int hunkIndex);
 
+        static Regex hunkStartRegex = new Regex(@"@@ -(\d+),?(\d+)? \+(\d+),?(\d+)? @@");
         public static Lazy<GUIStyle> DiffUnchanged => new(() => new() {
             normal = new GUIStyleState {
                 background = Style.GetColorTexture(Color.white)
@@ -47,18 +51,19 @@ namespace Abuksigun.PackageShortcuts
             }
             window.Focus();
         }
-        public static void DrawGitDiff(string diff, Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, ref Vector2 scrollPosition)
+        public static void DrawGitDiff(string[] lines, Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, ref Vector2 scrollPosition)
         {
-            string[] lines = diff.SplitLines();
-            if (lines.Length == 0)
+            if (lines == null || lines.Length == 0)
                 return;
             int longestLine = lines.Max(x => x.Length);
-            float width = Mathf.Max(DiffUnchanged.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x);
+            float width = Mathf.Max(DiffUnchanged.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x) + 100;
             int currentLine = 1;
-            using var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
-            var headerLayout = new[] { GUILayout.Height(15), GUILayout.Width(width) };
-            var layout = new[] { GUILayout.Height(12), GUILayout.Width(width) };
 
+            using var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
+            int headerHeight = 15;
+            int codeLineHeight = 12;
+
+            float currentOffset = 0;
             string currentFile = null;
             int hunkIndex = -1;
             for (int i = 0; i < lines.Length; i++)
@@ -68,30 +73,39 @@ namespace Abuksigun.PackageShortcuts
                     i += 3;
                     hunkIndex = -1;
                     currentFile = lines[i][6..];
-                    EditorGUILayout.SelectableLabel(currentFile, Style.FileName.Value, headerLayout);
+                    if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
+                        EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, headerHeight), currentFile, Style.FileName.Value);
+                    currentOffset += headerHeight;
                 }
                 else if (lines[i].StartsWith("@@"))
                 {
-                    var match = Regex.Match(lines[i], @"@@ -(\d+),(\d+) \+(\d+),?(\d+)? @@");
-                    EditorGUILayout.SelectableLabel(match.Value, Style.FileName.Value, headerLayout);
-                    currentLine = match.Groups[1].Value != "0" ? int.Parse(match.Groups[1].Value) : int.Parse(match.Groups[3].Value);
-                    hunkIndex++;
-                    using (new GUILayout.HorizontalScope())
+                    var match = hunkStartRegex.Match(lines[i]);
+                    if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
                     {
-                        if (stageHunk != null && GUILayout.Button($"Stage hunk {hunkIndex + 1}", GUILayout.Width(100)))
+                        EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, headerHeight), match.Value, Style.FileName.Value);
+
+                        if (stageHunk != null && GUI.Button(new Rect(currentOffset, 0, 100, 20), $"Stage hunk {hunkIndex + 1}"))
                             stageHunk.Invoke(currentFile, hunkIndex);
-                        if (unstageHunk != null && GUILayout.Button($"Unstage hunk {hunkIndex + 1}", GUILayout.Width(100)))
+                        if (unstageHunk != null && GUI.Button(new Rect(currentOffset, 100, 100, 20), $"Unstage hunk {hunkIndex + 1}"))
                             unstageHunk.Invoke(currentFile, hunkIndex);
-                        if (discardHunk != null && GUILayout.Button($"Discard hunk {hunkIndex + 1}", GUILayout.Width(100)))
+                        if (discardHunk != null && GUI.Button(new Rect(currentOffset, 200, 100, 20), $"Discard hunk {hunkIndex + 1}"))
                             discardHunk.Invoke(currentFile, hunkIndex);
                     }
+
+                    currentLine = match.Groups[1].Value != "0" ? int.Parse(match.Groups[1].Value) : int.Parse(match.Groups[3].Value);
+                    hunkIndex++;
+
+                    currentOffset += headerHeight;
                 }
                 else if (hunkIndex >= 0)
                 {
                     var style = lines[i][0] switch { '+' => DiffAdded.Value, '-' => DiffRemoved.Value, _ => DiffUnchanged.Value };
-                    EditorGUILayout.SelectableLabel($"{lines[i][0]} {currentLine++,4} {lines[i][1..]}", style, layout);
+                    if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
+                        GUI.Toggle(new Rect(0, currentOffset, width, codeLineHeight), false, $"{lines[i][0]} {currentLine++,4} {lines[i][1..]}", style);
+                    currentOffset += codeLineHeight;
                 }
             }
+            GUILayoutUtility.GetRect(width, currentOffset);
             scrollPosition = scroll.scrollPosition;
         }
     }
@@ -103,6 +117,10 @@ namespace Abuksigun.PackageShortcuts
         [SerializeField]
         bool staged;
         Vector2 scrollPosition;
+        GUIContent[] toolbarContent;
+        string[] diffLines;
+
+        int lastHashCode = 0;
 
         protected override void OnGUI()
         {
@@ -110,20 +128,21 @@ namespace Abuksigun.PackageShortcuts
             if (!selectedFiles.Any())
                 return;
             bool viewingLog = selectedFiles.Any(x => !string.IsNullOrEmpty(x.FirstCommit));
-            bool viewingAsset = selectedFiles.Any(x => !x.staged.HasValue && string.IsNullOrEmpty(x.FirstCommit));
+            bool viewingAsset = selectedFiles.Any(x => !x.Staged.HasValue && string.IsNullOrEmpty(x.FirstCommit));
 
-            var diffs = selectedFiles.Select(x => (module: x.Module, fullPath: x.FullPath, diff: x.Module.FileDiff(x), x.staged));
-            var loadedDiffs = diffs.Select(x => (x.module, x.fullPath, diff: x.diff.GetResultOrDefault(), x.staged)).Where(x => x.diff != null);
-            
-            var stagedDiffs = loadedDiffs.Where(x => x.staged.GetValueOrDefault() == true).ToList();
-            var unstagedDiffs = loadedDiffs.Where(x => x.staged.GetValueOrDefault() == false).ToList();
+            var diffs = selectedFiles.Select(x => (module: x.Module, fullPath: x.FullPath, diff: x.Module.FileDiff(x), x.Staged));
+            var loadedDiffs = diffs.Select(x => (x.module, x.fullPath, diff: x.diff.GetResultOrDefault(), x.Staged)).Where(x => x.diff != null);
+
+            var stagedDiffs = loadedDiffs.Where(x => x.Staged.GetValueOrDefault() == true).ToList();
+            var unstagedDiffs = loadedDiffs.Where(x => x.Staged.GetValueOrDefault() == false).ToList();
 
             using (new GUILayout.HorizontalScope())
             {
-                var unstagedContent = new GUIContent("Unstaged", EditorGUIUtility.IconContent("d_winbtn_mac_min@2x").image);
-                var stagedContent = new GUIContent("Staged", EditorGUIUtility.IconContent("d_winbtn_mac_max@2x").image);
-                staged = stagedDiffs.Count > 0 && (unstagedDiffs.Count == 0 || GUILayout.Toolbar(staged ? 1 : 0, new[] { unstagedContent, stagedContent }, EditorStyles.toolbarButton, GUILayout.Width(160)) == 1);
-
+                toolbarContent ??= new[] {
+                        new GUIContent("Unstaged", EditorGUIUtility.IconContent("d_winbtn_mac_min@2x").image),
+                        new GUIContent("Staged", EditorGUIUtility.IconContent("d_winbtn_mac_max@2x").image)
+                    };
+                staged = stagedDiffs.Count > 0 && (unstagedDiffs.Count == 0 || GUILayout.Toolbar(staged ? 1 : 0, toolbarContent, EditorStyles.toolbarButton, GUILayout.Width(160)) == 1);
 
                 GUILayout.FlexibleSpace();
                 if (!viewingLog)
@@ -146,8 +165,17 @@ namespace Abuksigun.PackageShortcuts
                     }
                 }
             }
-            var diffStrings = staged ? stagedDiffs.Select(x => x.diff) : unstagedDiffs.Select(x => x.diff);
-            Diff.DrawGitDiff(diffStrings.Join('\n'), position.size - TopPanelHeight.To0Y(), null, null, null, ref scrollPosition);
+
+            var hashCode = selectedFiles.GetCombinedHashCode();
+            if (hashCode != lastHashCode && diffs.All(x => x.diff.IsCompleted))
+            {
+                var diffStrings = staged ? stagedDiffs.Select(x => x.diff) : unstagedDiffs.Select(x => x.diff);
+                diffLines = diffStrings.SelectMany(x => x.Split('\n', RemoveEmptyEntries)).ToArray();
+                lastHashCode = hashCode;
+            }
+            
+            Diff.DrawGitDiff(diffLines, position.size - TopPanelHeight.To0Y(), null, null, null, ref scrollPosition);
+
             base.OnGUI();
         }
     }

@@ -141,7 +141,7 @@ namespace Abuksigun.PackageShortcuts
             processLog.Add(new IOData { Data = $">> {command} {args}", Error = false, LocalProcessId = result.localProcessId });
             return result.task;
         }
-        public Task<string> FileDiff(PackageShortcuts.LogFileReference logFileReference)
+        public Task<string> FileDiff(LogFileReference logFileReference)
         {
             fileDiffCache ??= new();
             int diffId = logFileReference.GetHashCode();
@@ -264,9 +264,9 @@ namespace Abuksigun.PackageShortcuts
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
             return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged), Guid);
         }
-        async Task<string> GetFileDiff(PackageShortcuts.LogFileReference logFileReference)
+        async Task<string> GetFileDiff(LogFileReference logFileReference)
         {
-            if (logFileReference.staged is { } staged)
+            if (logFileReference.Staged is { } staged)
             {
                 if (staged)
                     return (await RunGit($"diff --staged -- \"{logFileReference.FullPath}\"")).Output;
@@ -275,7 +275,7 @@ namespace Abuksigun.PackageShortcuts
             }
             else
             {
-                string relativePath = Path.GetRelativePath(await GitRepoPath, logFileReference.FullPath);
+                string relativePath = Path.GetRelativePath(PhysicalPath, logFileReference.FullPath);
                 return (await RunGit($"diff {logFileReference.FirstCommit} {logFileReference.LastCommit} -- \"{relativePath}\"")).Output;
             }
         }

@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEngine;
 using DataReceivedEventArgs = System.Diagnostics.DataReceivedEventArgs;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 using Process = System.Diagnostics.Process;
@@ -24,16 +25,38 @@ namespace Abuksigun.PackageShortcuts
     public record CommandResult(int ExitCode, string Output);
 
     public record AssetGitInfo(Module Module, string FullPath, FileStatus[] FileStatuses, bool NestedFileModified);
-    
+
+    [System.Serializable]
+    public class LogFileReference
+    {
+        public LogFileReference(string moduleGuid, string fullPath, bool? staged) => (ModuleGuid, FullPath, Staged) = (moduleGuid, fullPath, staged);
+        public Module Module => PackageShortcuts.GetModule(ModuleGuid);
+        [field: SerializeField]
+        public string ModuleGuid { get; set; }
+        [field: SerializeField]
+        public string FullPath { get; set; }
+        [field: SerializeField]
+        public bool? Staged { get; set; } = null;
+        [field: SerializeField]
+        public string FirstCommit { get; set; } = null;
+        [field: SerializeField]
+        public string LastCommit { get; set; } = null;
+        public override int GetHashCode() => HashCode.Combine(ModuleGuid, FullPath, Staged, FirstCommit, LastCommit);
+    }
+    public class UGitUIState : ScriptableSingleton<UGitUIState>
+    {
+        [field: SerializeField]
+        public LogFileReference[] LastLogFilesSelected { get; set; } = Array.Empty<LogFileReference>();
+        [field: SerializeField]
+        public List<string> LastModulesSelection { get; set; } = new();
+    }
+
     public static class PackageShortcuts
     {
-        public record LogFileReference(Module Module, string FullPath, bool? staged = null, string FirstCommit = null, string LastCommit = null);
-
         static Dictionary<string, Module> modules = new();
-        static List<string> lastModulesSelection = new();
+        
         static int lastLocalProcessId = 0;
         static object processLock = new();
-        static LogFileReference[] lastLogFilesSelected = Array.Empty<LogFileReference>();
         static List<Module> lockeedModules;
 
         public static List<Module> LockedModules => lockeedModules;
@@ -67,22 +90,22 @@ namespace Abuksigun.PackageShortcuts
 
         public static void ResetSelection()
         {
-            lastLogFilesSelected = null;
+            UGitUIState.instance.LastLogFilesSelected = null;
         }
 
         public static void SetSelectedFiles(IEnumerable<LogFileReference> references)
         {
-            lastLogFilesSelected = references.ToArray();
+            UGitUIState.instance.LastLogFilesSelected = references.ToArray();
         }
 
         public static void SetSelectedFiles(IEnumerable<FileStatus> statuses, bool? staged, string firstCommit = null, string lastCommit = null)
         {
-            SetSelectedFiles(statuses.Select(x => new LogFileReference(GetModule(x.ModuleGuid), x.FullPath, staged, firstCommit, lastCommit)));
+            SetSelectedFiles(statuses.Select(x => new LogFileReference (x.ModuleGuid, x.FullPath, staged) { FirstCommit = firstCommit, LastCommit = lastCommit }));
         }
         
         public static IEnumerable<LogFileReference> GetSelectedFiles()
         {
-            return lastLogFilesSelected ?? Array.Empty<LogFileReference>();
+            return UGitUIState.instance.LastLogFilesSelected ?? Array.Empty<LogFileReference>();
         }
 
         public static IEnumerable<Module> GetModules()
@@ -102,13 +125,13 @@ namespace Abuksigun.PackageShortcuts
             var selectedModules = Selection.assetGUIDs.Where(IsModule);
             if (selectedModules.Any())
             {
-                if (lastModulesSelection == null || (!selectedModules.SequenceEqual(lastModulesSelection)))
-                    lastModulesSelection = selectedModules.ToList();
+                if (UGitUIState.instance.LastModulesSelection == null || (!selectedModules.SequenceEqual(UGitUIState.instance.LastModulesSelection)))
+                    UGitUIState.instance.LastModulesSelection = selectedModules.ToList();
                 return selectedModules.Select(guid => GetModule(guid));
             }
             else
             {
-                return lastModulesSelection.Select(guid => GetModule(guid));
+                return UGitUIState.instance.LastModulesSelection.Select(guid => GetModule(guid));
             }
         }
 

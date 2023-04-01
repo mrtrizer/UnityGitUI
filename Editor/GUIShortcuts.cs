@@ -31,6 +31,8 @@ namespace Abuksigun.PackageShortcuts
         public delegate List<TreeViewItem> GenerateItemsCallback(IEnumerable<T> data);
         public delegate void DrawRowCallback(TreeViewItem item, int columnIndex, Rect rect);
 
+        public event Action selectionChangedEvent;
+        
         DrawRowCallback drawRowCallback;
         Action<int> contextMenuCallback;
         GenerateItemsCallback generateItems;
@@ -66,6 +68,10 @@ namespace Abuksigun.PackageShortcuts
         protected override bool CanMultiSelect(TreeViewItem item)
         {
             return multiSelection;
+        }
+        protected override void SelectionChanged(IList<int> selectedIds)
+        {
+            base.SelectionChanged(selectedIds);
         }
         protected override void ContextClickedItem(int id)
         {

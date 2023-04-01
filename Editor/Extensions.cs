@@ -41,6 +41,13 @@ namespace Abuksigun.PackageShortcuts
         {
             return string.Join(separator, values);
         }
+        public static int GetCombinedHashCode(this IEnumerable<object> values)
+        {
+            int hash = 0;
+            foreach (var value in values)
+                hash ^= value.GetHashCode();
+            return hash;
+        }
         public static string AfterLast(this string self, char separator)
         {
             var index = self.LastIndexOf(separator);
