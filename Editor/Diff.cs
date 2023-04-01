@@ -30,7 +30,7 @@ namespace Abuksigun.PackageShortcuts
         });
 
         [MenuItem("Assets/Git File Diff", true)]
-        public static bool Check() => Selection.assetGUIDs.Any(x => PackageShortcuts.GetAssetGitInfo(x)?.FileStatus != null);
+        public static bool Check() => Selection.assetGUIDs.Any(x => PackageShortcuts.GetAssetGitInfo(x) != null);
 
         [MenuItem("Assets/Git File Diff", priority = 200)]
         public static void Invoke()

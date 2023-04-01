@@ -22,9 +22,9 @@ namespace Abuksigun.PackageShortcuts
 
         static void SelectionChanged()
         {
-            var assets = Selection.assetGUIDs.Select(x => GetAssetGitInfo(x));
-            var stagedSelection = assets.Where(x => x?.FileStatus?.IsStaged ?? false).Select(x => new LogFileReference(x.Module, x.FullPath, true));
-            var unstagedSelection = assets.Where(x => x?.FileStatus?.IsUnstaged ?? false).Select(x => new LogFileReference(x.Module, x.FullPath, false));
+            var assets = Selection.assetGUIDs.Select(x => GetAssetGitInfo(x)).Where(x => x != null);
+            var stagedSelection = assets.SelectMany(x => x.FileStatuses).Where(x => x.IsStaged).Select(x => new LogFileReference(GetModule(x.ModuleGuid), x.FullPath, true));
+            var unstagedSelection = assets.SelectMany(x => x.FileStatuses).Where(x => x.IsUnstaged).Select(x => new LogFileReference(GetModule(x.ModuleGuid), x.FullPath, false));
             SetSelectedFiles(stagedSelection.Concat(unstagedSelection));
         }
 
@@ -85,11 +85,11 @@ namespace Abuksigun.PackageShortcuts
                 rect.height = 15;
                 rect.y += 2;
                 rect.x -= 8;
-                if (assetInfo.FileStatus != null && assetInfo.NestedFileModified)
+                if (assetInfo.FileStatuses != null && assetInfo.NestedFileModified)
                     GUI.Label(rect, "     <color=blue>*</color>", fileMarkStyle);
-                else if (assetInfo.FileStatus?.IsUnstaged ?? false)
-                    GUI.Label(rect, GUIShortcuts.MakePrintableStatus(assetInfo.FileStatus.Y), fileMarkStyle);
-                else if (assetInfo.FileStatus?.IsStaged ?? false)
+                else if (assetInfo.FileStatuses.Any(x => x.IsUnstaged))
+                    GUI.Label(rect, GUIShortcuts.MakePrintableStatus(assetInfo.FileStatuses.First().Y), fileMarkStyle);
+                else if (assetInfo.FileStatuses.Any(x => x.IsStaged))
                     GUI.Label(rect, "<color=green>✓</color>", fileMarkStyle);
             }
         }

@@ -23,7 +23,7 @@ namespace Abuksigun.PackageShortcuts
     }
     public record CommandResult(int ExitCode, string Output);
 
-    public record AssetGitInfo(Module Module, string FullPath, FileStatus FileStatus, bool NestedFileModified);
+    public record AssetGitInfo(Module Module, string FullPath, FileStatus[] FileStatuses, bool NestedFileModified);
     
     public static class PackageShortcuts
     {
@@ -130,7 +130,7 @@ namespace Abuksigun.PackageShortcuts
 
         public static string GetUnityLogicalPath(string absolutePath)
         {
-            // By some reason, GetLogicalPath fails for Asset directory
+            // By some reason, GetLogicalPath fails for Assets directory
             string logicalPath = FileUtil.GetLogicalPath(absolutePath);
             if (logicalPath == absolutePath)
                 logicalPath = FileUtil.GetProjectRelativePath(absolutePath.NormalizeSlashes());
@@ -144,12 +144,10 @@ namespace Abuksigun.PackageShortcuts
             if (string.IsNullOrEmpty(filePath))
                 return null;
             var allFiles = gitModules.Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null).SelectMany(x => x.Files);
-            if (allFiles.FirstOrDefault(x => x.FullPath == filePath) is { } fileStatus)
-                return new AssetGitInfo(GetModule(fileStatus.ModuleGuid), filePath, fileStatus, false);
-            if (allFiles.FirstOrDefault(x => x.FullPath.Contains(filePath)) is { } nestedFileStatus)
-                return new AssetGitInfo(GetModule(nestedFileStatus.ModuleGuid), filePath, nestedFileStatus, true);
-            if (gitModules.FirstOrDefault(x => filePath.Contains(x.ProjectDirPath)) is { } module)
-                return new AssetGitInfo(module, filePath, null, false);
+            if (allFiles.Where(x => x.FullPath == filePath || x.FullPath == filePath + ".meta") is { } fileStatuses && fileStatuses.Any())
+                return new AssetGitInfo(GetModule(fileStatuses.First().ModuleGuid), filePath, fileStatuses.ToArray(), false);
+            if (allFiles.Where(x => x.FullPath.Contains(filePath)) is { } nestedFileStatuses && nestedFileStatuses.Any())
+                return new AssetGitInfo(GetModule(nestedFileStatuses.First().ModuleGuid), filePath, nestedFileStatuses.ToArray(), true);
             return null;
         }
 
