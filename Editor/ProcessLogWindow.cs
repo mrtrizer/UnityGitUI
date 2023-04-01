@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Abuksigun.PackageShortcuts
 {
-    class LogWindow : DefaultWindow
+    class ProcessLogWindow : DefaultWindow
     {
         [SerializeField]
         string guid;
@@ -27,7 +27,7 @@ namespace Abuksigun.PackageShortcuts
         [MenuItem("Assets/Process Log")]
         public static void Invoke()
         {
-            var window = ScriptableObject.CreateInstance<LogWindow>();
+            var window = ScriptableObject.CreateInstance<ProcessLogWindow>();
             window.titleContent = new GUIContent("Process Log");
             window.Show();
         }
