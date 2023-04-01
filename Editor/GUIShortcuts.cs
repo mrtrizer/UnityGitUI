@@ -212,11 +212,25 @@ namespace Abuksigun.PackageShortcuts
                 logScrollPositions[module] = scroll.scrollPosition;
             }
         }
-        
-        [SettingsProvider]
-        public static SettingsProvider CreateMyCustomSettingsProvider() => new("Preferences/External Tools/Package Shortcuts", SettingsScope.User) {
-            activateHandler = (_, rootElement) => rootElement.Add(new IMGUIContainer(() => {
-            }))
-        };
+
+        public static void DiscardFiles(IEnumerable<(Module module, string files)> selectionPerModule)
+        {
+            if (!EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", selectionPerModule.Select(x => x.files).Join('\n'), "Yes", "No"))
+                return;
+            foreach (var pair in selectionPerModule)
+                pair.module.RunGit($"checkout -q -- {pair.files}");
+        }
+
+        public static void Stage(IEnumerable<(Module module, string files)> selectionPerModule)
+        {
+            foreach (var pair in selectionPerModule)
+                pair.module.RunGit($"add -f -- {pair.files}");
+        }
+
+        public static void Unstage(IEnumerable<(Module module, string files)> selectionPerModule)
+        {
+            foreach (var pair in selectionPerModule)
+                pair.module.RunGit($"reset -q -- {pair.files}");
+        }
     }
 }

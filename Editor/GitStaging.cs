@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEditor.PackageManager.UI;
 using UnityEngine;
+using static UnityEngine.ParticleSystem;
 
 namespace Abuksigun.PackageShortcuts
 {
@@ -87,7 +88,7 @@ namespace Abuksigun.PackageShortcuts
             }
             GUILayout.Space(20);
 
-            var statuses = modules.Select(x => x.GitStatus.GetResultOrDefault());
+            var statuses = modules.Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
             var unstagedSelection = statuses.SelectMany(x => x.Files).Where(x => treeViewUnstaged.HasFocus() && treeViewStateUnstaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
             var stagedSelection = statuses.SelectMany(x => x.Files).Where(x => treeViewStaged.HasFocus() && treeViewStateStaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
             if (unstagedSelection.Any())
@@ -106,20 +107,12 @@ namespace Abuksigun.PackageShortcuts
                     GUILayout.Space(50);
                     if (GUILayout.Button(EditorGUIUtility.IconContent("tab_next@2x"), GUILayout.Width(MiddlePanelWidth)))
                     {
-                        foreach (var module in modules)
-                        {
-                            string unstagedFilesList = PackageShortcuts.JoinFileNames(unstagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath));
-                            tasksInProgress.Add(module.RunGit($"add -f -- {unstagedFilesList}"));
-                        }
+                        GUIShortcuts.Stage(modules.Select(module => (module, PackageShortcuts.JoinFileNames(unstagedSelection.Where(x => x.ModuleGuid == module.Guid)))));
                         treeViewStateUnstaged.selectedIDs.Clear();
                     }
                     if (GUILayout.Button(EditorGUIUtility.IconContent("tab_prev@2x"), GUILayout.Width(MiddlePanelWidth)))
                     {
-                        foreach (var module in modules)
-                        {
-                            string stagedFilesList = PackageShortcuts.JoinFileNames(stagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath));
-                            tasksInProgress.Add(module.RunGit($"reset -q -- {stagedFilesList}"));
-                        }
+                        GUIShortcuts.Unstage(modules.Select(module => (module, PackageShortcuts.JoinFileNames(stagedSelection.Where(x => x.ModuleGuid == module.Guid)))));
                         treeViewStateStaged.selectedIDs.Clear();
                     }
                 }
@@ -134,9 +127,7 @@ namespace Abuksigun.PackageShortcuts
             if (!files.Any())
                 return;
             var menu = new GenericMenu();
-            Dictionary<Module, string> filesList = modules.ToDictionary(
-                module => module,
-                module => PackageShortcuts.JoinFileNames(files.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath)));
+            var selectionPerModule = modules.Select(module => (module, files:PackageShortcuts.JoinFileNames(files.Where(x => x.ModuleGuid == module.Guid))));
             if (files.Any(x => x.IsInIndex))
             {
                 menu.AddItem(new GUIContent("Diff"), false, () => {
@@ -144,7 +135,7 @@ namespace Abuksigun.PackageShortcuts
                         Diff.ShowDiff();
                 });
                 menu.AddItem(new GUIContent("Log"), false, async () => {
-                    foreach ((var module, var files) in filesList)
+                    foreach ((var module, var files) in selectionPerModule)
                     {
                         var window = ScriptableObject.CreateInstance<GitLogWindow>();
                         window.titleContent = new GUIContent("Log Files");
@@ -153,24 +144,14 @@ namespace Abuksigun.PackageShortcuts
                     }
                 });
                 menu.AddSeparator("");
-                string message = filesList.Select(x => x.Value).Join('\n');
+                string message = selectionPerModule.Select(x => x.files).Join('\n');
                 if (files.Any(x => x.IsUnstaged))
                 {
-                    menu.AddItem(new GUIContent("Discrad"), false, () => {
-                        if (EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", message, "Yes", "No"))
-                        {
-                            foreach (var module in modules)
-                                module.RunGit($"checkout -q -- {filesList[module]}");
-                        }
-                    });
+                    menu.AddItem(new GUIContent("Discrad"), false, () => GUIShortcuts.DiscardFiles(selectionPerModule));
+                    menu.AddItem(new GUIContent("Stage"), false, () => GUIShortcuts.Stage(selectionPerModule));
                 }
                 if (files.Any(x => x.IsStaged))
-                {
-                    menu.AddItem(new GUIContent("Unstage"), false, () => {
-                        foreach (var module in modules)
-                            module.RunGit($"reset -q -- {filesList[module]}");
-                    });
-                }
+                    menu.AddItem(new GUIContent("Unstage"), false, () => GUIShortcuts.Unstage(selectionPerModule));
             }
 
             if (files.Any(x => x.IsUnresolved))
@@ -196,7 +177,7 @@ namespace Abuksigun.PackageShortcuts
                 });
             }
             menu.AddItem(new GUIContent("Delete"), false, () => {
-                if (EditorUtility.DisplayDialog($"Are you sure you want DELETE these files", filesList.Select(x => x.Value).Join('\n'), "Yes", "No"))
+                if (EditorUtility.DisplayDialog($"Are you sure you want DELETE these files", selectionPerModule.Select(x => x.files).Join('\n'), "Yes", "No"))
                 {
                     foreach (var file in files)
                         File.Delete(file.FullPath);

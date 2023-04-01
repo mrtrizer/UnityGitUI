@@ -158,6 +158,11 @@ namespace Abuksigun.PackageShortcuts
             return fileNames?.Select(x => $"\"{x}\"")?.Join(' ');
         }
 
+        public static string JoinFileNames(IEnumerable<FileStatus> files)
+        {
+            return JoinFileNames(files.Select(x => x.FullPath));
+        }
+        
         public static (int localProcessId, Task<CommandResult> task) RunCommand(string workingDir, string command, string args, Func<Process, IOData, bool> dataHandler = null)
         {
             var tcs = new TaskCompletionSource<CommandResult>();

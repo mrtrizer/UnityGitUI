@@ -112,13 +112,13 @@ namespace Abuksigun.PackageShortcuts
             var module = GUIShortcuts.ModuleGuidToolbar(LockedModules ?? PackageShortcuts.GetSelectedGitModules().ToList(), guid);
             if (module == null)
                 return;
+            guid = module.Guid;
             var log = (ShowStash ? module.Stash : module.LogFiles(LogFiles)).GetResultOrDefault();
             if (log == null)
                 return;
             if (log != lastLog)
             {
                 lastLog = log;
-                guid = module.Guid;
                 lines = log.Where(x => x.Contains('*')).ToList();
                 cells = ParseGraph(lines);
                 treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, false, multiColumnHeader ??= new (multiColumnHeaderState), DrawCell);

@@ -112,17 +112,17 @@ namespace Abuksigun.PackageShortcuts
             bool viewingLog = selectedFiles.Any(x => !string.IsNullOrEmpty(x.FirstCommit));
             bool viewingAsset = selectedFiles.Any(x => !x.staged.HasValue && string.IsNullOrEmpty(x.FirstCommit));
 
-            var diffs = selectedFiles.Select(x => (diff: x.Module.FileDiff(x), x.staged));
-            var loadedDiffs = diffs.Select(x => (diff: x.diff.GetResultOrDefault(), x.staged)).Where(x => x.diff != null);
+            var diffs = selectedFiles.Select(x => (module: x.Module, fullPath: x.FullPath, diff: x.Module.FileDiff(x), x.staged));
+            var loadedDiffs = diffs.Select(x => (x.module, x.fullPath, diff: x.diff.GetResultOrDefault(), x.staged)).Where(x => x.diff != null);
             
-            var stagedDiffs = loadedDiffs.Where(x => x.staged.GetValueOrDefault() == true);
-            var unstagedDiffs = loadedDiffs.Where(x => x.staged.GetValueOrDefault() == false);
+            var stagedDiffs = loadedDiffs.Where(x => x.staged.GetValueOrDefault() == true).ToList();
+            var unstagedDiffs = loadedDiffs.Where(x => x.staged.GetValueOrDefault() == false).ToList();
 
             using (new GUILayout.HorizontalScope())
             {
                 var unstagedContent = new GUIContent("Unstaged", EditorGUIUtility.IconContent("d_winbtn_mac_min@2x").image);
                 var stagedContent = new GUIContent("Staged", EditorGUIUtility.IconContent("d_winbtn_mac_max@2x").image);
-                staged = stagedDiffs.Count() > 0 && (unstagedDiffs.Count() == 0 || GUILayout.Toolbar(staged ? 1 : 0, new[] { unstagedContent, stagedContent }, EditorStyles.toolbarButton, GUILayout.Width(160)) == 1);
+                staged = stagedDiffs.Count > 0 && (unstagedDiffs.Count == 0 || GUILayout.Toolbar(staged ? 1 : 0, new[] { unstagedContent, stagedContent }, EditorStyles.toolbarButton, GUILayout.Width(160)) == 1);
 
 
                 GUILayout.FlexibleSpace();
@@ -130,12 +130,19 @@ namespace Abuksigun.PackageShortcuts
                 {
                     if (staged)
                     {
-                        GUILayout.Button($"Unstage All ({stagedDiffs.Count()})", EditorStyles.toolbarButton, GUILayout.Width(130));
+                        var modules = stagedDiffs.Select(x => x.module).Distinct();
+                        var filesPerModule = modules.Select(module => (module, PackageShortcuts.JoinFileNames(stagedDiffs.Where(x => x.module == module).Select(x => x.fullPath))));
+                        if (GUILayout.Button($"Unstage All ({stagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
+                            GUIShortcuts.Unstage(filesPerModule);
                     }
                     else
                     {
-                        GUILayout.Button($"Stage All ({unstagedDiffs.Count()})", EditorStyles.toolbarButton, GUILayout.Width(130));
-                        GUILayout.Button($"Discard All ({unstagedDiffs.Count()})", EditorStyles.toolbarButton, GUILayout.Width(130));
+                        var modules = unstagedDiffs.Select(x => x.module).Distinct();
+                        var filesPerModule = modules.Select(module => (module, PackageShortcuts.JoinFileNames(unstagedDiffs.Where(x => x.module == module).Select(x => x.fullPath))));
+                        if (GUILayout.Button($"Stage All ({unstagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
+                            GUIShortcuts.Stage(filesPerModule);
+                        if (GUILayout.Button($"Discard All ({unstagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
+                            GUIShortcuts.DiscardFiles(filesPerModule);
                     }
                 }
             }
