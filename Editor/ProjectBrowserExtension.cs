@@ -73,7 +73,7 @@ namespace Abuksigun.PackageShortcuts
                 {
                     var rect = drawRect;
                     rect.height = 15;
-                    rect.x = rect.width - 40;
+                    rect.x = rect.x + rect.width - 70;
                     GUI.Label(rect, EditorGUIUtility.IconContent($"WaitSpin{(spinCounter++ % 1100) / 100:00}"), labelStyle);
                 }
             }

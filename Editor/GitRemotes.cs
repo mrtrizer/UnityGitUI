@@ -32,7 +32,7 @@ namespace Abuksigun.PackageShortcuts
                 {
                     if (mode == Mode.Fetch)
                     {
-                        if (GUILayout.Button(new GUIContent($"Fetch {modules.Length} modules", EditorGUIUtility.IconContent("Refresh@2x").image)))
+                        if (GUILayout.Button(new GUIContent($"Fetch {modules.Length} modules", EditorGUIUtility.IconContent("Refresh@2x").image), GUILayout.Width(150)))
                         {
                             tasks = modules.ToDictionary(x => x.Guid, async module => {
                                 var remote = await module.DefaultRemote;
@@ -44,7 +44,7 @@ namespace Abuksigun.PackageShortcuts
                     }
                     if (mode == Mode.Pull)
                     {
-                        if (GUILayout.Button(new GUIContent($"Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image)))
+                        if (GUILayout.Button(new GUIContent($"Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image), GUILayout.Width(150)))
                         {
                             tasks = modules.ToDictionary(x => x.Guid, async module => {
                                 var remote = await module.DefaultRemote;
@@ -55,7 +55,7 @@ namespace Abuksigun.PackageShortcuts
                     }
                     if (mode == Mode.Push)
                     {
-                        if (GUILayout.Button(new GUIContent($"Push {modules.Length} modules", EditorGUIUtility.IconContent("Update-Available@2x").image)))
+                        if (GUILayout.Button(new GUIContent($"Push {modules.Length} modules", EditorGUIUtility.IconContent("Update-Available@2x").image), GUILayout.Width(150)))
                         {
                             tasks = modules.ToDictionary(x => x.Guid, async module => {
                                 string branch = await module.CurrentBranch;
