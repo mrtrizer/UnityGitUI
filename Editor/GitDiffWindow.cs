@@ -10,7 +10,7 @@ namespace Abuksigun.PackageShortcuts
 {
     using static Const;
     
-    public class Diff
+    public class GitDiff
     {
         public delegate void HunkAction(string fileName, int hunkIndex);
 
@@ -43,9 +43,9 @@ namespace Abuksigun.PackageShortcuts
         }
         public static void ShowDiff()
         {
-            if (EditorWindow.GetWindow<DiffWindow>() is not { } window || !window)
+            if (EditorWindow.GetWindow<GitDiffWindow>() is not { } window || !window)
             {
-                window = ScriptableObject.CreateInstance<DiffWindow>();
+                window = ScriptableObject.CreateInstance<GitDiffWindow>();
                 window.titleContent = new GUIContent($"Git Diff");
                 window.Show();
             }
@@ -110,7 +110,7 @@ namespace Abuksigun.PackageShortcuts
         }
     }
 
-    public class DiffWindow : DefaultWindow
+    public class GitDiffWindow : DefaultWindow
     {
         const int TopPanelHeight = 20;
 
@@ -166,7 +166,7 @@ namespace Abuksigun.PackageShortcuts
                 }
             }
 
-            var hashCode = selectedFiles.GetCombinedHashCode();
+            var hashCode = selectedFiles.GetCombinedHashCode() ^ staged.GetHashCode();
             if (hashCode != lastHashCode && diffs.All(x => x.diff.IsCompleted))
             {
                 var diffStrings = staged ? stagedDiffs.Select(x => x.diff) : unstagedDiffs.Select(x => x.diff);
@@ -174,7 +174,7 @@ namespace Abuksigun.PackageShortcuts
                 lastHashCode = hashCode;
             }
             
-            Diff.DrawGitDiff(diffLines, position.size - TopPanelHeight.To0Y(), null, null, null, ref scrollPosition);
+            GitDiff.DrawGitDiff(diffLines, position.size - TopPanelHeight.To0Y(), null, null, null, ref scrollPosition);
 
             base.OnGUI();
         }

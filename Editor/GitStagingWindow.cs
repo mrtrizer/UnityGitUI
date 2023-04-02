@@ -132,7 +132,7 @@ namespace Abuksigun.PackageShortcuts
             {
                 menu.AddItem(new GUIContent("Diff"), false, () => {
                     foreach (var module in modules)
-                        Diff.ShowDiff();
+                        GitDiff.ShowDiff();
                 });
                 menu.AddItem(new GUIContent("Log"), false, async () => {
                     foreach ((var module, var files) in selectionPerModule)

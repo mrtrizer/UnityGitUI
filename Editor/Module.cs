@@ -79,6 +79,7 @@ namespace Abuksigun.PackageShortcuts
         public Task<RemoteStatus> RemoteStatus => remoteStatus ??= GetRemoteStatus();
         public Task<GitStatus> GitStatus => gitStatus ??= GetGitStatus();
         public IReadOnlyList<IOData> ProcessLog => processLog;
+        public DateTime RefreshTimestamp { get; private set; }
 
         public Module(string guid)
         {
@@ -88,6 +89,7 @@ namespace Abuksigun.PackageShortcuts
             Name = PackageInfo?.displayName ?? Application.productName;
             isGitRepo = GetIsGitRepo();
             _ = CreateFileWatcher();
+            RefreshTimestamp = DateTime.Now;
         }
         ~Module()
         {
@@ -124,6 +126,7 @@ namespace Abuksigun.PackageShortcuts
                 gitStatus = null;
                 fileDiffCache = null;
                 diffCache = null;
+                RefreshTimestamp = DateTime.Now;
             }
         }
         public Task<CommandResult> RunGit(string args, Action<IOData> dataHandler = null)
@@ -141,7 +144,7 @@ namespace Abuksigun.PackageShortcuts
             processLog.Add(new IOData { Data = $">> {command} {args}", Error = false, LocalProcessId = result.localProcessId });
             return result.task;
         }
-        public Task<string> FileDiff(LogFileReference logFileReference)
+        public Task<string> FileDiff(GitFileReference logFileReference)
         {
             fileDiffCache ??= new();
             int diffId = logFileReference.GetHashCode();
@@ -264,7 +267,7 @@ namespace Abuksigun.PackageShortcuts
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
             return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged), Guid);
         }
-        async Task<string> GetFileDiff(LogFileReference logFileReference)
+        async Task<string> GetFileDiff(GitFileReference logFileReference)
         {
             if (logFileReference.Staged is { } staged)
             {
@@ -293,8 +296,8 @@ namespace Abuksigun.PackageShortcuts
         {
             return statusOutput.SplitLines().Select(line => {
                 string[] paths = line[2..].Split(new[] { " ->", "\t" }, RemoveEmptyEntries);
-                string path = paths.Length > 1 ? paths[1].Trim() : paths[0].Trim();
-                string oldPath = paths.Length > 1 ? paths[0].Trim().Trim('"') : null;
+                string path = paths[paths.Length - 1].Trim();
+                string oldPath = paths.Length > 1 ? paths[paths.Length - 2].Trim() : null;
                 string fullPath = Path.Join(gitRepoPath, path.Trim('"')).NormalizeSlashes();
                 return new FileStatus(Guid, fullPath, oldPath, X: line[0], Y: line[1], numStatUnstaged.GetValueOrDefault(path), numStatStaged.GetValueOrDefault(path));
             }).ToArray();

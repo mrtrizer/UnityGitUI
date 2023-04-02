@@ -149,7 +149,7 @@ namespace Abuksigun.PackageShortcuts
                         icon = EditorGUIUtility.IconContent("DefaultAsset Icon").image;
                     string relativePath = Path.GetRelativePath(module.GitRepoPath.GetResultOrDefault(), file.FullPath);
                     var numStat = staged ? file.StagedNumStat : file.UnstagedNumStat;
-                    var content = $"{(staged ? file.X : file.Y)} {relativePath} +{numStat.Added} -{numStat.Removed}";
+                    var content = $"{(staged ? file.X : file.Y)} {relativePath}{file.OldName?.WrapUp(" (", ")")} +{numStat.Added} -{numStat.Removed} ";
                     items.Add(new TreeViewItem(file.FullPath.GetHashCode(), validStatuses.Count() > 1 ? 1 : 0, content) { icon = icon as Texture2D });
                 }
             }

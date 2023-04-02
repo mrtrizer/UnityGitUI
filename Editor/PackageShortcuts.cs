@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -27,9 +26,9 @@ namespace Abuksigun.PackageShortcuts
     public record AssetGitInfo(Module Module, string FullPath, FileStatus[] FileStatuses, bool NestedFileModified);
 
     [System.Serializable]
-    public class LogFileReference
+    public class GitFileReference
     {
-        public LogFileReference(string moduleGuid, string fullPath, bool? staged) => (ModuleGuid, FullPath, Staged) = (moduleGuid, fullPath, staged);
+        public GitFileReference(string moduleGuid, string fullPath, bool? staged) => (ModuleGuid, FullPath, Staged) = (moduleGuid, fullPath, staged);
         public Module Module => PackageShortcuts.GetModule(ModuleGuid);
         [field: SerializeField]
         public string ModuleGuid { get; set; }
@@ -41,31 +40,24 @@ namespace Abuksigun.PackageShortcuts
         public string FirstCommit { get; set; } = null;
         [field: SerializeField]
         public string LastCommit { get; set; } = null;
-        public override int GetHashCode() => HashCode.Combine(ModuleGuid, FullPath, Staged, FirstCommit, LastCommit);
-    }
-    public class UGitUIState : ScriptableSingleton<UGitUIState>
-    {
-        [field: SerializeField]
-        public LogFileReference[] LastLogFilesSelected { get; set; } = Array.Empty<LogFileReference>();
-        [field: SerializeField]
-        public List<string> LastModulesSelection { get; set; } = new();
+        public override int GetHashCode() => HashCode.Combine(ModuleGuid, Module.RefreshTimestamp, FullPath, Staged, FirstCommit, LastCommit);
     }
 
-    public static class PackageShortcuts
+    public class PackageShortcuts : ScriptableSingleton<PackageShortcuts>
     {
         static Dictionary<string, Module> modules = new();
-        
-        static int lastLocalProcessId = 0;
         static object processLock = new();
-        static List<Module> lockeedModules;
+        
+        [SerializeField] int lastLocalProcessId = 0;
+        [SerializeField] List<Module> lockeedModules;
+        [SerializeField] GitFileReference[] lastGitFilesSelected = Array.Empty<GitFileReference>();
+        [SerializeField] List<string> lastModulesSelection = new();
 
-        public static List<Module> LockedModules => lockeedModules;
+        public static List<Module> LockedModules => instance.lockeedModules;
 
         public static Module GetModule(string guid)
         {
-            return modules.TryGetValue(guid, out var module) ? module
-                : modules[guid] = IsModule(guid) ? new Module(guid)
-                : null;
+            return modules[guid] = modules.GetValueOrDefault(guid) ?? (IsModule(guid) ? new Module(guid) : null);
         }
 
         public static void ResetModule(Module module)
@@ -88,24 +80,19 @@ namespace Abuksigun.PackageShortcuts
             return (packageInfo != null && packageInfo.assetPath == path) || path == "Assets";
         }
 
-        public static void ResetSelection()
+        public static void SetSelectedFiles(IEnumerable<GitFileReference> references)
         {
-            UGitUIState.instance.LastLogFilesSelected = null;
-        }
-
-        public static void SetSelectedFiles(IEnumerable<LogFileReference> references)
-        {
-            UGitUIState.instance.LastLogFilesSelected = references.ToArray();
+            instance.lastGitFilesSelected = references.ToArray();
         }
 
         public static void SetSelectedFiles(IEnumerable<FileStatus> statuses, bool? staged, string firstCommit = null, string lastCommit = null)
         {
-            SetSelectedFiles(statuses.Select(x => new LogFileReference (x.ModuleGuid, x.FullPath, staged) { FirstCommit = firstCommit, LastCommit = lastCommit }));
+            SetSelectedFiles(statuses.Select(x => new GitFileReference (x.ModuleGuid, x.FullPath, staged) { FirstCommit = firstCommit, LastCommit = lastCommit }));
         }
         
-        public static IEnumerable<LogFileReference> GetSelectedFiles()
+        public static IEnumerable<GitFileReference> GetSelectedFiles()
         {
-            return UGitUIState.instance.LastLogFilesSelected ?? Array.Empty<LogFileReference>();
+            return instance.lastGitFilesSelected ?? Array.Empty<GitFileReference>();
         }
 
         public static IEnumerable<Module> GetModules()
@@ -120,24 +107,24 @@ namespace Abuksigun.PackageShortcuts
         
         public static IEnumerable<Module> GetSelectedModules()
         {
-            if (lockeedModules != null)
-                return lockeedModules;
+            if (instance.lockeedModules != null)
+                return instance.lockeedModules;
             var selectedModules = Selection.assetGUIDs.Where(IsModule);
             if (selectedModules.Any())
             {
-                if (UGitUIState.instance.LastModulesSelection == null || (!selectedModules.SequenceEqual(UGitUIState.instance.LastModulesSelection)))
-                    UGitUIState.instance.LastModulesSelection = selectedModules.ToList();
+                if (instance.lastModulesSelection == null || (!selectedModules.SequenceEqual(instance.lastModulesSelection)))
+                    instance.lastModulesSelection = selectedModules.ToList();
                 return selectedModules.Select(guid => GetModule(guid));
             }
             else
             {
-                return UGitUIState.instance.LastModulesSelection.Select(guid => GetModule(guid));
+                return instance.lastModulesSelection.Select(guid => GetModule(guid));
             }
         }
 
         public static void LockModules(IEnumerable<Module> modules)
         {
-            lockeedModules = modules?.ToList();
+            instance.lockeedModules = modules?.ToList();
         }
 
         public static IEnumerable<Module> GetSelectedGitModules()
@@ -201,7 +188,7 @@ namespace Abuksigun.PackageShortcuts
             var outputStringBuilder = new StringBuilder();
             var errorStringBuilder = new StringBuilder();
             object exitCode = null;
-            int localProcessId = lastLocalProcessId++;
+            int localProcessId = instance.lastLocalProcessId++;
 
             process.OutputDataReceived += (_, args) => HandleData(outputStringBuilder, false, args);
             process.ErrorDataReceived += (_, args) => HandleData(errorStringBuilder, true, args);
