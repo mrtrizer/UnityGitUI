@@ -16,7 +16,7 @@ namespace Abuksigun.PackageShortcuts
     {
         [MenuItem("Assets/Git Log", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
-
+        [MenuItem("Window/Git GUI/Log")]
         [MenuItem("Assets/Git Log", priority = 100)]
         public static void Invoke() 
         {

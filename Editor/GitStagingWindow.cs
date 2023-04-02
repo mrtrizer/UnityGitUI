@@ -14,7 +14,7 @@ namespace Abuksigun.PackageShortcuts
     {
         [MenuItem("Assets/Git Staging", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
-
+        [MenuItem("Window/Git GUI/Staging")]
         [MenuItem("Assets/Git Staging", priority = 100)]
         public static async void Invoke()
         {

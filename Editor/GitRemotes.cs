@@ -13,7 +13,7 @@ namespace Abuksigun.PackageShortcuts
 
         [MenuItem("Assets/Git Remotes", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
-
+        [MenuItem("Window/Git GUI/Remotes")]
         [MenuItem("Assets/Git Remotes", priority = 100)]
         public static async void Invoke()
         {
