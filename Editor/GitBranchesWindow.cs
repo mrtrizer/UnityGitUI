@@ -31,8 +31,8 @@ namespace Abuksigun.PackageShortcuts
     
     class GitBranchesWindow : DefaultWindow
     {
-        const int BottomPanelHeight = 20;
-
+        const int TopPanelHeight = 20;
+        const int BottomPanelHeight = 30;
         static readonly ReferenceComparer referenceComparer = new();
 
         bool showAllBranches = false;
@@ -67,10 +67,29 @@ namespace Abuksigun.PackageShortcuts
             IEnumerable<Reference> references = branchesPerRepo.SelectMany(x => x).Distinct(referenceComparer);
             simpleTreeView ??= new (GenerateItems, treeViewState ??= new (), false);
             
-            simpleTreeView.Draw(new Vector2(position.width, position.height - BottomPanelHeight), branchesPerRepo, id => {
+            simpleTreeView.Draw(new Vector2(position.width, position.height - TopPanelHeight - BottomPanelHeight), branchesPerRepo, id => {
                 if (task == null || task.IsCompleted)
                     ShowContextMenu(modules, references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id));
             });
+
+            using (new EditorGUILayout.HorizontalScope())
+            using (new EditorGUIUtility.IconSizeScope(new Vector2(22, 22)))
+            {
+                var layout = new GUILayoutOption[] { GUILayout.Width(BottomPanelHeight - 2), GUILayout.Height(BottomPanelHeight - 2) };
+                if (GUILayout.Button(EditorGUIUtility.TrIconContent("Refresh@2x", "Fetch"), layout))
+                    GitRemotes.Invoke(GitRemotes.Mode.Fetch);
+                if (GUILayout.Button(EditorGUIUtility.TrIconContent("Download-Available@2x", "Pull"), layout))
+                    GitRemotes.Invoke(GitRemotes.Mode.Pull);
+                if (GUILayout.Button(EditorGUIUtility.TrIconContent("Update-Available@2x", "Push"), layout))
+                    GitRemotes.Invoke(GitRemotes.Mode.Push);
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button(EditorGUIUtility.TrIconContent("SaveAs@2x", "Commit"), layout))
+                    GitStaging.Invoke();
+                if (GUILayout.Button(EditorGUIUtility.TrIconContent("UnityEditor.VersionControl", "Log"), layout))
+                    GitLog.Invoke();
+                if (GUILayout.Button(EditorGUIUtility.TrIconContent("Package Manager@2x", "Stash"), layout))
+                    GitStash.Invoke();
+            }
 
             base.OnGUI();
         }

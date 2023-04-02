@@ -18,9 +18,14 @@ namespace Abuksigun.PackageShortcuts
         [MenuItem("Assets/Git Staging", priority = 100)]
         public static async void Invoke()
         {
-            var window = ScriptableObject.CreateInstance<GitStagingWindow>();
-            window.titleContent = new GUIContent("Git Staging");
-            window.Show();
+            if (EditorWindow.GetWindow<GitStagingWindow>() is not { } window || !window)
+            {
+                window = ScriptableObject.CreateInstance<GitStagingWindow>();
+                window.titleContent = new GUIContent("Git Staging");
+                window.Show();
+            }
+            window.Focus();
+
         }
     }
     

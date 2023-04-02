@@ -20,9 +20,13 @@ namespace Abuksigun.PackageShortcuts
         [MenuItem("Assets/Git Log", priority = 100)]
         public static void Invoke() 
         {
-            var window = ScriptableObject.CreateInstance<GitLogWindow>();
-            window.titleContent = new GUIContent("Git Log", EditorGUIUtility.IconContent("UnityEditor.VersionControl").image);
-            window.Show();
+            if (EditorWindow.GetWindow<GitLogWindow>() is not { } window || !window)
+            {
+                window = ScriptableObject.CreateInstance<GitLogWindow>();
+                window.titleContent = new GUIContent("Git Log", EditorGUIUtility.IconContent("UnityEditor.VersionControl").image);
+                window.Show();
+            }
+            window.Focus();
         }
     }
 

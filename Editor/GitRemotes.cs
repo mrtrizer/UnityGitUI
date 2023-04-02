@@ -11,11 +11,9 @@ namespace Abuksigun.PackageShortcuts
         const int TopPanelHeight = 40;
         const int LogHeight = 300;
 
-        [MenuItem("Assets/Git Remotes", true)]
-        public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
-        [MenuItem("Window/Git GUI/Remotes")]
-        [MenuItem("Assets/Git Remotes", priority = 100)]
-        public static async void Invoke()
+        public enum Mode { Fetch, Pull, Push};
+        
+        public static async void Invoke(Mode mode)
         {
             bool pushTags = false;
             bool forcePush = false;
@@ -29,10 +27,10 @@ namespace Abuksigun.PackageShortcuts
             await GUIShortcuts.ShowModalWindow("Remotes", new Vector2Int(500, 400), (window) => {
                 var modules = PackageShortcuts.GetSelectedGitModules().ToArray();
 
-                using (new GUILayout.HorizontalScope())
                 using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x.Value != null && !x.Value.IsCompleted)))
+                using (new GUILayout.HorizontalScope())
                 {
-                    using (new GUILayout.VerticalScope(GUILayout.MaxWidth(150)))
+                    if (mode == Mode.Fetch)
                     {
                         if (GUILayout.Button(new GUIContent($"Fetch {modules.Length} modules", EditorGUIUtility.IconContent("Refresh@2x").image)))
                         {
@@ -44,7 +42,7 @@ namespace Abuksigun.PackageShortcuts
                         }
                         prune = GUILayout.Toggle(prune, "Prune");
                     }
-                    using (new GUILayout.VerticalScope(GUILayout.MaxWidth(150)))
+                    if (mode == Mode.Pull)
                     {
                         if (GUILayout.Button(new GUIContent($"Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image)))
                         {
@@ -55,7 +53,7 @@ namespace Abuksigun.PackageShortcuts
                             logStartLines = modules.ToDictionary(x => x.Guid, x => x.ProcessLog.Count);
                         }
                     }
-                    using (new GUILayout.VerticalScope(GUILayout.MaxWidth(150)))
+                    if (mode == Mode.Push)
                     {
                         if (GUILayout.Button(new GUIContent($"Push {modules.Length} modules", EditorGUIUtility.IconContent("Update-Available@2x").image)))
                         {
