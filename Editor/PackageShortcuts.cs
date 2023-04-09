@@ -57,7 +57,7 @@ namespace Abuksigun.PackageShortcuts
 
         public static Module GetModule(string guid)
         {
-            return modules[guid] = modules.GetValueOrDefault(guid) ?? (IsModule(guid) ? new Module(guid) : null);
+            return modules.GetValueOrDefault(guid) ?? (modules[guid] = IsModule(guid) ? new Module(guid) : null);
         }
 
         public static void ResetModule(Module module)

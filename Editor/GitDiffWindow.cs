@@ -43,13 +43,11 @@ namespace Abuksigun.PackageShortcuts
         }
         public static void ShowDiff()
         {
-            if (EditorWindow.GetWindow<GitDiffWindow>() is not { } window || !window)
+            if (EditorWindow.GetWindow<GitDiffWindow>() is { } window && window)
             {
-                window = ScriptableObject.CreateInstance<GitDiffWindow>();
-                window.titleContent = new GUIContent($"Git Diff");
+                window.titleContent = new GUIContent("Git Diff");
                 window.Show();
             }
-            window.Focus();
         }
         public static void DrawGitDiff(string[] lines, Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, ref Vector2 scrollPosition)
         {

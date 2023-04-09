@@ -35,6 +35,7 @@ namespace Abuksigun.PackageShortcuts
         
         DrawRowCallback drawRowCallback;
         Action<int> contextMenuCallback;
+        Action<int> doubleClickCallback;
         GenerateItemsCallback generateItems;
         bool multiSelection;
         List<T> sourceObjects;
@@ -47,7 +48,7 @@ namespace Abuksigun.PackageShortcuts
             this.drawRowCallback = drawRowCallback;
             showBorder = true;
         }
-        public void Draw(Vector2 size, IEnumerable<T> sourceObjects, Action<int> contextMenuCallback = null)
+        public void Draw(Vector2 size, IEnumerable<T> sourceObjects, Action<int> contextMenuCallback = null, Action<int> doubleClickCallback = null)
         {
             if (this.sourceObjects == null || !this.sourceObjects.SequenceEqual(sourceObjects))
             {
@@ -56,6 +57,7 @@ namespace Abuksigun.PackageShortcuts
                 ExpandAll();
             }
             this.contextMenuCallback = contextMenuCallback;
+            this.doubleClickCallback = doubleClickCallback;
             OnGUI(GUILayoutUtility.GetRect(size.x, size.y));
         }
         protected override TreeViewItem BuildRoot()
@@ -77,6 +79,11 @@ namespace Abuksigun.PackageShortcuts
         {
             contextMenuCallback?.Invoke(id);
             base.ContextClickedItem(id);
+        }
+        protected override void DoubleClickedItem(int id)
+        {
+            doubleClickCallback?.Invoke(id);
+            base.DoubleClickedItem(id);
         }
         protected override void RowGUI(RowGUIArgs args)
         {
@@ -175,8 +182,31 @@ namespace Abuksigun.PackageShortcuts
             }));
             return result;
         }
-        
-        public static string MakePrintableStatus(char status) => $"<color={status switch { 'U' => "red", '?' => "purple", 'M' or 'R' => "darkblue", _ => "black" }}>{status}</color>";
+
+        public static async void MakeTag(string hash = null)
+        {
+            string tagName = "";
+            string annotation = "";
+
+            await ShowModalWindow($"New Tag {hash?.WrapUp("In ", "")}", new Vector2Int(300, 150), (window) => {
+                GUILayout.Label("Tag Name: ");
+                tagName = EditorGUILayout.TextField(tagName);
+                GUILayout.Label("Annotation (optional): ");
+                annotation = EditorGUILayout.TextArea(annotation, GUILayout.Height(30));
+                GUILayout.Space(30);
+                if (GUILayout.Button("Ok", GUILayout.Width(200)))
+                {
+                    string message = string.IsNullOrEmpty(annotation) ? "" : $"-m \"{annotation}\"";
+                    _ = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.RunGit($"tag \"{tagName}\" {message} {hash}")));
+                    window.Close();
+                }
+            });
+        }
+
+        public static string MakePrintableStatus(char status)
+        {
+            return $"<color={status switch { 'U' => "red", '?' => "purple", 'M' or 'R' => "darkblue", _ => "black" }}>{status}</color>";
+        }
 
         public static Module ModuleGuidToolbar(IReadOnlyList<Module> modules, string guid)
         {
@@ -189,7 +219,7 @@ namespace Abuksigun.PackageShortcuts
             return modules[tab];
         }
         
-        public static void DrawProcessLog(IReadOnlyList<Module> modules, ref string guid, Vector2 size, Dictionary<string, int> logStartLines = null)
+        public static void DrawProcessLog(IReadOnlyList<Module> modules, ref string guid, Vector2 size)
         {
             if (modules.Count == 0)
                 return;
@@ -211,7 +241,7 @@ namespace Abuksigun.PackageShortcuts
                 int yOffset = (int)(scroll.scrollPosition.y / lineHeight);
                 GUILayout.Space(scroll.scrollPosition.y);
                 int linesVisible = (int)(size.y / lineHeight);
-                var allLines = module.ProcessLog.Skip(yOffset).Take(linesVisible).OrderBy(x => x.LocalProcessId).Select(x => x.Error ? x.Data.WrapUp("<color=red>", "</color>") : x.Data);
+                var allLines = module.ProcessLog.Skip(yOffset).Take(linesVisible).Select(x => x.Error ? x.Data.WrapUp("<color=red>", "</color>") : x.Data);
                 string allData = allLines.Join('\n');
                 EditorGUILayout.TextArea(allData, Style.ProcessLog.Value, GUILayout.Height(linesVisible * lineHeight), GUILayout.Width(maxWidth));
                 GUILayout.Space((module.ProcessLog.Count() - linesVisible) * lineHeight - scroll.scrollPosition.y);

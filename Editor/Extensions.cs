@@ -66,29 +66,17 @@ namespace Abuksigun.PackageShortcuts
         {
             return condition ? self : default;
         }
-        public static TValue GetOrCreate<TKey, TValue>(this IDictionary<TKey, TValue> dict, TKey key, Func<TValue> createNew)
-        {
-            return dict.TryGetValue(key, out var value) ? value : dict[key] = createNew();
-        }
-        public static Vector3 ToX0Y(this Vector2 self)
-        {
-            return new Vector3(self.x, 0, self.y);
-        }
-        public static Vector3 ToXY0(this Vector2 self)
-        {
-            return new Vector3(self.x, self.y, 0);
-        }
-        public static Vector2 ToXZ(this Vector3 self)
-        {
-            return new Vector2(self.x, self.z);
-        }
-        public static Vector2 ToX0(this int self)
-        {
-            return new Vector2(self, 0);
-        }
         public static Vector2 To0Y(this int self)
         {
             return new Vector2(0, self);
+        }
+        public static Rect Move(this Rect rect, float x, float y)
+        {
+            return new Rect(rect.x + x, rect.y + y, rect.width, rect.height);
+        }
+        public static Rect Resize(this Rect rect, float width, float height)
+        {
+            return new Rect(rect.x, rect.y, width, height);
         }
     }
 }

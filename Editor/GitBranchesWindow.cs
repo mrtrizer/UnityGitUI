@@ -10,16 +10,18 @@ using UnityEngine;
 namespace Abuksigun.PackageShortcuts
 {
     public static class GitBranches
-    {
+    {    
         [MenuItem("Assets/Git Branches", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
         [MenuItem("Window/Git GUI/Branches")]
         [MenuItem("Assets/Git Branches", priority = 100)]
         public static void Invoke()
         {
-            var window = ScriptableObject.CreateInstance<GitBranchesWindow>();
-            window.titleContent = new GUIContent("Git Branches", EditorGUIUtility.IconContent("UnityEditor.VersionControl").image);
-            window.Show();
+            if (EditorWindow.GetWindow<GitBranchesWindow>() is { } window && window)
+            {
+                window.titleContent = new GUIContent("Git Branches", EditorGUIUtility.IconContent("UnityEditor.VersionControl").image);
+                window.Show();
+            }
         }
     }
     
@@ -33,7 +35,9 @@ namespace Abuksigun.PackageShortcuts
     {
         const int TopPanelHeight = 20;
         const int BottomPanelHeight = 30;
+        
         static readonly ReferenceComparer referenceComparer = new();
+        public static event Action<Reference> ReferenceSelectedEvent;
 
         bool showAllBranches = false;
         Task task = null;
@@ -66,11 +70,18 @@ namespace Abuksigun.PackageShortcuts
 
             IEnumerable<Reference> references = branchesPerRepo.SelectMany(x => x).Distinct(referenceComparer);
             simpleTreeView ??= new (GenerateItems, treeViewState ??= new (), false);
-            
-            simpleTreeView.Draw(new Vector2(position.width, position.height - TopPanelHeight - BottomPanelHeight), branchesPerRepo, id => {
-                if (task == null || task.IsCompleted)
-                    ShowContextMenu(modules, references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id));
-            });
+
+            simpleTreeView.Draw(
+                new Vector2(position.width, position.height - TopPanelHeight - BottomPanelHeight),
+                branchesPerRepo,
+                contextMenuCallback: id => {
+                    if (task == null || task.IsCompleted)
+                        ShowContextMenu(modules, references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id));
+                },
+                doubleClickCallback: id => {
+                    if (references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id) is { }  reference)
+                        ReferenceSelectedEvent?.Invoke(reference);
+                });
 
             using (new EditorGUILayout.HorizontalScope())
             using (new EditorGUIUtility.IconSizeScope(new Vector2(22, 22)))
@@ -127,21 +138,17 @@ namespace Abuksigun.PackageShortcuts
                 }
             });
         }
-        static async void MakeTag()
+        static async void RenameBranch(string oldName)
         {
-            string tagName = "";
-            string annotation = "";
+            string newBranchName = oldName;
 
-            await GUIShortcuts.ShowModalWindow("New Tag", new Vector2Int(300, 150), (window) => {
-                GUILayout.Label("Tag Name: ");
-                tagName = EditorGUILayout.TextField(tagName);
-                GUILayout.Label("Annotation (optional): ");
-                tagName = EditorGUILayout.TextArea(annotation, GUILayout.Height(30));
-                GUILayout.Space(30);
+            await GUIShortcuts.ShowModalWindow("Rename Branch", new Vector2Int(300, 150), (window) => {
+                GUILayout.Label("New Branch Name: ");
+                newBranchName = EditorGUILayout.TextField(newBranchName);
+                GUILayout.Space(60);
                 if (GUILayout.Button("Ok", GUILayout.Width(200)))
                 {
-                    string message = string.IsNullOrEmpty(annotation) ? "" : $"-m {annotation}";
-                    _ = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.RunGit($"tag {tagName} {message}")));
+                    _ = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.RunGit($"branch -m {oldName} {newBranchName}")));
                     window.Close();
                 }
             });
@@ -160,6 +167,9 @@ namespace Abuksigun.PackageShortcuts
                 menu.AddItem(new GUIContent($"Delete local [{branchName}]"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want DELETE branch", $"LOCAL {localBranch.Name} in {relevantModules.Count()} modules", "Yes", "No"))
                         task = GUIShortcuts.RunGitAndErrorCheck(relevantModules, $"branch -d {localBranch.Name}");
+                });
+                menu.AddItem(new GUIContent($"Rename local [{branchName}]"), false, () => {
+                    RenameBranch(localBranch.Name);
                 });
             }
             else if (selectedReference is RemoteBranch remoteBranch)
@@ -213,7 +223,7 @@ namespace Abuksigun.PackageShortcuts
             if (selectedReference != null)
                 menu.AddSeparator("");
             menu.AddItem(new GUIContent($"New Branch"), false, MakeBranch);
-            menu.AddItem(new GUIContent($"New Tag"), false, MakeTag);
+            menu.AddItem(new GUIContent($"New Tag"), false, () =>  GUIShortcuts.MakeTag());
             menu.ShowAsContext();
         }
         List<TreeViewItem> BranchesToItems(IEnumerable<Module> modules, IEnumerable<Reference> branches, Func<Reference, bool> filter, int rootDepth, List<TreeViewItem> items)

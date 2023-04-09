@@ -20,20 +20,18 @@ namespace Abuksigun.PackageShortcuts
         [MenuItem("Assets/Git Log", priority = 100)]
         public static void Invoke() 
         {
-            if (EditorWindow.GetWindow<GitLogWindow>() is not { } window || !window)
+            if (EditorWindow.GetWindow<GitLogWindow>() is { } window && window)
             {
-                window = ScriptableObject.CreateInstance<GitLogWindow>();
                 window.titleContent = new GUIContent("Git Log", EditorGUIUtility.IconContent("UnityEditor.VersionControl").image);
                 window.Show();
             }
-            window.Focus();
         }
     }
 
     public static class GitFileLog
     {
         [MenuItem("Assets/Git File Log", true)]
-        public static bool Check() => Selection.assetGUIDs.Any(x => PackageShortcuts.GetAssetGitInfo(x)?.Module != null);
+        public static bool Check() => true; // FIXME: Add check that file selected and indexed in git
 
         [MenuItem("Assets/Git File Log", priority = 200)]
         public static void Invoke()
@@ -117,6 +115,19 @@ namespace Abuksigun.PackageShortcuts
         TreeViewState treeViewStateFiles = new();
         LazyTreeView<GitStatus> treeViewFiles;
 
+        private void OnEnable()
+        {
+            GitBranchesWindow.ReferenceSelectedEvent += OnReferenceSelected;
+        }
+        private void OnDisable()
+        {
+            GitBranchesWindow.ReferenceSelectedEvent -= OnReferenceSelected;
+        }
+        void OnReferenceSelected(Reference reference)
+        {
+            if (PackageShortcuts.GetModule(guid).Log?.GetResultOrDefault() is { } log)
+                treeViewLog.SetSelection(log.Where(x => x.Contains($"#{reference.Hash.Substring(0,7)}")).Select(x => x.GetHashCode()).ToList());
+        }
         protected override void OnGUI()
         {
             var module = GUIShortcuts.ModuleGuidToolbar(LockedModules ?? PackageShortcuts.GetSelectedGitModules().ToList(), guid);
@@ -311,6 +322,7 @@ namespace Abuksigun.PackageShortcuts
                     if (EditorUtility.DisplayDialog("Are you sure you want RESET HARD to COMMIT.", reference.QualifiedName, "Yes", "No"))
                         _ = module.RunGit($"reset --hard {reference.QualifiedName}");
                 });
+                menu.AddItem(new GUIContent($"New Tag"), false, () => GUIShortcuts.MakeTag(selectedCommit));
             }
             menu.ShowAsContext();
         }
@@ -324,6 +336,10 @@ namespace Abuksigun.PackageShortcuts
             menu.AddItem(new GUIContent($"Revert to this commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
                     _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, $"checkout {selectedCommit} -- {PackageShortcuts.JoinFileNames(filePaths)}");
+            });
+            menu.AddItem(new GUIContent($"Revert to previous commit"), false, () => {
+                if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
+                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, $"checkout {selectedCommit}~1 -- {PackageShortcuts.JoinFileNames(filePaths)}");
             });
             menu.ShowAsContext();
         }

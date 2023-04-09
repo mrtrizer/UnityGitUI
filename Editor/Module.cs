@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -58,6 +59,7 @@ namespace Abuksigun.PackageShortcuts
         Dictionary<int, Task<string[]>> fileLogCache;
 
         List<IOData> processLog = new();
+        ConcurrentBag<IOData> processLogConcurent = new();
         FileSystemWatcher fsWatcher;
 
         public string Guid { get; }
@@ -78,7 +80,7 @@ namespace Abuksigun.PackageShortcuts
         public Task<Remote> DefaultRemote => defaultRemote ??= GetDefaultRemote();
         public Task<RemoteStatus> RemoteStatus => remoteStatus ??= GetRemoteStatus();
         public Task<GitStatus> GitStatus => gitStatus ??= GetGitStatus();
-        public IReadOnlyList<IOData> ProcessLog => processLog;
+        public IReadOnlyList<IOData> ProcessLog => processLogConcurent.Count == processLog.Count ? processLog : processLog = processLogConcurent.ToList();
         public DateTime RefreshTimestamp { get; private set; }
 
         public Module(string guid)
@@ -137,11 +139,11 @@ namespace Abuksigun.PackageShortcuts
         public Task<CommandResult> RunProcess(string command, string args, Action<IOData> dataHandler = null)
         {
             var result =  PackageShortcuts.RunCommand(PhysicalPath, command, args, (_, data) => {
-                processLog.Add(data);
+                processLogConcurent.Add(data);
                 dataHandler?.Invoke(data);
                 return true;
             });
-            processLog.Add(new IOData { Data = $">> {command} {args}", Error = false, LocalProcessId = result.localProcessId });
+            processLogConcurent.Add(new IOData { Data = $">> {command} {args}", Error = false, LocalProcessId = result.localProcessId });
             return result.task;
         }
         public Task<string> FileDiff(GitFileReference logFileReference)
@@ -223,8 +225,10 @@ namespace Abuksigun.PackageShortcuts
         async Task<Remote[]> GetRemotes()
         {
             string[] remoteLines = (await RunGit("remote -v")).Output.Trim().SplitLines();
-            return remoteLines.Select(line => {
-                string[] parts = line.Split('\t', RemoveEmptyEntries);
+            return remoteLines
+                .Where(line => line.EndsWith("(push)"))
+                .Select(line => {
+                string[] parts = line.Split(new [] { '\t', ' ' }, RemoveEmptyEntries);
                 return new Remote(parts[0], parts[1]);
             }).Distinct().ToArray();
         }
@@ -312,6 +316,21 @@ namespace Abuksigun.PackageShortcuts
             foreach (var parts in partsPerLine)
                 dict[parts[2]] = new NumStat { Added = int.Parse(parts[0]), Removed = int.Parse(parts[1])};
             return dict;
+        }
+
+        internal void RemoveRemote(string alias)
+        {
+            RunGit($"remote remove {alias}");
+        }
+
+        internal void AddRemote(string alias, string url)
+        {
+            RunGit($"remote add {alias} {url}");
+        }
+
+        internal void SetRemoteUrl(string alias, string url)
+        {
+            RunGit($"remote set-url {alias} {url}");
         }
     }
 }

@@ -10,8 +10,8 @@ namespace Abuksigun.PackageShortcuts
     [InitializeOnLoad]
     public static class ProjectBrowserExtension
     {
-        static GUIStyle labelStyle;
-        static GUIStyle fileMarkStyle;
+        static Lazy<GUIStyle> LabelStyle = new(() => new GUIStyle(EditorStyles.label) { fontSize = 8, richText = true });
+        static Lazy<GUIStyle> FileMarkStyle = new(() => new GUIStyle(LabelStyle.Value) { fontStyle = FontStyle.Bold, fontSize = 10, richText = true });
         static int spinCounter;
 
         static ProjectBrowserExtension()
@@ -39,15 +39,14 @@ namespace Abuksigun.PackageShortcuts
             if (drawRect.height <= 20 && module != null && module.IsGitRepo.GetResultOrDefault())
             {
                 drawRect.height = 20;
-                labelStyle ??= new GUIStyle(EditorStyles.label) { fontSize = 8, richText = true };
 
                 if ((module.CurrentBranch.GetResultOrDefault() ?? module.CurrentCommit.GetResultOrDefault()) is { } currentHead)
                 {
                     string currentBranchClamp = currentHead[..Math.Min(20, currentHead.Length)];
                     var rect = drawRect;
-                    rect.x = rect.x + rect.width - (int)labelStyle.CalcSize(new GUIContent(currentBranchClamp)).x - 5;
+                    rect.x = rect.x + rect.width - (int)LabelStyle.Value.CalcSize(new GUIContent(currentBranchClamp)).x - 5;
                     rect.y -= 6.5f;
-                    GUI.Label(rect, currentBranchClamp.WrapUp("<b>", "</b>"), labelStyle);
+                    GUI.Label(rect, currentBranchClamp.WrapUp("<b>", "</b>"), LabelStyle.Value);
                 }
 
                 int offset = 0;
@@ -58,7 +57,7 @@ namespace Abuksigun.PackageShortcuts
                     var rect = drawRect;
                     rect.x = rect.x + rect.width - offset;
                     rect.y += 1.5f;
-                    GUI.Label(rect, $"+{gitStatus.Unindexed.Count()} *{gitStatus.IndexedUnstaged.Count()} #{gitStatus.Staged.Count()}", labelStyle);
+                    GUI.Label(rect, $"+{gitStatus.Unindexed.Count()} *{gitStatus.IndexedUnstaged.Count()} #{gitStatus.Staged.Count()}", LabelStyle.Value);
                 }
 
                 if (module.RemoteStatus.GetResultOrDefault() is { } result)
@@ -67,39 +66,41 @@ namespace Abuksigun.PackageShortcuts
                     var rect = drawRect;
                     rect.x = rect.x + rect.width - offset;
                     rect.y += 1.5f;
-                    GUI.Label(rect, $"{result.Behind}↓{result.Ahead}↑", labelStyle);
+                    GUI.Label(rect, $"{result.Behind}↓{result.Ahead}↑", LabelStyle.Value);
                 }
                 else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
                 {
                     var rect = drawRect;
                     rect.height = 15;
                     rect.x = rect.x + rect.width - 70;
-                    GUI.Label(rect, EditorGUIUtility.IconContent($"WaitSpin{(spinCounter++ % 1100) / 100:00}"), labelStyle);
+                    GUI.Label(rect, EditorGUIUtility.IconContent($"WaitSpin{(spinCounter++ % 1100) / 100:00}"), LabelStyle.Value);
                 }
             }
             var assetInfo = GetAssetGitInfo(guid);
             if (module == null && assetInfo != null)
             {
-                fileMarkStyle ??= new GUIStyle(labelStyle) { fontStyle = FontStyle.Bold, fontSize = 10, richText = true };
                 var rect = drawRect;
                 rect.height = 15;
                 rect.y += 2;
                 rect.x -= 8;
                 if (assetInfo.FileStatuses != null && assetInfo.NestedFileModified)
-                    GUI.Label(rect, "     <color=blue>*</color>", fileMarkStyle);
+                    GUI.Label(rect, "     <color=blue>*</color>", FileMarkStyle.Value);
                 else if (assetInfo.FileStatuses.Any(x => x.IsUnstaged))
-                    GUI.Label(rect, GUIShortcuts.MakePrintableStatus(assetInfo.FileStatuses.First().Y), fileMarkStyle);
+                    GUI.Label(rect, GUIShortcuts.MakePrintableStatus(assetInfo.FileStatuses.First().Y), FileMarkStyle.Value);
                 else if (assetInfo.FileStatuses.Any(x => x.IsStaged))
-                    GUI.Label(rect, "<color=green>✓</color>", fileMarkStyle);
+                    GUI.Label(rect, "<color=green>✓</color>", FileMarkStyle.Value);
             }
 
             if (module == null && assetInfo != null && !assetInfo.NestedFileModified && drawRect.height < 20)
             {
                 var rect = drawRect;
-                var unstagedNumStat = assetInfo.FileStatuses.FirstOrDefault().UnstagedNumStat;
-                var text = new GUIContent($"+{unstagedNumStat.Added} -{unstagedNumStat.Removed}");
-                rect.x = rect.x + rect.width - Style.RichTextLabel.Value.CalcSize(text).x;
-                GUI.Label(rect, text, Style.RichTextLabel.Value);
+                var unstagedNumStat = assetInfo.FileStatuses?.FirstOrDefault()?.UnstagedNumStat;
+                if (unstagedNumStat is { } unstagedNumStatValue)
+                {
+                    var text = new GUIContent($"+{unstagedNumStatValue.Added} -{unstagedNumStatValue.Removed}");
+                    rect.x = rect.x + rect.width - Style.RichTextLabel.Value.CalcSize(text).x;
+                    GUI.Label(rect, text, Style.RichTextLabel.Value);
+                }
             }
         }
     }
