@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
-namespace Abuksigun.PackageShortcuts
+namespace Abuksigun.MRGitUI
 {
     public static class GitRemotes
     {
@@ -32,34 +32,18 @@ namespace Abuksigun.PackageShortcuts
                     if (mode == Mode.Fetch)
                     {
                         if (GUILayout.Button(new GUIContent($"Fetch {modules.Length} modules", EditorGUIUtility.IconContent("Refresh@2x").image), GUILayout.Width(150)))
-                        {
-                            tasks = modules.ToDictionary(x => x.Guid, async module => {
-                                var remote = await module.DefaultRemote;
-                                return await module.RunGit($"fetch {remote?.Alias} {"--prune".When(prune)}");
-                            });
-                        }
+                            tasks = modules.ToDictionary(x => x.Guid, module => module.Fetch(prune));
                         prune = GUILayout.Toggle(prune, "Prune");
                     }
                     if (mode == Mode.Pull)
                     {
                         if (GUILayout.Button(new GUIContent($"Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image), GUILayout.Width(150)))
-                        {
-                            tasks = modules.ToDictionary(x => x.Guid, async module => {
-                                var remote = await module.DefaultRemote;
-                                return await module.RunGit($"pull {remote?.Alias}");
-                            });
-                        }
+                            tasks = modules.ToDictionary(x => x.Guid, module => module.Pull());
                     }
                     if (mode == Mode.Push)
                     {
                         if (GUILayout.Button(new GUIContent($"Push {modules.Length} modules", EditorGUIUtility.IconContent("Update-Available@2x").image), GUILayout.Width(150)))
-                        {
-                            tasks = modules.ToDictionary(x => x.Guid, async module => {
-                                string branch = await module.CurrentBranch;
-                                var remote = await module.DefaultRemote;
-                                return await module.RunGit($"push {"--tags".When(pushTags)} {"--force".When(forcePush)} -u {remote?.Alias} {branch}:{branch}");
-                            });
-                        }
+                            tasks = modules.ToDictionary(x => x.Guid, module => module.Push(pushTags, forcePush));
                         pushTags = GUILayout.Toggle(pushTags, "Push tags");
                         forcePush = GUILayout.Toggle(forcePush, "Force push");
                     }

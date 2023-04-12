@@ -1,7 +1,7 @@
 using System.Linq;
 using UnityEditor;
 
-namespace Abuksigun.PackageShortcuts
+namespace Abuksigun.MRGitUI
 {
     public class ResetInfo
     {

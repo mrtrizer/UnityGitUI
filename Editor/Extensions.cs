@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Threading.Tasks;
 
-namespace Abuksigun.PackageShortcuts
+namespace Abuksigun.MRGitUI
 {
     using static Const;
     public static class Extensions

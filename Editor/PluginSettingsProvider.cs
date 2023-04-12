@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine.UIElements;
 
-namespace Abuksigun.PackageShortcuts
+namespace Abuksigun.MRGitUI
 {
     public static class PluginSettingsProvider
     {

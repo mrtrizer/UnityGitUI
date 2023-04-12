@@ -2,7 +2,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace Abuksigun.PackageShortcuts
+namespace Abuksigun.MRGitUI
 {
     public static class GitStash
     {

@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 
-namespace Abuksigun.PackageShortcuts
+namespace Abuksigun.MRGitUI
 {
     using static Const;
     
@@ -148,14 +148,14 @@ namespace Abuksigun.PackageShortcuts
                     if (staged)
                     {
                         var modules = stagedDiffs.Select(x => x.module).Distinct();
-                        var filesPerModule = modules.Select(module => (module, PackageShortcuts.JoinFileNames(stagedDiffs.Where(x => x.module == module).Select(x => x.fullPath))));
+                        var filesPerModule = modules.Select(module => (module, stagedDiffs.Where(x => x.module == module).Select(x => x.fullPath).ToArray()));
                         if (GUILayout.Button($"Unstage All ({stagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
                             GUIShortcuts.Unstage(filesPerModule);
                     }
                     else
                     {
                         var modules = unstagedDiffs.Select(x => x.module).Distinct();
-                        var filesPerModule = modules.Select(module => (module, PackageShortcuts.JoinFileNames(unstagedDiffs.Where(x => x.module == module).Select(x => x.fullPath))));
+                        var filesPerModule = modules.Select(module => (module, unstagedDiffs.Where(x => x.module == module).Select(x => x.fullPath).ToArray()));
                         if (GUILayout.Button($"Stage All ({unstagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
                             GUIShortcuts.Stage(filesPerModule);
                         if (GUILayout.Button($"Discard All ({unstagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))

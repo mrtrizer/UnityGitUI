@@ -10,7 +10,7 @@ using UnityEditor.IMGUI.Controls;
 using UnityEditor.PackageManager.UI;
 using UnityEngine;
 
-namespace Abuksigun.PackageShortcuts
+namespace Abuksigun.MRGitUI
 {
     public static class GitLog
     {

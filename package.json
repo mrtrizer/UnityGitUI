@@ -1,7 +1,7 @@
 {
-    "name": "com.abuksigun.packageshortcuts",
+    "name": "com.abuksigun.mrgitui",
     "version": "0.1.0",
-    "displayName": "Abuksigun.PackageShortcuts",
-    "description": "Set of extentions for packages",
+    "displayName": "MRGitUI",
+    "description": "Multi-Repository Git UI for Unity. Manage multiple repositories like it's one repo",
     "unity": "2021.2"
 }

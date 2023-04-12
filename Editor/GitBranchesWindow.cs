@@ -7,7 +7,7 @@ using UnityEditor.Graphs;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
-namespace Abuksigun.PackageShortcuts
+namespace Abuksigun.MRGitUI
 {
     public static class GitBranches
     {    

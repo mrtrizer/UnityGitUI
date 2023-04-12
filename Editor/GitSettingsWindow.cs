@@ -8,7 +8,7 @@ using UnityEngine;
 using UnityEngine.tvOS;
 using static UnityEditor.ShaderData;
 
-namespace Abuksigun.PackageShortcuts
+namespace Abuksigun.MRGitUI
 {
     public static class GitSettings
     {

@@ -5,12 +5,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
-using UnityEditor.PackageManager;
 using UnityEngine;
-using UnityEngine.UIElements;
-using static UnityEngine.UI.InputField;
 
-namespace Abuksigun.PackageShortcuts
+namespace Abuksigun.MRGitUI
 {
     public class DefaultWindow : EditorWindow
     {
@@ -249,24 +246,28 @@ namespace Abuksigun.PackageShortcuts
             }
         }
 
-        public static void DiscardFiles(IEnumerable<(Module module, string files)> selectionPerModule)
+        public static void DiscardFiles(IEnumerable<(Module module, string[] files)> selectionPerModule)
         {
-            if (!EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", selectionPerModule.Select(x => x.files).Join('\n'), "Yes", "No"))
+            var filesList = selectionPerModule.SelectMany(x => x.files).Join('\n');
+            if (!EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", filesList, "Yes", "No"))
                 return;
             foreach (var pair in selectionPerModule)
-                pair.module.RunGit($"checkout -q -- {pair.files}");
+                foreach (var batch in PackageShortcuts.BatchFiles(pair.files))
+                    pair.module.RunGit($"checkout -q -- {batch}");
         }
 
-        public static void Stage(IEnumerable<(Module module, string files)> selectionPerModule)
+        public static void Stage(IEnumerable<(Module module, string[] files)> selectionPerModule)
         {
             foreach (var pair in selectionPerModule)
-                pair.module.RunGit($"add -f -- {pair.files}");
+                foreach (var batch in PackageShortcuts.BatchFiles(pair.files))
+                    pair.module.RunGit($"add -f -- {batch}");
         }
 
-        public static void Unstage(IEnumerable<(Module module, string files)> selectionPerModule)
+        public static void Unstage(IEnumerable<(Module module, string[] files)> selectionPerModule)
         {
             foreach (var pair in selectionPerModule)
-                pair.module.RunGit($"reset -q -- {pair.files}");
+                foreach (var batch in PackageShortcuts.BatchFiles(pair.files))
+                    pair.module.RunGit($"reset -q -- {batch}");
         }
     }
 }

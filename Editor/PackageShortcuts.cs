@@ -13,7 +13,7 @@ using ProcessStartInfo = System.Diagnostics.ProcessStartInfo;
 
 namespace System.Runtime.CompilerServices { class IsExternalInit { } }
 
-namespace Abuksigun.PackageShortcuts
+namespace Abuksigun.MRGitUI
 {
     public struct IOData
     {
@@ -170,7 +170,25 @@ namespace Abuksigun.PackageShortcuts
         {
             return JoinFileNames(files.Select(x => x.FullPath));
         }
-        
+
+        public static IEnumerable<string> BatchFiles(IEnumerable<string> files)
+        {
+            int batchCapacity = 20;
+            List<string> batch = new List<string>(batchCapacity);
+            foreach (var file in files)
+            {
+                if (batch.Count < batchCapacity)
+                    batch.Add(file);
+                if (batch.Count >= batchCapacity)
+                {
+                    yield return JoinFileNames(batch);
+                    batch.Clear();
+                }
+            }
+            if (batch.Count > 0)
+                yield return JoinFileNames(batch);
+        }
+
         public static (int localProcessId, Task<CommandResult> task) RunCommand(string workingDir, string command, string args, Func<Process, IOData, bool> dataHandler = null)
         {
             var tcs = new TaskCompletionSource<CommandResult>();

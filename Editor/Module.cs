@@ -9,9 +9,10 @@ using UnityEditor;
 using UnityEngine;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
-namespace Abuksigun.PackageShortcuts
+namespace Abuksigun.MRGitUI
 {
     using static Const;
+    using static UnityEngine.Networking.UnityWebRequest;
 
     public record Reference(string Name, string QualifiedName, string Hash);
     public record Tag(string Name, string Hash) : Reference(Name, Name, Hash);
@@ -122,7 +123,6 @@ namespace Abuksigun.PackageShortcuts
                     isMergeInProgress = null;
                     remotes = null;
                     defaultRemote = null;
-                    remoteStatus = null;
                     fileLogCache = null;
                 }
                 gitStatus = null;
@@ -318,19 +318,47 @@ namespace Abuksigun.PackageShortcuts
             return dict;
         }
 
-        internal void RemoveRemote(string alias)
+        public void RemoveRemote(string alias)
         {
             RunGit($"remote remove {alias}");
+            remoteStatus = null;
         }
 
-        internal void AddRemote(string alias, string url)
+        public void AddRemote(string alias, string url)
         {
             RunGit($"remote add {alias} {url}");
+            remoteStatus = null;
         }
 
-        internal void SetRemoteUrl(string alias, string url)
+        public void SetRemoteUrl(string alias, string url)
         {
             RunGit($"remote set-url {alias} {url}");
+            remoteStatus = null;
+        }
+
+        public async Task<CommandResult> Pull()
+        {
+            var remote = await DefaultRemote;
+            var result = await RunGit($"pull {remote?.Alias}");
+            remoteStatus = null;
+            return result;
+        }
+
+        public async Task<CommandResult> Fetch(bool prune)
+        {
+            var remote = await DefaultRemote;
+            var result = await RunGit($"fetch {remote?.Alias} {"--prune".When(prune)}");
+            remoteStatus = null;
+            return result;
+        }
+
+        public async Task<CommandResult> Push(bool pushTags, bool forcePush)
+        {
+            string branch = await CurrentBranch;
+            var remote = await DefaultRemote;
+            var result = await RunGit($"push {"--tags".When(pushTags)} {"--force".When(forcePush)} -u {remote?.Alias} {branch}:{branch}");
+            remoteStatus = null;
+            return result;
         }
     }
 }

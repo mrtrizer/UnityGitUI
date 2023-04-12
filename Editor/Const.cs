@@ -1,6 +1,6 @@
 using System;
 
-namespace Abuksigun.PackageShortcuts
+namespace Abuksigun.MRGitUI
 {
     public static class Const
     {

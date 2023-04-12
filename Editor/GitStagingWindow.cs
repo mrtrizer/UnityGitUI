@@ -8,7 +8,7 @@ using UnityEditor.PackageManager.UI;
 using UnityEngine;
 using static UnityEngine.ParticleSystem;
 
-namespace Abuksigun.PackageShortcuts
+namespace Abuksigun.MRGitUI
 {
     public static class GitStaging
     {
@@ -109,12 +109,12 @@ namespace Abuksigun.PackageShortcuts
                     GUILayout.Space(50);
                     if (GUILayout.Button(EditorGUIUtility.IconContent("tab_next@2x"), GUILayout.Width(MiddlePanelWidth)))
                     {
-                        GUIShortcuts.Stage(modules.Select(module => (module, PackageShortcuts.JoinFileNames(unstagedSelection.Where(x => x.ModuleGuid == module.Guid)))));
+                        GUIShortcuts.Stage(modules.Select(module => (module, unstagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray())));
                         treeViewStateUnstaged.selectedIDs.Clear();
                     }
                     if (GUILayout.Button(EditorGUIUtility.IconContent("tab_prev@2x"), GUILayout.Width(MiddlePanelWidth)))
                     {
-                        GUIShortcuts.Unstage(modules.Select(module => (module, PackageShortcuts.JoinFileNames(stagedSelection.Where(x => x.ModuleGuid == module.Guid)))));
+                        GUIShortcuts.Unstage(modules.Select(module => (module, stagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray())));
                         treeViewStateStaged.selectedIDs.Clear();
                     }
                 }
@@ -128,8 +128,11 @@ namespace Abuksigun.PackageShortcuts
         {
             if (!files.Any())
                 return;
+
             var menu = new GenericMenu();
-            var selectionPerModule = modules.Select(module => (module, files:PackageShortcuts.JoinFileNames(files.Where(x => x.ModuleGuid == module.Guid))));
+            var indexedSelectionPerModule = modules.Select(module => 
+                (module, files: files.Where(x => x.IsInIndex && x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray()));
+            
             if (files.Any(x => x.IsInIndex))
             {
                 menu.AddItem(new GUIContent("Diff"), false, () => {
@@ -137,23 +140,22 @@ namespace Abuksigun.PackageShortcuts
                         GitDiff.ShowDiff();
                 });
                 menu.AddItem(new GUIContent("Log"), false, async () => {
-                    foreach ((var module, var files) in selectionPerModule)
+                    foreach ((var module, var files) in indexedSelectionPerModule)
                     {
                         var window = ScriptableObject.CreateInstance<GitLogWindow>();
                         window.titleContent = new GUIContent("Log Files");
-                        window.LogFiles = files;
+                        window.LogFiles = PackageShortcuts.JoinFileNames(files);
                         await GUIShortcuts.ShowModalWindow(window, new Vector2Int(800, 700));
                     }
                 });
                 menu.AddSeparator("");
-                string message = selectionPerModule.Select(x => x.files).Join('\n');
                 if (files.Any(x => x.IsUnstaged))
                 {
-                    menu.AddItem(new GUIContent("Discrad"), false, () => GUIShortcuts.DiscardFiles(selectionPerModule));
-                    menu.AddItem(new GUIContent("Stage"), false, () => GUIShortcuts.Stage(selectionPerModule));
+                    menu.AddItem(new GUIContent("Discrad"), false, () => GUIShortcuts.DiscardFiles(indexedSelectionPerModule));
+                    menu.AddItem(new GUIContent("Stage"), false, () => GUIShortcuts.Stage(indexedSelectionPerModule));
                 }
                 if (files.Any(x => x.IsStaged))
-                    menu.AddItem(new GUIContent("Unstage"), false, () => GUIShortcuts.Unstage(selectionPerModule));
+                    menu.AddItem(new GUIContent("Unstage"), false, () => GUIShortcuts.Unstage(indexedSelectionPerModule));
             }
 
             if (files.Any(x => x.IsUnresolved))
@@ -179,7 +181,8 @@ namespace Abuksigun.PackageShortcuts
                 });
             }
             menu.AddItem(new GUIContent("Delete"), false, () => {
-                if (EditorUtility.DisplayDialog($"Are you sure you want DELETE these files", selectionPerModule.Select(x => x.files).Join('\n'), "Yes", "No"))
+                var selection = files.Select(x => x.FullPath);
+                if (EditorUtility.DisplayDialog($"Are you sure you want DELETE these files", selection.Join('\n'), "Yes", "No"))
                 {
                     foreach (var file in files)
                         File.Delete(file.FullPath);
