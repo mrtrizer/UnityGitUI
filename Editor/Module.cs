@@ -318,47 +318,73 @@ namespace Abuksigun.MRGitUI
             return dict;
         }
 
-        public void RemoveRemote(string alias)
+        public Task<CommandResult> RemoveRemote(string alias)
         {
-            RunGit($"remote remove {alias}");
-            remoteStatus = null;
+            return RunGit($"remote remove {alias}").AfterCompletion(ResetRemoteStatus);
         }
 
-        public void AddRemote(string alias, string url)
+        public Task<CommandResult> AddRemote(string alias, string url)
         {
-            RunGit($"remote add {alias} {url}");
-            remoteStatus = null;
+            return RunGit($"remote add {alias} {url}").AfterCompletion(ResetRemoteStatus);
         }
 
-        public void SetRemoteUrl(string alias, string url)
+        public Task<CommandResult> SetRemoteUrl(string alias, string url)
         {
-            RunGit($"remote set-url {alias} {url}");
-            remoteStatus = null;
+            return RunGit($"remote set-url {alias} {url}").AfterCompletion(ResetRemoteStatus);
         }
 
         public async Task<CommandResult> Pull()
         {
             var remote = await DefaultRemote;
-            var result = await RunGit($"pull {remote?.Alias}");
-            remoteStatus = null;
-            return result;
+            return await RunGit($"pull {remote?.Alias}").AfterCompletion(ResetRemoteStatus);
         }
 
         public async Task<CommandResult> Fetch(bool prune)
         {
             var remote = await DefaultRemote;
-            var result = await RunGit($"fetch {remote?.Alias} {"--prune".When(prune)}");
-            remoteStatus = null;
-            return result;
+            return await RunGit($"fetch {remote?.Alias} {"--prune".When(prune)}").AfterCompletion(ResetRemoteStatus);
         }
 
         public async Task<CommandResult> Push(bool pushTags, bool forcePush)
         {
             string branch = await CurrentBranch;
             var remote = await DefaultRemote;
-            var result = await RunGit($"push {"--tags".When(pushTags)} {"--force".When(forcePush)} -u {remote?.Alias} {branch}:{branch}");
+            return await RunGit($"push {"--tags".When(pushTags)} {"--force".When(forcePush)} -u {remote?.Alias} {branch}:{branch}").AfterCompletion(ResetRemoteStatus);
+        }
+
+        public Task<CommandResult> CheckoutRemote(string branch)
+        {
+            return RunGit($"switch {branch}").AfterCompletion(ResetRemoteStatus);
+        }
+
+        public Task<CommandResult> Merge(string branchQualifiedName)
+        {
+            return RunGit($"merge {branchQualifiedName}").AfterCompletion(ResetRemoteStatus);
+        }
+
+        public Task<CommandResult> Rebase(string branchQualifiedName)
+        {
+            return RunGit($"rebase {branchQualifiedName}").AfterCompletion(ResetRemoteStatus);
+        }
+        
+        public Task<CommandResult> Checkout(string localBranchName)
+        {
+            return RunGit($"checkout {localBranchName}").AfterCompletion(ResetRemoteStatus);
+        }
+
+        public Task<CommandResult> Commit(string commitMessage)
+        {
+            return RunGit($"commit -m {commitMessage.WrapUp()}").AfterCompletion(ResetRemoteStatus);
+        }
+
+        public Task<CommandResult> Reset(string commit, bool hard)
+        {
+            return RunGit($"reset {(hard ? "--hard" : "--soft")} {commit}").AfterCompletion(ResetRemoteStatus);
+        }
+
+        void ResetRemoteStatus()
+        {
             remoteStatus = null;
-            return result;
         }
     }
 }

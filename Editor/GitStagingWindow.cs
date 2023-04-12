@@ -65,7 +65,7 @@ namespace Abuksigun.MRGitUI
                 {
                     if (GUILayout.Button($"Commit {modulesWithStagedFiles}/{modules.Count} modules", GUILayout.Width(200)))
                     {
-                        tasksInProgress.AddRange(moduleNotInMergeState.Select(module => module.RunGit($"commit -m {commitMessage.WrapUp()}")));
+                        tasksInProgress.AddRange(moduleNotInMergeState.Select(module => module.Commit(commitMessage)));
                         commitMessage = "";
                     }
                     if (GUILayout.Button($"Stash {modulesWithStagedFiles}/{modules.Count} modules", GUILayout.Width(200)))

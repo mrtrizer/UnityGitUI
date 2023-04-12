@@ -99,13 +99,13 @@ namespace Abuksigun.MRGitUI
 
         static int reloadAssembliesStack = 0;
 
-        static void PushReloadAssemblies()
+        static void PushReloadAssembliesLock()
         {
             if (reloadAssembliesStack++ == 0)
                 EditorApplication.LockReloadAssemblies();
         }
 
-        static void PopReloadAssemblies()
+        static void PopReloadAssembliesLock()
         {
             if (--reloadAssembliesStack == 0)
             {
@@ -117,14 +117,14 @@ namespace Abuksigun.MRGitUI
         public static Task ShowModalWindow(DefaultWindow window, Vector2Int size, Action<EditorWindow> onGUI = null)
         {
             window.onGUI = onGUI;
-            PushReloadAssemblies();
+            PushReloadAssembliesLock();
             // True modal window in unity blocks execution of thread. So, instread I just fake it's behaviour.
             window.ShowUtility();
             window.position = new Rect(EditorGUIUtility.GetMainWindowPosition().center - size / 2, size);
             var tcs = new TaskCompletionSource<bool>();
             window.onClosed += () => {
                 tcs.SetResult(true);
-                PopReloadAssemblies();
+                PopReloadAssembliesLock();
             };
             return tcs.Task;
         }
@@ -160,21 +160,21 @@ namespace Abuksigun.MRGitUI
             return items;
         }
 
-        public static async Task<CommandResult> RunGitAndErrorCheck(IEnumerable<Module> modules, string args)
+        public static async Task<CommandResult> RunGitAndErrorCheck(IEnumerable<Module> modules, Func<Module, Task<CommandResult>> command)
         {
             CommandResult result = null;
             await Task.WhenAll(modules.Select(async module => {
                 try
                 {
                     var commandLog = new List<IOData>();
-                    PushReloadAssemblies();
-                    result = await module.RunGit(args, (data) => commandLog.Add(data));
+                    PushReloadAssembliesLock();
+                    result = await command(module);
                     if (result.ExitCode != 0)
-                        EditorUtility.DisplayDialog($"Error in {module.Name}", $">> git {args}\n{commandLog.Where(x => x.Error).Select(x => x.Data).Join('\n')}", "Ok");
+                        EditorUtility.DisplayDialog($"Error in {module.Name}", $">> {result.Command}\n{commandLog.Where(x => x.Error).Select(x => x.Data).Join('\n')}", "Ok");
                 }
                 finally
                 {
-                    PopReloadAssemblies();
+                    PopReloadAssembliesLock();
                 }
             }));
             return result;

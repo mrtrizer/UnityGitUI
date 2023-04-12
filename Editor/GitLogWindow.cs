@@ -314,13 +314,13 @@ namespace Abuksigun.MRGitUI
                     if (EditorUtility.DisplayDialog("Are you sure you want CHECKOUT to COMMIT", reference.QualifiedName, "Yes", "No"))
                         _ = module.RunGit($"checkout {reference.QualifiedName}");
                 });
-                menu.AddItem(new GUIContent($"Reset/{contextMenuname}"), false, () => {
+                menu.AddItem(new GUIContent($"Reset Soft/{contextMenuname}"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want RESET to COMMIT", reference.QualifiedName, "Yes", "No"))
-                        _ = module.RunGit($"reset --soft {reference.QualifiedName}");
+                        _ = module.Reset(reference.QualifiedName, false);
                 });
                 menu.AddItem(new GUIContent($"Reset Hard/{contextMenuname}"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want RESET HARD to COMMIT.", reference.QualifiedName, "Yes", "No"))
-                        _ = module.RunGit($"reset --hard {reference.QualifiedName}");
+                        _ = module.Reset(reference.QualifiedName, true);
                 });
                 menu.AddItem(new GUIContent($"New Tag"), false, () => GUIShortcuts.MakeTag(selectedCommit));
             }
@@ -335,11 +335,11 @@ namespace Abuksigun.MRGitUI
             menu.AddItem(new GUIContent("Diff"), false, () => GitDiff.ShowDiff());
             menu.AddItem(new GUIContent($"Revert to this commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
-                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, $"checkout {selectedCommit} -- {PackageShortcuts.JoinFileNames(filePaths)}");
+                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.RunGit($"checkout {selectedCommit} -- {PackageShortcuts.JoinFileNames(filePaths)}"));
             });
             menu.AddItem(new GUIContent($"Revert to previous commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
-                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, $"checkout {selectedCommit}~1 -- {PackageShortcuts.JoinFileNames(filePaths)}");
+                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.RunGit($"checkout {selectedCommit}~1 -- {PackageShortcuts.JoinFileNames(filePaths)}"));
             });
             menu.ShowAsContext();
         }
