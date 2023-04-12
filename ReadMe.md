@@ -1,29 +1,29 @@
-**Use at your own risk, I'm not guranteing it will work correctly for all cases and you won't loose your data 😉**
+**Use at your own risk, I can't guarantee it will work correctly for all scenarios and you won't lose your data 😉**
 
-Main goal is to optimize workflow for both artists and programmers.
+The primary goal of this project is to optimize the workflow for both artists and programmers.
 
-It's handy even if you have a single repo and use another GitUI alongside. It's build with performance and extendability in mind. This plugin doesn't use undocumented features. I'm also trying to keep code compact and predictable.
+This tool is useful even if you have a single repository and use another GitUI alongside it. It is designed with performance and extensibility in mind. This plugin does not rely on undocumented features, and efforts have been made to keep the code compact and predictable.
 
 **It requires git to be installed and added to PATH environment varialbe!**
 
 Features:
-- Main feature - most of the operations below are available for multiple repos at onece
-- Manage Branches, Tags, Stash
-- View Log (Work in progress)
-- Staging and Commit
-- Merge (Take theirs/Take mine)
-- View Diff (hunk handling in progress)
-- Fetch/Pull/Push
-- Remote settings
-- Process log showing what exact git commands were performed and their output
-- Project Browser extention
-    - Displaying current status of repos, current brahch and remote status
-    - Displaying status of files and highlight directories with modified files
+- Main feature - most of the operations listed below can be performed on multiple repositories simultaneously
+- Manage branches, tags, and stash
+- View log (work in progress)
+- Stage and commit
+- Merge (choose theirs/mine)
+- View diff (hunk handling in progress)
+- Fetch, pull, and push
+- Configure remote settings
+- View process log, showing the exact git commands executed and their output
+- Project Browser extension
+    - Display current status of repositories, current branch, and remote status
+    - Show file statuses and highlight directories containing modified files
 
 In development:
 - Hunk and managment
 - Blame
-- Linux and Mac support (Currently they can't detect file changes because I relied on FileSystemWatcher for this)
+- Linux and Mac support (Currently they can't detect file changes because it relies on FileSystemWatcher to detect changes)
 
 ![Screenshot](Docs~/GitLog.png)
 
