@@ -23,6 +23,7 @@ Features:
 In development:
 - Hunk and managment
 - Blame
+- Linux and Mac support (Currently they can't detect file changes because I relied on FileSystemWatcher for this)
 
 ![Screenshot](Docs~/GitLog.png)
 
