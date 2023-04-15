@@ -95,7 +95,7 @@ namespace Abuksigun.MRGitUI
 
     public static class GUIShortcuts
     {
-        static Dictionary<Module, Vector2> logScrollPositions = new();
+        static Dictionary<string, Vector2> logScrollPositions = new();
 
         static int reloadAssembliesStack = 0;
 
@@ -244,7 +244,7 @@ namespace Abuksigun.MRGitUI
 
             float topPanelHeight = modules.Count > 1 ? 20 : 0;
             var scrollHeight = GUILayout.Height(size.y - topPanelHeight);
-            using (var scroll = new GUILayout.ScrollViewScope(logScrollPositions.GetValueOrDefault(module, Vector2.zero), false, false, GUILayout.Width(size.x)))
+            using (var scroll = new GUILayout.ScrollViewScope(logScrollPositions.GetValueOrDefault(guid, Vector2.zero), false, false, GUILayout.Width(size.x)))
             {
                 const int lineHeight = 13;
                 int yOffset = (int)(scroll.scrollPosition.y / lineHeight);
@@ -255,7 +255,7 @@ namespace Abuksigun.MRGitUI
                 string allData = allLines.Join('\n');
                 EditorGUILayout.TextArea(allData, Style.ProcessLog.Value, GUILayout.Height(linesVisible * lineHeight), GUILayout.Width(maxWidth));
                 GUILayout.Space((filteredProcessLog.Count() - linesVisible) * lineHeight - scroll.scrollPosition.y);
-                logScrollPositions[module] = scroll.scrollPosition;
+                logScrollPositions[guid] = scroll.scrollPosition;
             }
         }
 

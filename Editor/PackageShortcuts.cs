@@ -267,11 +267,16 @@ namespace Abuksigun.MRGitUI
             }
         }
 
-        public static IEnumerable<PackageDirectory> ListLocalPackageDirectories()
+        public static IEnumerable<string>  GetPackageSearchDirectories()
         {
-            var searchDirPaths = PlayerPrefs.GetString(PluginSettingsProvider.LocalRepoPathsKey, "").Split(',', RemoveEmptyEntries)
+            return PlayerPrefs.GetString(PluginSettingsProvider.LocalRepoPathsKey, "").Split(',', RemoveEmptyEntries)
                 .Select(x => x.Trim())
                 .Where(x => Directory.Exists(x));
+        }
+
+        public static IEnumerable<PackageDirectory> ListLocalPackageDirectories()
+        {
+            var searchDirPaths = GetPackageSearchDirectories();
 
             var allDirs = searchDirPaths
                 .SelectMany(x => Directory.EnumerateDirectories(x))
