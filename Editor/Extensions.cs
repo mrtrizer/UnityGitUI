@@ -79,10 +79,20 @@ namespace Abuksigun.MRGitUI
             return new Rect(rect.x, rect.y, width, height);
         }
 
-        public static async Task<T> AfterCompletion<T>(this Task<T> task, Action action)
+        public static async Task<T> AfterCompletion<T>(this Task<T> task, params Action[] actions)
         {
             var result = await task;
-            action();
+            foreach (var action in actions)
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError(e);
+                }
+            }
             return result;
         }
     }

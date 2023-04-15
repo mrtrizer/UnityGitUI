@@ -12,7 +12,6 @@ using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 namespace Abuksigun.MRGitUI
 {
     using static Const;
-    using static UnityEngine.Networking.UnityWebRequest;
 
     public record Reference(string Name, string QualifiedName, string Hash);
     public record Tag(string Name, string Hash) : Reference(Name, Name, Hash);
@@ -47,7 +46,7 @@ namespace Abuksigun.MRGitUI
         Task<bool> isGitRepo;
         Task<string> gitRepoPath;
         Task<Reference[]> references;
-        Task<string[]> stash;
+        Task<string[]> stashes;
         Task<string> currentBranch;
         Task<string> currentCommit;
         Task<bool> isMergeInProgress;
@@ -60,10 +59,11 @@ namespace Abuksigun.MRGitUI
         Dictionary<int, Task<string[]>> fileLogCache;
 
         List<IOData> processLog = new();
-        ConcurrentBag<IOData> processLogConcurent = new();
-        FileSystemWatcher fsWatcher;
+        List<IOData> processLogConcurent = new();
+        //FileSystemWatcher fsWatcher;
 
         public string Guid { get; }
+        public string DisplayName { get; }
         public string Name { get; }
         public string LogicalPath { get; }
         public string PhysicalPath => Path.GetFullPath(FileUtil.GetPhysicalPath(LogicalPath)).NormalizeSlashes();
@@ -73,7 +73,7 @@ namespace Abuksigun.MRGitUI
         public Task<string> GitRepoPath => gitRepoPath ??= GetRepoPath();
         public Task<Reference[]> References => references ??= GetReferences();
         public Task<string[]> Log => LogFiles(null);
-        public Task<string[]> Stash => stash ??= GetStash();
+        public Task<string[]> Stashes => stashes ??= GetStashes();
         public Task<string> CurrentBranch => currentBranch ??= GetCurrentBranch();
         public Task<string> CurrentCommit => currentCommit ??= GetCommit();
         public Task<bool> IsMergeInProgress => isMergeInProgress ??= GetIsMergeInProgress();
@@ -81,7 +81,7 @@ namespace Abuksigun.MRGitUI
         public Task<Remote> DefaultRemote => defaultRemote ??= GetDefaultRemote();
         public Task<RemoteStatus> RemoteStatus => remoteStatus ??= GetRemoteStatus();
         public Task<GitStatus> GitStatus => gitStatus ??= GetGitStatus();
-        public IReadOnlyList<IOData> ProcessLog => processLogConcurent.Count == processLog.Count ? processLog : processLog = processLogConcurent.ToList();
+        public IReadOnlyList<IOData> ProcessLog => GetProcessLog();
         public DateTime RefreshTimestamp { get; private set; }
 
         public Module(string guid)
@@ -89,47 +89,10 @@ namespace Abuksigun.MRGitUI
             Guid = guid;
             string path = LogicalPath = AssetDatabase.GUIDToAssetPath(guid);
             PackageInfo = PackageInfo.FindForAssetPath(path);
-            Name = PackageInfo?.displayName ?? Application.productName;
+            DisplayName = PackageInfo?.displayName ?? Application.productName;
+            Name = PackageInfo?.name ?? Application.productName;
             isGitRepo = GetIsGitRepo();
-            _ = CreateFileWatcher();
             RefreshTimestamp = DateTime.Now;
-        }
-        ~Module()
-        {
-            fsWatcher.Dispose();
-        }
-        async Task CreateFileWatcher()
-        {
-            string watchPath = ProjectDirPath;
-            if (await IsGitRepo)
-                watchPath = await GitRepoPath;
-            fsWatcher = new FileSystemWatcher(watchPath) { NotifyFilter = (NotifyFilters)0xFFFF, EnableRaisingEvents = true };
-            fsWatcher.Changed += Reset;
-            fsWatcher.Created += Reset;
-            fsWatcher.Deleted += Reset;
-            fsWatcher.Renamed += Reset;
-            fsWatcher.Error += (_, e) => Debug.LogException(e.GetException());
-
-            void Reset(object obj, FileSystemEventArgs args)
-            {
-                if (args.FullPath.Contains(".git"))
-                {
-                    isGitRepo = null;
-                    gitRepoPath = null;
-                    references = null;
-                    stash = null;
-                    currentBranch = null;
-                    currentCommit = null;
-                    isMergeInProgress = null;
-                    remotes = null;
-                    defaultRemote = null;
-                    fileLogCache = null;
-                }
-                gitStatus = null;
-                fileDiffCache = null;
-                diffCache = null;
-                RefreshTimestamp = DateTime.Now;
-            }
         }
         public Task<CommandResult> RunGit(string args, Action<IOData> dataHandler = null)
         {
@@ -138,13 +101,22 @@ namespace Abuksigun.MRGitUI
         }
         public Task<CommandResult> RunProcess(string command, string args, Action<IOData> dataHandler = null)
         {
+            lock (processLogConcurent)
+                processLogConcurent.Add(new IOData { Data = $">> {command} {args}", Error = false, LocalProcessId = PackageShortcuts.GetNextRunCommandProcessId() });
             var result =  PackageShortcuts.RunCommand(PhysicalPath, command, args, (_, data) => {
-                processLogConcurent.Add(data);
+                lock (processLogConcurent)
+                    processLogConcurent.Add(data);
                 dataHandler?.Invoke(data);
                 return true;
             });
-            processLogConcurent.Add(new IOData { Data = $">> {command} {args}", Error = false, LocalProcessId = result.localProcessId });
             return result.task;
+        }
+        IReadOnlyList<IOData> GetProcessLog()
+        {
+            if (processLogConcurent.Count != processLog.Count)
+                lock (processLogConcurent)
+                    processLog = processLogConcurent.ToList();
+            return processLog;
         }
         public Task<string> FileDiff(GitFileReference logFileReference)
         {
@@ -212,7 +184,7 @@ namespace Abuksigun.MRGitUI
             string log = (await RunGit($"log --graph --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ar) <b>%d</b> %s\" --branches --remotes --tags {files?.WrapUp("-- ", "")}")).Output;
             return log.SplitLines();
         }
-        async Task<string[]> GetStash()
+        async Task<string[]> GetStashes()
         {
             string log = (await RunGit($"log -g --format=format:\"* #%h %p - %an (%ar) %d %s\" refs/stash")).Output;
             return log.SplitLines();
@@ -255,7 +227,7 @@ namespace Abuksigun.MRGitUI
             }
             catch (Exception e)
             {
-                Debug.LogException(new(Name, e));
+                Debug.LogException(new(DisplayName, e));
             }
             return null;
         }
@@ -318,73 +290,123 @@ namespace Abuksigun.MRGitUI
             return dict;
         }
 
-        public Task<CommandResult> RemoveRemote(string alias)
+        public void RefreshReferences()
         {
-            return RunGit($"remote remove {alias}").AfterCompletion(ResetRemoteStatus);
+            references = null;
+            stashes = null;
+            currentBranch = null;
+            currentCommit = null;
+            fileLogCache = null;
         }
 
-        public Task<CommandResult> AddRemote(string alias, string url)
+        public void RefreshRemoteStatus()
         {
-            return RunGit($"remote add {alias} {url}").AfterCompletion(ResetRemoteStatus);
+            RefreshReferences();
+            remotes = null;
+            defaultRemote = null;
+            remoteStatus = null;
+            RefreshTimestamp = DateTime.Now;
         }
 
-        public Task<CommandResult> SetRemoteUrl(string alias, string url)
+        public void RefreshFilesStatus()
         {
-            return RunGit($"remote set-url {alias} {url}").AfterCompletion(ResetRemoteStatus);
+            isMergeInProgress = null;
+            gitStatus = null;
+            fileDiffCache = null;
+            diffCache = null;
         }
 
+        #region Remotes Managment
+        public Task<CommandResult> RemoveRemote(string alias) => RunGit($"remote remove {alias}").AfterCompletion(RefreshRemoteStatus);
+        public Task<CommandResult> AddRemote(string alias, string url)  => RunGit($"remote add {alias} {url}").AfterCompletion(RefreshRemoteStatus);
+        public Task<CommandResult> SetRemoteUrl(string alias, string url) => RunGit($"remote set-url {alias} {url}").AfterCompletion(RefreshRemoteStatus);
+        #endregion
+
+        #region RepoSync
         public async Task<CommandResult> Pull()
         {
             var remote = await DefaultRemote;
-            return await RunGit($"pull {remote?.Alias}").AfterCompletion(ResetRemoteStatus);
+            return await RunGit($"pull {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         }
-
         public async Task<CommandResult> Fetch(bool prune)
         {
             var remote = await DefaultRemote;
-            return await RunGit($"fetch {remote?.Alias} {"--prune".When(prune)}").AfterCompletion(ResetRemoteStatus);
+            return await RunGit($"fetch {remote?.Alias} {"--prune".When(prune)}").AfterCompletion(RefreshRemoteStatus);
         }
-
         public async Task<CommandResult> Push(bool pushTags, bool forcePush)
         {
             string branch = await CurrentBranch;
             var remote = await DefaultRemote;
-            return await RunGit($"push {"--tags".When(pushTags)} {"--force".When(forcePush)} -u {remote?.Alias} {branch}:{branch}").AfterCompletion(ResetRemoteStatus);
+            return await RunGit($"push {"--tags".When(pushTags)} {"--force".When(forcePush)} -u {remote?.Alias} {branch}:{branch}").AfterCompletion(RefreshRemoteStatus);
         }
+        #endregion
 
-        public Task<CommandResult> CheckoutRemote(string branch)
-        {
-            return RunGit($"switch {branch}").AfterCompletion(ResetRemoteStatus);
-        }
+        #region Branches
+        public Task<CommandResult> CheckoutRemote(string branch) => RunGit($"switch {branch}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+        public Task<CommandResult> Merge(string branchQualifiedName) => RunGit($"merge {branchQualifiedName}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+        public Task<CommandResult> Rebase(string branchQualifiedName) => RunGit($"rebase {branchQualifiedName}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+        public Task<CommandResult> Checkout(string localBranchName) => RunGit($"checkout {localBranchName}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+        public Task CreateBranch(string branchName, bool checkout) => RunGit(checkout ? $"checkout -b {branchName}" : $"branch {branchName}").AfterCompletion(RefreshReferences);
+        public Task RenameBranch(string oldBranchName, string newBranchName) => RunGit($"branch -m {oldBranchName} {newBranchName}").AfterCompletion(RefreshReferences);
+        public Task<CommandResult> DeleteBranch(string branchName) => RunGit($"branch -d {branchName}").AfterCompletion(RefreshReferences);
+        public Task<CommandResult> DeleteRemoteBranch(string remoteAlias, string branchName) => RunGit($"push -d {remoteAlias} {branchName}").AfterCompletion(RefreshReferences);
+        public Task CreateTag(string tagName, string message, string hash) => RunGit($"tag \"{tagName}\" {message} {hash}").AfterCompletion(RefreshReferences);
+        public Task<CommandResult> DeleteTag(string tagName) => RunGit($"tag -d {tagName}").AfterCompletion(RefreshReferences);
+        public Task<CommandResult> ApplyStash(string stashName) => RunGit($"stash apply {stashName}").AfterCompletion(RefreshFilesStatus, RefreshReferences);
+        public Task<CommandResult> DeleteStash(string stashName)  => RunGit($"stash -d {stashName}").AfterCompletion(RefreshReferences);
+        #endregion
 
-        public Task<CommandResult> Merge(string branchQualifiedName)
+        #region Staging
+        public Task<CommandResult> Commit(string commitMessage = null)
         {
-            return RunGit($"merge {branchQualifiedName}").AfterCompletion(ResetRemoteStatus);
+            string args = commitMessage == null ? "--no-edit" : commitMessage?.WrapUp("-m \"", "\"");
+            return RunGit($"commit {args}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         }
+        public Task<CommandResult[]> DiscardFiles(IEnumerable<string> files)
+        {
+            return Task.WhenAll(PackageShortcuts.BatchFiles(files).ToList().Select(batch => RunGit($"checkout -q -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+        }
+        public async Task<CommandResult[]> Stage(IEnumerable<string> files)
+        {
+            // Can't be done in parallel due to unavoidable lock
+            var results = new List<CommandResult>();
+            foreach (var batch in PackageShortcuts.BatchFiles(files).ToList())
+                results.Add(await RunGit($"add -f -- {batch}"));
+            RefreshFilesStatus();
+            return results.ToArray();
+        }
+        public Task<CommandResult[]> Unstage(IEnumerable<string> files)
+        {
+            return Task.WhenAll(PackageShortcuts.BatchFiles(files).ToList().Select(batch => RunGit($"reset -q -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+        }
+        public Task<CommandResult> AbortMerge()
+        {
+            return RunGit($"merge --abort").AfterCompletion(RefreshFilesStatus);
+        }
+        public Task<CommandResult[]> TakeOurs(IEnumerable<string> files)
+        {
+            return Task.WhenAll(PackageShortcuts.BatchFiles(files).ToList().Select(batch => RunGit($"checkout --ours  -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+        }
+        public Task<CommandResult[]> TakeTheirs(IEnumerable<string> files)
+        {
+            return Task.WhenAll(PackageShortcuts.BatchFiles(files).ToList().Select(batch => RunGit($"checkout --theirs  -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+        }
+        #endregion
 
-        public Task<CommandResult> Rebase(string branchQualifiedName)
-        {
-            return RunGit($"rebase {branchQualifiedName}").AfterCompletion(ResetRemoteStatus);
-        }
-        
-        public Task<CommandResult> Checkout(string localBranchName)
-        {
-            return RunGit($"checkout {localBranchName}").AfterCompletion(ResetRemoteStatus);
-        }
-
-        public Task<CommandResult> Commit(string commitMessage)
-        {
-            return RunGit($"commit -m {commitMessage.WrapUp()}").AfterCompletion(ResetRemoteStatus);
-        }
-
+        #region History
         public Task<CommandResult> Reset(string commit, bool hard)
         {
-            return RunGit($"reset {(hard ? "--hard" : "--soft")} {commit}").AfterCompletion(ResetRemoteStatus);
+            return RunGit($"reset {(hard ? "--hard" : "--soft")} {commit}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+        }
+        public Task<CommandResult> RevertFiles(string commit, IEnumerable<string> filePaths)
+        {
+            return RunGit($"checkout {commit} -- {PackageShortcuts.JoinFileNames(filePaths)}").AfterCompletion(RefreshFilesStatus);
         }
 
-        void ResetRemoteStatus()
+        public Task<CommandResult> Stash(string commitMessage, IEnumerable<string> files)
         {
-            remoteStatus = null;
+            return RunGit($"stash push -m {commitMessage.WrapUp()} -- {PackageShortcuts.JoinFileNames(files)}").AfterCompletion(RefreshFilesStatus, RefreshReferences);
         }
+        #endregion
     }
 }

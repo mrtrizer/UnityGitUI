@@ -99,7 +99,7 @@ namespace Abuksigun.MRGitUI
                 {
                     var style = lines[i][0] switch { '+' => DiffAdded.Value, '-' => DiffRemoved.Value, _ => DiffUnchanged.Value };
                     if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
-                        GUI.Toggle(new Rect(0, currentOffset, width, codeLineHeight), false, $"{lines[i][0]} {currentLine++,4} {lines[i][1..]}", style);
+                        EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, codeLineHeight), $"{lines[i][0]} {currentLine++,4} {lines[i][1..]}", style);
                     currentOffset += codeLineHeight;
                 }
             }

@@ -145,7 +145,7 @@ namespace Abuksigun.MRGitUI
                 var module = PackageShortcuts.GetModule(status.ModuleGuid);
                 var visibleFiles = status.Files.Where(x => x.IsUnstaged && !staged || x.IsStaged && staged);
                 if (validStatuses.Count() > 1 && visibleFiles.Any())
-                    items.Add(new TreeViewItem(module.Guid.GetHashCode(), 0, module.Name));
+                    items.Add(new TreeViewItem(module.Guid.GetHashCode(), 0, module.DisplayName));
                 foreach (var file in visibleFiles)
                 {
                     var icon = AssetDatabase.GetCachedIcon(PackageShortcuts.GetUnityLogicalPath(file.FullPath));
@@ -170,7 +170,7 @@ namespace Abuksigun.MRGitUI
                     PushReloadAssembliesLock();
                     result = await command(module);
                     if (result.ExitCode != 0)
-                        EditorUtility.DisplayDialog($"Error in {module.Name}", $">> {result.Command}\n{commandLog.Where(x => x.Error).Select(x => x.Data).Join('\n')}", "Ok");
+                        EditorUtility.DisplayDialog($"Error in {module.DisplayName}", $">> {result.Command}\n{commandLog.Where(x => x.Error).Select(x => x.Data).Join('\n')}", "Ok");
                 }
                 finally
                 {
@@ -185,7 +185,7 @@ namespace Abuksigun.MRGitUI
             string tagName = "";
             string annotation = "";
 
-            await ShowModalWindow($"New Tag {hash?.WrapUp("In ", "")}", new Vector2Int(300, 150), (window) => {
+            await ShowModalWindow($"New Tag {hash?.WrapUp("In ", " commit")}", new Vector2Int(300, 150), (window) => {
                 GUILayout.Label("Tag Name: ");
                 tagName = EditorGUILayout.TextField(tagName);
                 GUILayout.Label("Annotation (optional): ");
@@ -194,7 +194,7 @@ namespace Abuksigun.MRGitUI
                 if (GUILayout.Button("Ok", GUILayout.Width(200)))
                 {
                     string message = string.IsNullOrEmpty(annotation) ? "" : $"-m \"{annotation}\"";
-                    _ = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.RunGit($"tag \"{tagName}\" {message} {hash}")));
+                    _ = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.CreateTag(tagName, message, hash)));
                     window.Close();
                 }
             });
@@ -205,6 +205,11 @@ namespace Abuksigun.MRGitUI
             return $"<color={status switch { 'U' => "red", '?' => "purple", 'M' or 'R' => "darkblue", _ => "black" }}>{status}</color>";
         }
 
+        public static string EscapeAngleBrackets(string str)
+        {
+            return str.Replace("<", "<\u200B");
+        }
+
         public static Module ModuleGuidToolbar(IReadOnlyList<Module> modules, string guid)
         {
             if (modules.Count == 0)
@@ -212,21 +217,29 @@ namespace Abuksigun.MRGitUI
             int tab = 0;
             for (int i = 0; i < modules.Count; i++)
                 tab = modules[i].Guid == guid ? i : tab;
-            tab = modules.Count() > 1 ? GUILayout.Toolbar(tab, modules.Select(x => x.Name).ToArray()) : 0;
+            tab = modules.Count() > 1 ? GUILayout.Toolbar(tab, modules.Select(x => x.DisplayName).ToArray()) : 0;
             return modules[tab];
         }
         
-        public static void DrawProcessLog(IReadOnlyList<Module> modules, ref string guid, Vector2 size)
+        public static void DrawProcessLog(IReadOnlyList<Module> modules, ref string guid, Vector2 size, Dictionary<string, int> localProcessIds = null)
         {
             if (modules.Count == 0)
                 return;
             var module = ModuleGuidToolbar(modules, guid);
             guid = module.Guid;
 
-            if (module.ProcessLog.Count == 0)
+            int localProcessId = int.MaxValue;
+            if (localProcessIds == null)
+                localProcessId = -1;
+            else
+                localProcessIds.TryGetValue(guid, out localProcessId);
+
+            var filteredProcessLog = localProcessId == -1 ? module.ProcessLog : module.ProcessLog.Where(x => x.LocalProcessId == localProcessId);
+
+            if (!filteredProcessLog.Any())
                 return;
 
-            int longestLine = module.ProcessLog.Max(x => x.Data.Length);
+            int longestLine = filteredProcessLog.Max(x => x.Data.Length);
             float maxWidth = Mathf.Max(Style.ProcessLog.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x);
 
             float topPanelHeight = modules.Count > 1 ? 20 : 0;
@@ -234,14 +247,14 @@ namespace Abuksigun.MRGitUI
             using (var scroll = new GUILayout.ScrollViewScope(logScrollPositions.GetValueOrDefault(module, Vector2.zero), false, false, GUILayout.Width(size.x)))
             {
                 const int lineHeight = 13;
-                int count = module.ProcessLog.Count();
                 int yOffset = (int)(scroll.scrollPosition.y / lineHeight);
                 GUILayout.Space(scroll.scrollPosition.y);
                 int linesVisible = (int)(size.y / lineHeight);
-                var allLines = module.ProcessLog.Skip(yOffset).Take(linesVisible).Select(x => x.Error ? x.Data.WrapUp("<color=red>", "</color>") : x.Data);
+                var allLines = filteredProcessLog.Skip(yOffset).Take(linesVisible)
+                    .Select(x => x.Error ? EscapeAngleBrackets(x.Data).WrapUp("<color=red>", "</color>") : EscapeAngleBrackets(x.Data));
                 string allData = allLines.Join('\n');
                 EditorGUILayout.TextArea(allData, Style.ProcessLog.Value, GUILayout.Height(linesVisible * lineHeight), GUILayout.Width(maxWidth));
-                GUILayout.Space((module.ProcessLog.Count() - linesVisible) * lineHeight - scroll.scrollPosition.y);
+                GUILayout.Space((filteredProcessLog.Count() - linesVisible) * lineHeight - scroll.scrollPosition.y);
                 logScrollPositions[module] = scroll.scrollPosition;
             }
         }
@@ -252,22 +265,19 @@ namespace Abuksigun.MRGitUI
             if (!EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", filesList, "Yes", "No"))
                 return;
             foreach (var pair in selectionPerModule)
-                foreach (var batch in PackageShortcuts.BatchFiles(pair.files))
-                    pair.module.RunGit($"checkout -q -- {batch}");
+                _ = pair.module.DiscardFiles(pair.files);
         }
 
         public static void Stage(IEnumerable<(Module module, string[] files)> selectionPerModule)
         {
             foreach (var pair in selectionPerModule)
-                foreach (var batch in PackageShortcuts.BatchFiles(pair.files))
-                    pair.module.RunGit($"add -f -- {batch}");
+                _ = pair.module.Stage(pair.files);
         }
 
         public static void Unstage(IEnumerable<(Module module, string[] files)> selectionPerModule)
         {
             foreach (var pair in selectionPerModule)
-                foreach (var batch in PackageShortcuts.BatchFiles(pair.files))
-                    pair.module.RunGit($"reset -q -- {batch}");
+                _ = pair.module.Unstage(pair.files);
         }
     }
 }

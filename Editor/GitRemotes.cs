@@ -12,7 +12,7 @@ namespace Abuksigun.MRGitUI
         const int LogHeight = 300;
 
         public enum Mode { Fetch, Pull, Push};
-        
+
         public static async void Invoke(Mode mode)
         {
             bool pushTags = false;
@@ -20,30 +20,30 @@ namespace Abuksigun.MRGitUI
             bool prune = false;
             
             var scrollPosition = Vector2.zero;
-            var tasks = new Dictionary<string, Task<CommandResult>>();
+            var tasks = new Dictionary<string, (int localProcessId, Task<CommandResult> task)>();
             string currentLogGuid = null;
 
             await GUIShortcuts.ShowModalWindow("Remotes", new Vector2Int(500, 400), (window) => {
                 var modules = PackageShortcuts.GetSelectedGitModules().ToArray();
 
-                using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x.Value != null && !x.Value.IsCompleted)))
+                using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x.Value.task != null && !x.Value.task.IsCompleted)))
                 using (new GUILayout.HorizontalScope())
                 {
                     if (mode == Mode.Fetch)
                     {
                         if (GUILayout.Button(new GUIContent($"Fetch {modules.Length} modules", EditorGUIUtility.IconContent("Refresh@2x").image), GUILayout.Width(150)))
-                            tasks = modules.ToDictionary(x => x.Guid, module => module.Fetch(prune));
+                            tasks = modules.ToDictionary(x => x.Guid, module => (PackageShortcuts.GetNextRunCommandProcessId(), module.Fetch(prune)));
                         prune = GUILayout.Toggle(prune, "Prune");
                     }
                     if (mode == Mode.Pull)
                     {
                         if (GUILayout.Button(new GUIContent($"Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image), GUILayout.Width(150)))
-                            tasks = modules.ToDictionary(x => x.Guid, module => module.Pull());
+                            tasks = modules.ToDictionary(x => x.Guid, module => (PackageShortcuts.GetNextRunCommandProcessId(), module.Pull()));
                     }
                     if (mode == Mode.Push)
                     {
                         if (GUILayout.Button(new GUIContent($"Push {modules.Length} modules", EditorGUIUtility.IconContent("Update-Available@2x").image), GUILayout.Width(150)))
-                            tasks = modules.ToDictionary(x => x.Guid, module => module.Push(pushTags, forcePush));
+                            tasks = modules.ToDictionary(x => x.Guid, module => (PackageShortcuts.GetNextRunCommandProcessId(), module.Push(pushTags, forcePush)));
                         pushTags = GUILayout.Toggle(pushTags, "Push tags");
                         forcePush = GUILayout.Toggle(forcePush, "Force push");
                     }
@@ -57,12 +57,12 @@ namespace Abuksigun.MRGitUI
                     {
                         using (new GUILayout.HorizontalScope())
                         {
-                            GUILayout.Label($"{module.Name} [{module.CurrentBranch.GetResultOrDefault()}]", GUILayout.Width(300));
+                            GUILayout.Label($"{module.DisplayName} [{module.CurrentBranch.GetResultOrDefault()}]", GUILayout.Width(300));
                             var task = tasks.GetValueOrDefault(module.Guid);
-                            if (task != null)
+                            if (task.task != null)
                             {
-                                string status = !task.IsCompleted ? "In progress"
-                                    : task.IsCompletedSuccessfully && task.Result.ExitCode == 0 ? "<color=green><b>Done</b></color>"
+                                string status = !task.task.IsCompleted ? "In progress"
+                                    : task.task.IsCompletedSuccessfully && task.task.Result.ExitCode == 0 ? "<color=green><b>Done</b></color>"
                                     : "<color=red><b>Errored</b></color>";
                                 GUILayout.Label(status, Style.RichTextLabel.Value, GUILayout.Width(100));
                             }
@@ -70,10 +70,10 @@ namespace Abuksigun.MRGitUI
                     }
                     scrollPosition = scroll.scrollPosition;
                 }
-                GUIShortcuts.DrawProcessLog(modules, ref currentLogGuid, new Vector2(window.position.width, LogHeight));
+                GUIShortcuts.DrawProcessLog(modules, ref currentLogGuid, new Vector2(window.position.width, LogHeight), tasks?.ToDictionary(x => x.Key, x => x.Value.localProcessId));
             });
 
-            await Task.WhenAll(tasks.Select(x => x.Value).Where(x => x != null));
+            await Task.WhenAll(tasks.Select(x => x.Value.task).Where(x => x != null));
         }
     }
 }

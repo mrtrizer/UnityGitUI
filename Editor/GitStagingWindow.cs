@@ -15,7 +15,7 @@ namespace Abuksigun.MRGitUI
         [MenuItem("Assets/Git Staging", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
         [MenuItem("Window/Git GUI/Staging")]
-        [MenuItem("Assets/Git Staging", priority = 100)]
+        [MenuItem("Assets/Git/Staging", priority = 100)]
         public static async void Invoke()
         {
             if (EditorWindow.GetWindow<GitStagingWindow>() is { } window && window)
@@ -72,7 +72,7 @@ namespace Abuksigun.MRGitUI
                     {
                         tasksInProgress.AddRange(moduleNotInMergeState.Select(module => {
                             var files = module.GitStatus.GetResultOrDefault().Files.Where(x => x.IsStaged).Select(x => x.FullPath);
-                            return module.RunGit($"stash push -m {commitMessage.WrapUp()} -- {PackageShortcuts.JoinFileNames(files)}");
+                            return module.Stash(commitMessage, files);
                         }));
                         commitMessage = "";
                     }
@@ -80,12 +80,12 @@ namespace Abuksigun.MRGitUI
                 if (modulesInMergingState.Any() && GUILayout.Button($"Commit merge in {modulesInMergingState.Count()}/{modules.Count} modules", GUILayout.Width(200))
                     && EditorUtility.DisplayDialog($"Are you sure you want COMMIT merge?", "It will be default commit message for each module. You can't change it!", "Yes", "No"))
                 {
-                    tasksInProgress.AddRange(modules.Select(module => module.RunGit($"commit --no-edit")));
+                    tasksInProgress.AddRange(modules.Select(module => module.Commit()));
                 }
                 if (modulesInMergingState.Any() && GUILayout.Button($"Abort merge in {modulesInMergingState.Count()}/{modules.Count} modules", GUILayout.Width(200))
-                    && EditorUtility.DisplayDialog($"Are you sure you want ABORT merge?", modulesInMergingState.Select(x => x.Name).Join(", "), "Yes", "No"))
+                    && EditorUtility.DisplayDialog($"Are you sure you want ABORT merge?", modulesInMergingState.Select(x => x.DisplayName).Join(", "), "Yes", "No"))
                 {
-                    tasksInProgress.AddRange(modules.Select(module => module.RunGit($"merge --abort")));
+                    tasksInProgress.AddRange(modules.Select(module => module.AbortMerge()));
                 }
             }
             GUILayout.Space(20);
@@ -103,7 +103,7 @@ namespace Abuksigun.MRGitUI
             {
                 var size = new Vector2((position.width - MiddlePanelWidth) / 2, position.height - TopPanelHeight);
                 
-                treeViewUnstaged.Draw(size, statuses, (int id) => ShowContextMenu(modules, unstagedSelection));
+                treeViewUnstaged.Draw(size, statuses, (int id) => ShowContextMenu(modules, unstagedSelection.ToList()));
                 using (new GUILayout.VerticalScope())
                 {
                     GUILayout.Space(50);
@@ -118,13 +118,13 @@ namespace Abuksigun.MRGitUI
                         treeViewStateStaged.selectedIDs.Clear();
                     }
                 }
-                treeViewStaged.Draw(size, statuses, (int id) => ShowContextMenu(modules, stagedSelection));
+                treeViewStaged.Draw(size, statuses, (int id) => ShowContextMenu(modules, stagedSelection.ToList()));
             }
 
             base.OnGUI();
         }
 
-        static void ShowContextMenu(IEnumerable<Module> modules, IEnumerable<FileStatus> files)
+        static void ShowContextMenu(IEnumerable<Module> modules, List<FileStatus> files)
         {
             if (!files.Any())
                 return;
@@ -160,23 +160,23 @@ namespace Abuksigun.MRGitUI
 
             if (files.Any(x => x.IsUnresolved))
             {
-                Dictionary<Module, string> conflictedFilesList = modules.ToDictionary(
-                module => module,
-                module => PackageShortcuts.JoinFileNames(files.Where(x => x.IsUnresolved && x.ModuleGuid == module.Guid).Select(x => x.FullPath)));
-                string message = conflictedFilesList.Select(x => x.Value).Join('\n');
+                Dictionary<Module, IEnumerable<string>> conflictedFilesList = modules.ToDictionary(
+                    module => module,
+                    module => files.Where(x => x.IsUnresolved && x.ModuleGuid == module.Guid).Select(x => x.FullPath));
+                string message = conflictedFilesList.SelectMany(x => x.Value).Join('\n');
                 menu.AddSeparator("");
                 menu.AddItem(new GUIContent("Take Ours"), false, () => {
                     if (EditorUtility.DisplayDialog($"Do you want to take OURS changes (git checkout --ours --)", message, "Yes", "No"))
                     {
                         foreach (var module in modules)
-                            module.RunGit($"checkout --ours  -- {conflictedFilesList[module]}");
+                            _ = module.TakeOurs(conflictedFilesList[module]);
                     }
                 });
                 menu.AddItem(new GUIContent("Take Theirs"), false, () => {
                     if (EditorUtility.DisplayDialog($"Do you want to take THEIRS changes (git checkout --theirs --)", message, "Yes", "No"))
                     {
                         foreach (var module in modules)
-                            module.RunGit($"checkout --theirs  -- {conflictedFilesList[module]}");
+                            _ = module.TakeTheirs(conflictedFilesList[module]);
                     }
                 });
             }
@@ -185,7 +185,11 @@ namespace Abuksigun.MRGitUI
                 if (EditorUtility.DisplayDialog($"Are you sure you want DELETE these files", selection.Join('\n'), "Yes", "No"))
                 {
                     foreach (var file in files)
+                    {
                         File.Delete(file.FullPath);
+                        PackageShortcuts.GetModule(file.ModuleGuid).RefreshFilesStatus();
+                        AssetDatabase.Refresh();
+                    }
                 }
             });
             menu.ShowAsContext();

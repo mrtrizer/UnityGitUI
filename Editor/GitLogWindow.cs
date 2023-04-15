@@ -14,10 +14,10 @@ namespace Abuksigun.MRGitUI
 {
     public static class GitLog
     {
-        [MenuItem("Assets/Git Log", true)]
+        [MenuItem("Assets/Git/Log", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
         [MenuItem("Window/Git GUI/Log")]
-        [MenuItem("Assets/Git Log", priority = 100)]
+        [MenuItem("Assets/Git/Log", priority = 100)]
         public static void Invoke() 
         {
             if (EditorWindow.GetWindow<GitLogWindow>() is { } window && window)
@@ -134,7 +134,7 @@ namespace Abuksigun.MRGitUI
             if (module == null)
                 return;
             guid = module.Guid;
-            var log = (ShowStash ? module.Stash : module.LogFiles(LogFiles)).GetResultOrDefault();
+            var log = (ShowStash ? module.Stashes : module.LogFiles(LogFiles)).GetResultOrDefault();
             if (log == null)
                 return;
             if (log != lastLog)
@@ -312,7 +312,7 @@ namespace Abuksigun.MRGitUI
                 var contextMenuname = reference.QualifiedName.Replace("/", "\u2215");
                 menu.AddItem(new GUIContent($"Checkout/{contextMenuname}"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want CHECKOUT to COMMIT", reference.QualifiedName, "Yes", "No"))
-                        _ = module.RunGit($"checkout {reference.QualifiedName}");
+                        _ = module.Checkout(reference.QualifiedName);
                 });
                 menu.AddItem(new GUIContent($"Reset Soft/{contextMenuname}"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want RESET to COMMIT", reference.QualifiedName, "Yes", "No"))
@@ -335,11 +335,11 @@ namespace Abuksigun.MRGitUI
             menu.AddItem(new GUIContent("Diff"), false, () => GitDiff.ShowDiff());
             menu.AddItem(new GUIContent($"Revert to this commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
-                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.RunGit($"checkout {selectedCommit} -- {PackageShortcuts.JoinFileNames(filePaths)}"));
+                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.RevertFiles(selectedCommit, filePaths));
             });
             menu.AddItem(new GUIContent($"Revert to previous commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
-                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.RunGit($"checkout {selectedCommit}~1 -- {PackageShortcuts.JoinFileNames(filePaths)}"));
+                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.RevertFiles($"{selectedCommit}~1", filePaths));
             });
             menu.ShowAsContext();
         }

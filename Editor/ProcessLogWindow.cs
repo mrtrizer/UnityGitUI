@@ -21,10 +21,10 @@ namespace Abuksigun.MRGitUI
 
     public static class ProcessLog
     {
-        [MenuItem("Assets/Process Log", true)]
+        [MenuItem("Window/Git GUI/Process Log", true)]
         public static bool Check() => PackageShortcuts.GetSelectedModules().Any();
 
-        [MenuItem("Assets/Process Log")]
+        [MenuItem("Window/Git GUI/Process Log")]
         public static void Invoke()
         {
             var window = ScriptableObject.CreateInstance<ProcessLogWindow>();

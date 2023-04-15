@@ -34,7 +34,6 @@ namespace Abuksigun.MRGitUI
                 textColor = Color.white,
                 background = GetColorTexture(new Color(0.2f, 0.2f, 0.2f))
             },
-            richText = false,
             font = MonospacedFont.Value,
             fontSize = 10
         });

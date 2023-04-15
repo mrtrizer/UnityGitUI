@@ -2,9 +2,13 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditor.PackageManager;
+using UnityEditorInternal;
 using UnityEngine;
 using DataReceivedEventArgs = System.Diagnostics.DataReceivedEventArgs;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
@@ -15,6 +19,8 @@ namespace System.Runtime.CompilerServices { class IsExternalInit { } }
 
 namespace Abuksigun.MRGitUI
 {
+    using static Const;
+
     public struct IOData
     {
         public string Data { get; set; }
@@ -41,6 +47,14 @@ namespace Abuksigun.MRGitUI
         [field: SerializeField]
         public string LastCommit { get; set; } = null;
         public override int GetHashCode() => HashCode.Combine(ModuleGuid, Module.RefreshTimestamp, FullPath, Staged, FirstCommit, LastCommit);
+    }
+
+    public record PackageDirectory(string Path, string Name);
+
+    [System.Serializable]
+    struct PackageJson
+    {
+        public string name;
     }
 
     public class PackageShortcuts : ScriptableSingleton<PackageShortcuts>
@@ -132,9 +146,20 @@ namespace Abuksigun.MRGitUI
             return GetSelectedModules().Where(x => x.IsGitRepo.GetResultOrDefault());
         }
 
+        public static Module FindModuleContainingPath(string path)
+        {
+            string normalizedPath = GetFullPathFromUnityLogicalPath(path);
+            return modules.Values.Where(x => x != null).OrderByDescending(x => x.ProjectDirPath.Length).FirstOrDefault(x => normalizedPath.Contains(x.ProjectDirPath));
+        }
+
         public static string GetFullPathFromGuid(string guid)
         {
-            string physicalPath = FileUtil.GetPhysicalPath(AssetDatabase.GUIDToAssetPath(guid));
+            return GetFullPathFromUnityLogicalPath(AssetDatabase.GUIDToAssetPath(guid));
+        }
+
+        public static string GetFullPathFromUnityLogicalPath(string logicalPath)
+        {
+            string physicalPath = FileUtil.GetPhysicalPath(logicalPath);
             return !string.IsNullOrEmpty(physicalPath) ? Path.GetFullPath(physicalPath).NormalizeSlashes() : null;
         }
 
@@ -189,6 +214,11 @@ namespace Abuksigun.MRGitUI
                 yield return JoinFileNames(batch);
         }
 
+        public static int GetNextRunCommandProcessId()
+        {
+            return instance.lastLocalProcessId + 1;
+        }
+
         public static (int localProcessId, Task<CommandResult> task) RunCommand(string workingDir, string command, string args, Func<Process, IOData, bool> dataHandler = null)
         {
             var tcs = new TaskCompletionSource<CommandResult>();
@@ -235,6 +265,34 @@ namespace Abuksigun.MRGitUI
                 if (args.Data != null && (dataHandler?.Invoke(process, new IOData { Data = args.Data, Error = error, LocalProcessId = localProcessId }) ?? true))
                     stringBuilder.AppendLine(args.Data);
             }
+        }
+
+        public static IEnumerable<PackageDirectory> ListLocalPackageDirectories()
+        {
+            var searchDirPaths = PlayerPrefs.GetString(PluginSettingsProvider.LocalRepoPathsKey, "").Split(',', RemoveEmptyEntries)
+                .Select(x => x.Trim())
+                .Where(x => Directory.Exists(x));
+
+            var allDirs = searchDirPaths
+                .SelectMany(x => Directory.EnumerateDirectories(x))
+                .Distinct()
+                .Select(x => Path.GetFullPath(x));
+
+            var additionalSearchDirs = new HashSet<string>();
+            var packages = PackageInfo.GetAllRegisteredPackages();
+            foreach (var package in packages)
+            {
+                if (package.source == PackageSource.Git)
+                {
+                    var match = Regex.Match(package.packageId, @"\?path=(.*?)(#|$)");
+                    if (match.Success)
+                        additionalSearchDirs.Add(match.Groups[1].Value);
+                }
+            }
+
+            return allDirs.SelectMany(dir => additionalSearchDirs.Select(x => Path.Join(dir, x)).Append(dir))
+                .Where(x => File.Exists(Path.Join(x, "package.json")))
+                .Select(x => new PackageDirectory(x, JsonUtility.FromJson<PackageJson>(File.ReadAllText(Path.Join(x, "package.json"))).name));
         }
     }
 }
