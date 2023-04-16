@@ -23,7 +23,7 @@ namespace Abuksigun.MRGitUI
         }
         public static string WrapUp(this string self, string wrapLeft = "\"", string wrapRight = null)
         {
-            return wrapLeft + self + wrapRight ?? wrapLeft;
+            return wrapLeft + self + (wrapRight ?? wrapLeft);
         }
         public static string[] SplitLines(this string self)
         {
