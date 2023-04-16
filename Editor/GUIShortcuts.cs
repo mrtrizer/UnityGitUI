@@ -152,7 +152,7 @@ namespace Abuksigun.MRGitUI
                     var icon = AssetDatabase.GetCachedIcon(PackageShortcuts.GetUnityLogicalPath(file.FullPath));
                     if (!icon)
                         icon = EditorGUIUtility.IconContent("DefaultAsset Icon").image;
-                    string relativePath = Path.GetRelativePath(module.GitRepoPath.GetResultOrDefault(), file.FullPath);
+                    string relativePath = Path.GetRelativePath(module.PhysicalPath, file.FullPath);
                     var numStat = staged ? file.StagedNumStat : file.UnstagedNumStat;
                     var content = $"{(staged ? file.X : file.Y)} {relativePath}{file.OldName?.WrapUp(" (", ")")} +{numStat.Added} -{numStat.Removed} ";
                     items.Add(new TreeViewItem(file.FullPath.GetHashCode(), validStatuses.Count() > 1 ? 1 : 0, content) { icon = icon as Texture2D });

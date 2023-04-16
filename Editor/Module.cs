@@ -60,13 +60,14 @@ namespace Abuksigun.MRGitUI
 
         List<IOData> processLog = new();
         List<IOData> processLogConcurent = new();
-        //FileSystemWatcher fsWatcher;
+        bool IsLinkedPackage { get; }
 
         public string Guid { get; }
         public string DisplayName { get; }
         public string Name { get; }
         public string LogicalPath { get; }
-        public string PhysicalPath => Path.GetFullPath(FileUtil.GetPhysicalPath(LogicalPath)).NormalizeSlashes();
+        public string PhysicalPath { get; }
+        public string UnreferencedPath { get; } // For case when package is referenced by symbolic link it will show where symlink points
         public string ProjectDirPath => PhysicalPath == Application.dataPath ? Directory.GetParent(PhysicalPath).FullName.NormalizeSlashes() : PhysicalPath;
         public PackageInfo PackageInfo { get; }
         public Task<bool> IsGitRepo => isGitRepo ??= GetIsGitRepo();
@@ -88,6 +89,9 @@ namespace Abuksigun.MRGitUI
         {
             Guid = guid;
             string path = LogicalPath = AssetDatabase.GUIDToAssetPath(guid);
+            PhysicalPath = Path.GetFullPath(FileUtil.GetPhysicalPath(LogicalPath)).NormalizeSlashes();
+            UnreferencedPath = SymLinkUtils.ResolveLink(PhysicalPath);
+            IsLinkedPackage = SymLinkUtils.IsLink(PhysicalPath);
             PackageInfo = PackageInfo.FindForAssetPath(path);
             DisplayName = PackageInfo?.displayName ?? Application.productName;
             Name = PackageInfo?.name ?? Application.productName;
@@ -117,6 +121,11 @@ namespace Abuksigun.MRGitUI
                 lock (processLogConcurent)
                     processLog = processLogConcurent.ToList();
             return processLog;
+        }
+        public string GetLinkRelativePath(string fullPath)
+        {
+            // This method makes unreferenced path (that git returns) relative to symbolic link
+            return IsLinkedPackage ? fullPath.NormalizeSlashes().Replace(UnreferencedPath, PhysicalPath) : fullPath;
         }
         public Task<string> FileDiff(GitFileReference logFileReference)
         {
@@ -274,7 +283,7 @@ namespace Abuksigun.MRGitUI
                 string[] paths = line[2..].Split(new[] { " ->", "\t" }, RemoveEmptyEntries);
                 string path = paths[paths.Length - 1].Trim();
                 string oldPath = paths.Length > 1 ? paths[paths.Length - 2].Trim() : null;
-                string fullPath = Path.Join(gitRepoPath, path.Trim('"')).NormalizeSlashes();
+                string fullPath = GetLinkRelativePath(Path.Join(gitRepoPath, path.Trim('"')).NormalizeSlashes());
                 return new FileStatus(Guid, fullPath, oldPath, X: line[0], Y: line[1], numStatUnstaged.GetValueOrDefault(path), numStatStaged.GetValueOrDefault(path));
             }).ToArray();
         }

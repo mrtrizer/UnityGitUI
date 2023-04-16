@@ -31,7 +31,7 @@ namespace Abuksigun.MRGitUI
         const int TopPanelHeight = 130;
         const int MiddlePanelWidth = 40;
 
-        record Selection(ListState Unstaged, ListState Staged);
+        record FilesSelection(ListState Unstaged, ListState Staged);
 
         TreeViewState treeViewStateUnstaged = new();
         LazyTreeView<GitStatus> treeViewUnstaged;
@@ -40,7 +40,7 @@ namespace Abuksigun.MRGitUI
         string commitMessage = "";
         string guid = null;
         List<Task<CommandResult>> tasksInProgress = new ();
-        Dictionary<Module, Selection> selectionPerModule = new ();
+        Dictionary<Module, FilesSelection> selectionPerModule = new ();
 
         protected override void OnGUI()
         {
@@ -103,7 +103,7 @@ namespace Abuksigun.MRGitUI
             {
                 var size = new Vector2((position.width - MiddlePanelWidth) / 2, position.height - TopPanelHeight);
                 
-                treeViewUnstaged.Draw(size, statuses, (int id) => ShowContextMenu(modules, unstagedSelection.ToList()));
+                treeViewUnstaged.Draw(size, statuses, (int id) => ShowContextMenu(modules, unstagedSelection.ToList()), SelectAsset);
                 using (new GUILayout.VerticalScope())
                 {
                     GUILayout.Space(50);
@@ -118,10 +118,21 @@ namespace Abuksigun.MRGitUI
                         treeViewStateStaged.selectedIDs.Clear();
                     }
                 }
-                treeViewStaged.Draw(size, statuses, (int id) => ShowContextMenu(modules, stagedSelection.ToList()));
+                treeViewStaged.Draw(size, statuses, (int id) => ShowContextMenu(modules, stagedSelection.ToList()), SelectAsset);
             }
 
             base.OnGUI();
+        }
+
+        static void SelectAsset(int id)
+        {
+            var statuses = PackageShortcuts.GetSelectedGitModules().Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
+            var selectedAsset = statuses.SelectMany(x => x.Files).FirstOrDefault(x => x.FullPath.GetHashCode() == id);
+            if (selectedAsset != null)
+            {
+                string logicalPath = FileUtil.GetProjectRelativePath(selectedAsset.FullPath);
+                Selection.objects = new[] { AssetDatabase.LoadAssetAtPath<Object>(logicalPath) };
+            }
         }
 
         static void ShowContextMenu(IEnumerable<Module> modules, List<FileStatus> files)
