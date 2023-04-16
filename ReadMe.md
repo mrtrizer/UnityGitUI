@@ -45,3 +45,5 @@ This tool is useful even if you have a single repository and use another GitUI a
 - **Extentions support**
 - **Adding new commands without coding**
 - **Git LFS features**
+- **Submidules automation**
+- **Support for repositories inside Assets directory**
