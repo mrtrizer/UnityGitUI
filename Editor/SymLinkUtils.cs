@@ -88,14 +88,14 @@ public static class SymLinkUtils
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
         CreateJunction(linkDirPath, sourceDirPath);
 #else
-            [DllImport("libc", SetLastError = true)]
-            static extern int symlink(string path1, string path2);
+        [DllImport("libc", SetLastError = true)]
+        static extern int symlink(string path1, string path2);
 
-            if (symlink(sourceFilePath, symbolicLinkPath) != 0)
-            {
-                string errorMessage = GetUnixErrorMessage(Marshal.GetLastWin32Error());
-                throw new Exception($"Error creating symbolic link: {errorMessage}");
-            }
+        if (symlink(sourceDirPath, linkDirPath) != 0)
+        {
+            string errorMessage = GetUnixErrorMessage(Marshal.GetLastWin32Error());
+            throw new Exception($"Error creating symbolic link: {errorMessage}");
+        }
 #endif
     }
 
@@ -191,7 +191,7 @@ public static class SymLinkUtils
     private static string GetUnixErrorMessage(int errorCode)
     {
         [DllImport("libc")]
-        private static extern IntPtr strerror(int errnum);
+        static extern IntPtr strerror(int errnum);
 
         IntPtr errorMsgPtr = strerror(errorCode);
         return Marshal.PtrToStringAnsi(errorMsgPtr);
