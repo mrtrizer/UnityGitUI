@@ -17,7 +17,7 @@ namespace Abuksigun.MRGitUI
         public static bool PullCheck() => PackageShortcuts.GetSelectedGitModules().Any();
 
         [MenuItem("Assets/Git Pull", priority = 100)]
-        public static void PullInvoke() => ShowRemotesSyncWindow(Mode.Push);
+        public static void PullInvoke() => ShowRemotesSyncWindow(Mode.Pull);
         [MenuItem("Assets/Git Push", true)]
         public static bool PushCheck() => PackageShortcuts.GetSelectedGitModules().Any();
 
