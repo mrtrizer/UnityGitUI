@@ -13,14 +13,17 @@ Tested with Git 2.38.1 + Unity 2021.3.10f1
 4. **Branches** window also has a bottom panel with quick access buttons to **Fetch/Pull/Push** and **Staging/Log/Stash**
 5. Use **Process Log** window to see what actual commands does MR Git UI run on your repo
 
+That's how my layout looks:
+![Screenshot](Docs~/Staging.png)
+
 ## Features ##
 The primary goal of this project is to optimize the workflow for both artists and programmers.
 
 This tool is useful even if you have a single repository and use another GitUI alongside it. But it really shines when you have multiple repositories, submodules, own packages etc. It is designed with performance and extensibility in mind. This plugin does not rely on undocumented features (just a little, really), it's code is mostly straightforward.
 
-![Screenshot](Docs~/Staging.png)
+![Screenshot](Docs~/GitLog.png)
 
-Features for multiple repos:
+### Features for multiple repos ###
 - **Manage branches, tags, and stash**
 - **Stage and Commit**
 - **Merge** (choose theirs/mine)
@@ -31,14 +34,12 @@ Features for multiple repos:
     - Show file statuses and highlight directories containing modified files
 - (WIP) Link Package as local repo. Allows cloning the Git package and creating symbolic links to it. It uses junctions on Windows (works only with NTFS)
 
-![Screenshot](Docs~/GitLog.png)
-
-Features working only for selected repo:
+### Features working only for selected repo ###
 - (WIP) **View visual git log**
 - Configure **Remote settings**
 - View **Process Log**, showing the exact git commands executed and their output
 
-Not implemented yet:
+### Not implemented yet ###
 - **Hunks managment**
 - **Blame**
 - **Extentions support**
