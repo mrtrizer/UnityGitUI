@@ -174,6 +174,8 @@ namespace Abuksigun.MRGitUI
 
         public static AssetGitInfo GetAssetGitInfo(string guid)
         {
+            if (guid == null)
+                return null;
             var gitModules = GetGitModules();
             string filePath = GetFullPathFromGuid(guid);
             if (string.IsNullOrEmpty(filePath))

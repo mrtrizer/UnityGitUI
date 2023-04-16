@@ -31,7 +31,7 @@ namespace Abuksigun.MRGitUI
                 if (packageDir == null)
                     packagesToClone.Add(module.PackageInfo);
                 else
-                    SwitchToLocal(module.Name, packageDir);
+                    SwitchToLocal(module.Name, packageDir.Path);
             }
             if (packagesToClone.Count > 0)
             {
@@ -66,30 +66,40 @@ namespace Abuksigun.MRGitUI
         static Task ShowCloneWindow(List<PackageInfo> packagesToClone)
         {
             Vector2 scrollPosition = default;
-            var packageStatus = new Dictionary<string, (string url, string clonePath, string branch, Task<CommandResult> task, List<IOData> log)>();
-            return GUIShortcuts.ShowModalWindow("Clone Local Repo", new Vector2Int(400, 200), (window) => {
+            var packageStatus = new Dictionary<string, (string url, string clonePath, string branch, Task<CommandResult> task, List<IOData> log, bool linked)>();
+            return GUIShortcuts.ShowModalWindow("Clone Local Repo", new Vector2Int(700, 600), (window) => {
                 using (new GUILayout.ScrollViewScope(scrollPosition, GUILayout.Width(window.position.width), GUILayout.Height(window.position.height - 20)))
                 {
+                    EditorGUILayout.LabelField("Packages below can't be found in search directories and need to be cloned!");
+                    EditorGUILayout.LabelField("If they were previously cloned, make sure, you have defined search dir in Preferences/External Tools/Git UI");
+                    EditorGUILayout.LabelField($"Current list of search directories: {PluginSettingsProvider.LocalRepoPaths}");
+                    EditorGUILayout.Space(10);
                     foreach (var package in packagesToClone)
                     {
                         var match = Regex.Match(package.packageId, @"@(.*?)(\?.*#|\?.*|#|$)(.*)?");
                         string url = match.Groups[1].Value;
                         string branch = match.Groups[3].Success && !string.IsNullOrEmpty(match.Groups[3].Value) ? match.Groups[3].Value : "master";
                         string searchDirectory = PackageShortcuts.GetPackageSearchDirectories().FirstOrDefault() ?? "../";
-                        string clonePath = Path.Combine(searchDirectory, package.displayName);
-                        var status = packageStatus.GetValueOrDefault(package.name, (url, clonePath, branch, null, new(128)));
-                        EditorGUILayout.LabelField($"{package.name} url:{url} branch:{branch}");
+                        string clonePath = Path.GetFullPath(Path.Combine(searchDirectory, package.displayName));
+                        var status = packageStatus.GetValueOrDefault(package.name, (url, clonePath, branch, null, new(128), false));
+                        EditorGUILayout.LabelField($"<b>{package.name}</b>", Style.RichTextLabel.Value);
+                        status.url = EditorGUILayout.TextField("Url", status.url);
                         status.clonePath = EditorGUILayout.TextField("Clone Directory", status.clonePath);
                         status.branch = EditorGUILayout.TextField("Branch", status.branch);
                         if (status.task != null)
                         {
                             EditorGUILayout.LabelField(
-                                  status.task.IsFaulted ? "Errored"
-                                : status.task.IsCompleted && status.task.Result.ExitCode == 0 ? "Completed"
-                                : status.task.IsCompleted && status.task.Result.ExitCode != 0 ? $"Errored Code {status.task.Result.ExitCode}"
-                                : "Cloning...");
+                                  status.task.IsFaulted ? "<b><color=red>Errored</color></b>"
+                                : status.task.IsCompleted && status.task.Result.ExitCode == 0 ? "<b><color=green>Completed</color></b>"
+                                : status.task.IsCompleted && status.task.Result.ExitCode != 0 ? $"<b><color=red>Errored Code {status.task.Result.ExitCode}</color></b>"
+                                : "<b><color=yellow>Cloning...</color></b>", Style.RichTextLabel.Value);
                             lock (status.log)
                                 GUIShortcuts.DrawProcessLog(package.packageId, new Vector2(window.position.width, 100), status.log);
+                            if (status.task.IsCompleted && status.task.Result.ExitCode == 0 && !status.linked)
+                            {
+                                status.linked = true;
+                                SwitchToLocal(package.name, status.clonePath);
+                            }
                         }
                         packageStatus[package.name] = status;
                     }
@@ -115,10 +125,10 @@ namespace Abuksigun.MRGitUI
             return true;
         }
 
-        public static void SwitchToLocal(string packageName, PackageDirectory packageDir)
+        public static void SwitchToLocal(string packageName, string localDirPath)
         {
             string linkPath = Path.Join("Packages", packageName);
-            SymLinkUtils.CreateDirectoryLink(packageDir.Path, linkPath);
+            SymLinkUtils.CreateDirectoryLink(localDirPath, linkPath);
             File.WriteAllLines(ExcludeFilePath, File.ReadAllLines(ExcludeFilePath, Encoding.UTF8).Append(linkPath.NormalizeSlashes()).Distinct());
         }
 
