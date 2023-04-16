@@ -72,9 +72,9 @@ namespace Abuksigun.MRGitUI
                 {
                     foreach (var package in packagesToClone)
                     {
-                        var match = Regex.Match(package.packageId, @"@(.*?)(\?.*#|\?|#|$)(.*)");
+                        var match = Regex.Match(package.packageId, @"@(.*?)(\?.*#|\?.*|#|$)(.*)?");
                         string url = match.Groups[1].Value;
-                        string branch = match.Groups.Count > 2 ? match.Groups[3].Value : "master";
+                        string branch = match.Groups[3].Success && !string.IsNullOrEmpty(match.Groups[3].Value) ? match.Groups[3].Value : "master";
                         string searchDirectory = PackageShortcuts.GetPackageSearchDirectories().FirstOrDefault() ?? "../";
                         string clonePath = Path.Combine(searchDirectory, package.displayName);
                         var status = packageStatus.GetValueOrDefault(package.name, (url, clonePath, branch, null, new(128)));
@@ -101,7 +101,7 @@ namespace Abuksigun.MRGitUI
                         var status = packageStatus[packageName];
                         string args = $"clone -b {status.branch} {status.url} {status.clonePath.WrapUp()}";
                         status.task = PackageShortcuts.RunCommand(Directory.GetCurrentDirectory(), "git", args, (_, data) => HandleCloneOutput(data, status.log)).task;
-                        Debug.Log($"git clone -b {status.branch} {status.clonePath}");
+                        status.log.Add(new IOData { Data = $">> git {args}" });
                         packageStatus[packageName] = status;
                     }
                 }
