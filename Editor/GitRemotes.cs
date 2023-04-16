@@ -81,7 +81,7 @@ namespace Abuksigun.MRGitUI
                     }
                     scrollPosition = scroll.scrollPosition;
                 }
-                GUIShortcuts.DrawProcessLog(modules, ref currentLogGuid, new Vector2(window.position.width, LogHeight), tasks?.ToDictionary(x => x.Key, x => x.Value.localProcessId));
+                GUIShortcuts.DrawProcessLogs(modules, ref currentLogGuid, new Vector2(window.position.width, LogHeight), tasks?.ToDictionary(x => x.Key, x => x.Value.localProcessId));
             });
 
             await Task.WhenAll(tasks.Select(x => x.Value.task).Where(x => x != null));

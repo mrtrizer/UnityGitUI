@@ -222,7 +222,7 @@ namespace Abuksigun.MRGitUI
             return modules[tab];
         }
         
-        public static void DrawProcessLog(IReadOnlyList<Module> modules, ref string guid, Vector2 size, Dictionary<string, int> localProcessIds = null)
+        public static void DrawProcessLogs(IReadOnlyList<Module> modules, ref string guid, Vector2 size, Dictionary<string, int> localProcessIds = null)
         {
             if (modules.Count == 0)
                 return;
@@ -236,15 +236,17 @@ namespace Abuksigun.MRGitUI
                 localProcessIds.TryGetValue(guid, out localProcessId);
 
             var filteredProcessLog = localProcessId == -1 ? module.ProcessLog : module.ProcessLog.Where(x => x.LocalProcessId == localProcessId);
+            DrawProcessLog(guid, size, filteredProcessLog);
+        }
 
+        public static void DrawProcessLog(string guid, Vector2 size, IEnumerable<IOData> filteredProcessLog)
+        {
             if (!filteredProcessLog.Any())
                 return;
 
             int longestLine = filteredProcessLog.Max(x => x.Data.Length);
             float maxWidth = Mathf.Max(Style.ProcessLog.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x);
 
-            float topPanelHeight = modules.Count > 1 ? 20 : 0;
-            var scrollHeight = GUILayout.Height(size.y - topPanelHeight);
             using (var scroll = new GUILayout.ScrollViewScope(logScrollPositions.GetValueOrDefault(guid, Vector2.zero), false, false, GUILayout.Width(size.x)))
             {
                 const int lineHeight = 13;

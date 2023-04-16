@@ -14,7 +14,7 @@ namespace Abuksigun.MRGitUI
             var modules = PackageShortcuts.GetSelectedModules().ToList();
             if (!modules.Any())
                 return;
-            GUIShortcuts.DrawProcessLog(modules, ref guid, position.size);
+            GUIShortcuts.DrawProcessLogs(modules, ref guid, position.size);
             base.OnGUI();
         }
     }
