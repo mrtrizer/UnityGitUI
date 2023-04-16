@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -257,6 +258,18 @@ namespace Abuksigun.MRGitUI
                 GUILayout.Space((filteredProcessLog.Count() - linesVisible) * lineHeight - scroll.scrollPosition.y);
                 logScrollPositions[guid] = scroll.scrollPosition;
             }
+        }
+
+        public static void OpenFiles(IEnumerable<string> filePaths)
+        {
+            foreach (var filePath in filePaths)
+                Process.Start(new ProcessStartInfo { FileName = filePath, UseShellExecute = true });
+        }
+
+        public static void BrowseFiles(IEnumerable<string> filePaths)
+        {
+            foreach (var dirPath in filePaths.Select(x => Path.GetDirectoryName(x)).Distinct())
+                Process.Start(new ProcessStartInfo { FileName = dirPath, UseShellExecute = true });
         }
 
         public static void DiscardFiles(IEnumerable<(Module module, string[] files)> selectionPerModule)

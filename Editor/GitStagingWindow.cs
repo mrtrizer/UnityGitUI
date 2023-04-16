@@ -132,7 +132,10 @@ namespace Abuksigun.MRGitUI
             var menu = new GenericMenu();
             var indexedSelectionPerModule = modules.Select(module => 
                 (module, files: files.Where(x => x.IsInIndex && x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray()));
-            
+
+            menu.AddItem(new GUIContent("Open"), false, () => GUIShortcuts.OpenFiles(files.Select(x => x.FullPath)));
+            menu.AddItem(new GUIContent("Browse"), false, () => GUIShortcuts.BrowseFiles(files.Select(x => x.FullPath)));
+
             if (files.Any(x => x.IsInIndex))
             {
                 menu.AddItem(new GUIContent("Diff"), false, () => {
