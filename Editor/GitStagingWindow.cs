@@ -91,8 +91,10 @@ namespace Abuksigun.MRGitUI
             GUILayout.Space(20);
 
             var statuses = modules.Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
-            var unstagedSelection = statuses.SelectMany(x => x.Files).Where(x => treeViewUnstaged.HasFocus() && treeViewStateUnstaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
-            var stagedSelection = statuses.SelectMany(x => x.Files).Where(x => treeViewStaged.HasFocus() && treeViewStateStaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
+            var unstagedSelection = statuses.SelectMany(x => x.Files)
+                .Where(x => treeViewUnstaged.HasFocus() && treeViewStateUnstaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
+            var stagedSelection = statuses.SelectMany(x => x.Files)
+                .Where(x => treeViewStaged.HasFocus() && treeViewStateStaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
             if (unstagedSelection.Any())
                 PackageShortcuts.SetSelectedFiles(unstagedSelection, false);
             if (stagedSelection.Any())

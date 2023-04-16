@@ -269,9 +269,7 @@ namespace Abuksigun.MRGitUI
 
         public static IEnumerable<string>  GetPackageSearchDirectories()
         {
-            return PlayerPrefs.GetString(PluginSettingsProvider.LocalRepoPathsKey, "").Split(',', RemoveEmptyEntries)
-                .Select(x => x.Trim())
-                .Where(x => Directory.Exists(x));
+            return PluginSettingsProvider.LocalRepoPaths.Split(',', RemoveEmptyEntries).Select(x => x.Trim()).Where(x => Directory.Exists(x));
         }
 
         public static IEnumerable<PackageDirectory> ListLocalPackageDirectories()

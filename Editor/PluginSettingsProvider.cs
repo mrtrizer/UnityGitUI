@@ -10,11 +10,14 @@ namespace Abuksigun.MRGitUI
     {
         static Vector2 scrollPosition = default;
         public static readonly string LocalRepoPathsKey = "LocalRepoPaths";
+        
+        public static string LocalRepoPaths => PlayerPrefs.GetString(LocalRepoPathsKey, "../");
+        
         [SettingsProvider]
         public static SettingsProvider CreateMyCustomSettingsProvider() => new("Preferences/External Tools/MR Unity Git UI", SettingsScope.User) {
             activateHandler = (_, rootElement) => rootElement.Add(new IMGUIContainer(() => {
                 GUILayout.Label("Enter paths separated by comma:");
-                PlayerPrefs.SetString(LocalRepoPathsKey, EditorGUILayout.TextField(PlayerPrefs.GetString(LocalRepoPathsKey, "")));
+                PlayerPrefs.SetString(LocalRepoPathsKey, EditorGUILayout.TextField(LocalRepoPaths));
                 GUILayout.Label("Visible repos:");
                 using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, GUILayout.Width(600), GUILayout.Height(300)))
                 {
