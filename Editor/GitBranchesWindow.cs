@@ -88,11 +88,11 @@ namespace Abuksigun.MRGitUI
             {
                 var layout = new GUILayoutOption[] { GUILayout.Width(BottomPanelHeight - 2), GUILayout.Height(BottomPanelHeight - 2) };
                 if (GUILayout.Button(EditorGUIUtility.TrIconContent("Refresh@2x", "Fetch"), layout))
-                    GitRemotes.Invoke(GitRemotes.Mode.Fetch);
+                    GitRemotes.ShowRemotesSyncWindow(GitRemotes.Mode.Fetch);
                 if (GUILayout.Button(EditorGUIUtility.TrIconContent("Download-Available@2x", "Pull"), layout))
-                    GitRemotes.Invoke(GitRemotes.Mode.Pull);
+                    GitRemotes.ShowRemotesSyncWindow(GitRemotes.Mode.Pull);
                 if (GUILayout.Button(EditorGUIUtility.TrIconContent("Update-Available@2x", "Push"), layout))
-                    GitRemotes.Invoke(GitRemotes.Mode.Push);
+                    GitRemotes.ShowRemotesSyncWindow(GitRemotes.Mode.Push);
                 GUILayout.FlexibleSpace();
                 if (GUILayout.Button(EditorGUIUtility.TrIconContent("SaveAs@2x", "Commit"), layout))
                     GitStaging.Invoke();

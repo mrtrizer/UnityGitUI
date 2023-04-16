@@ -13,7 +13,18 @@ namespace Abuksigun.MRGitUI
 
         public enum Mode { Fetch, Pull, Push};
 
-        public static async void Invoke(Mode mode)
+        [MenuItem("Assets/Git Pull", true)]
+        public static bool PullCheck() => PackageShortcuts.GetSelectedGitModules().Any();
+
+        [MenuItem("Assets/Git Pull", priority = 100)]
+        public static void PullInvoke() => ShowRemotesSyncWindow(Mode.Push);
+        [MenuItem("Assets/Git Push", true)]
+        public static bool PushCheck() => PackageShortcuts.GetSelectedGitModules().Any();
+
+        [MenuItem("Assets/Git Push", priority = 100)]
+        public static void PushInvoke() =>ShowRemotesSyncWindow(Mode.Push);
+
+        public static async void ShowRemotesSyncWindow(Mode mode)
         {
             bool pushTags = false;
             bool forcePush = false;

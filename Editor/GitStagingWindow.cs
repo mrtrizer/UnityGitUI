@@ -135,7 +135,8 @@ namespace Abuksigun.MRGitUI
 
             menu.AddItem(new GUIContent("Open"), false, () => GUIShortcuts.OpenFiles(files.Select(x => x.FullPath)));
             menu.AddItem(new GUIContent("Browse"), false, () => GUIShortcuts.BrowseFiles(files.Select(x => x.FullPath)));
-
+            menu.AddSeparator("");
+            
             if (files.Any(x => x.IsInIndex))
             {
                 menu.AddItem(new GUIContent("Diff"), false, () => {
