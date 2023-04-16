@@ -44,3 +44,4 @@ This tool is useful even if you have a single repository and use another GitUI a
 - **Blame**
 - **Extentions support**
 - **Adding new commands without coding**
+- **Git LFS features**
