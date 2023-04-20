@@ -258,6 +258,8 @@ namespace Abuksigun.MRGitUI
                 string allData = allLines.Join('\n');
                 EditorGUILayout.TextArea(allData, Style.ProcessLog.Value, GUILayout.Height(linesVisible * lineHeight), GUILayout.Width(maxWidth));
                 GUILayout.Space((filteredProcessLog.Count() - linesVisible) * lineHeight - scroll.scrollPosition.y);
+                if (scroll.scrollPosition != logScrollPositions.GetValueOrDefault(guid))
+                    GUI.FocusControl("");
                 logScrollPositions[guid] = scroll.scrollPosition;
             }
         }
