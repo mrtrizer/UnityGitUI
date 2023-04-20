@@ -101,7 +101,7 @@ namespace Abuksigun.MRGitUI
 
         public static void SetSelectedFiles(IEnumerable<FileStatus> statuses, bool? staged, string firstCommit = null, string lastCommit = null)
         {
-            SetSelectedFiles(statuses.Select(x => new GitFileReference (x.ModuleGuid, x.FullPath, staged) { FirstCommit = firstCommit, LastCommit = lastCommit }));
+            SetSelectedFiles(statuses.Select(x => new GitFileReference (x.ModuleGuid, x.FullProjectPath, staged) { FirstCommit = firstCommit, LastCommit = lastCommit }));
         }
         
         public static IEnumerable<GitFileReference> GetSelectedFiles()
@@ -181,9 +181,9 @@ namespace Abuksigun.MRGitUI
             if (string.IsNullOrEmpty(filePath))
                 return null;
             var allFiles = gitModules.Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null).SelectMany(x => x.Files);
-            if (allFiles.Where(x => x.FullPath == filePath || x.FullPath == filePath + ".meta") is { } fileStatuses && fileStatuses.Any())
+            if (allFiles.Where(x => x.FullProjectPath == filePath || x.FullProjectPath == filePath + ".meta") is { } fileStatuses && fileStatuses.Any())
                 return new AssetGitInfo(GetModule(fileStatuses.First().ModuleGuid), filePath, fileStatuses.ToArray(), false);
-            if (allFiles.Where(x => x.FullPath.Contains(filePath)) is { } nestedFileStatuses && nestedFileStatuses.Any())
+            if (allFiles.Where(x => x.FullProjectPath.Contains(filePath)) is { } nestedFileStatuses && nestedFileStatuses.Any())
                 return new AssetGitInfo(GetModule(nestedFileStatuses.First().ModuleGuid), filePath, nestedFileStatuses.ToArray(), true);
             return null;
         }
@@ -191,11 +191,6 @@ namespace Abuksigun.MRGitUI
         public static string JoinFileNames(IEnumerable<string> fileNames)
         {
             return fileNames?.Select(x => $"\"{x}\"")?.Join(' ');
-        }
-
-        public static string JoinFileNames(IEnumerable<FileStatus> files)
-        {
-            return JoinFileNames(files.Select(x => x.FullPath));
         }
 
         public static IEnumerable<string> BatchFiles(IEnumerable<string> files)

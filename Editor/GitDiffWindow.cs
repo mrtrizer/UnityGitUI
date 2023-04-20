@@ -8,13 +8,13 @@ using UnityEngine;
 
 namespace Abuksigun.MRGitUI
 {
+    using static Abuksigun.MRGitUI.GitDiff;
     using static Const;
     
     public class GitDiff
     {
         public delegate void HunkAction(string fileName, int hunkIndex);
 
-        static Regex hunkStartRegex = new Regex(@"@@ -(\d+),?(\d+)? \+(\d+),?(\d+)? @@");
         public static Lazy<GUIStyle> DiffUnchanged => new(() => new() {
             normal = new GUIStyleState {
                 background = Style.GetColorTexture(Color.white)
@@ -30,6 +30,11 @@ namespace Abuksigun.MRGitUI
         public static Lazy<GUIStyle> DiffRemoved => new(() => new(DiffUnchanged.Value) {
             normal = new GUIStyleState {
                 background = Style.GetColorTexture(new Color(0.990f, 0.564f, 0.564f))
+            }
+        });
+        public static Lazy<GUIStyle> DiffSelected => new(() => new(DiffUnchanged.Value) {
+            normal = new GUIStyleState {
+                background = Style.GetColorTexture(new Color(0.505f, 0.618f, 0.99f))
             }
         });
 
@@ -49,74 +54,19 @@ namespace Abuksigun.MRGitUI
                 window.Show();
             }
         }
-        public static void DrawGitDiff(string[] lines, Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, ref Vector2 scrollPosition)
-        {
-            if (lines == null || lines.Length == 0)
-                return;
-            int longestLine = lines.Max(x => x.Length);
-            float width = Mathf.Max(DiffUnchanged.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x) + 100;
-            int currentLine = 1;
-
-            using var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
-            int headerHeight = 15;
-            int codeLineHeight = 12;
-
-            float currentOffset = 0;
-            string currentFile = null;
-            int hunkIndex = -1;
-            for (int i = 0; i < lines.Length; i++)
-            {
-                if (lines[i][0] == 'd')
-                {
-                    i += 3;
-                    hunkIndex = -1;
-                    currentFile = lines[i][6..];
-                    if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
-                        EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, headerHeight), currentFile, Style.FileName.Value);
-                    currentOffset += headerHeight;
-                }
-                else if (lines[i].StartsWith("@@"))
-                {
-                    var match = hunkStartRegex.Match(lines[i]);
-                    if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
-                    {
-                        EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, headerHeight), match.Value, Style.FileName.Value);
-
-                        if (stageHunk != null && GUI.Button(new Rect(currentOffset, 0, 100, 20), $"Stage hunk {hunkIndex + 1}"))
-                            stageHunk.Invoke(currentFile, hunkIndex);
-                        if (unstageHunk != null && GUI.Button(new Rect(currentOffset, 100, 100, 20), $"Unstage hunk {hunkIndex + 1}"))
-                            unstageHunk.Invoke(currentFile, hunkIndex);
-                        if (discardHunk != null && GUI.Button(new Rect(currentOffset, 200, 100, 20), $"Discard hunk {hunkIndex + 1}"))
-                            discardHunk.Invoke(currentFile, hunkIndex);
-                    }
-
-                    currentLine = match.Groups[1].Value != "0" ? int.Parse(match.Groups[1].Value) : int.Parse(match.Groups[3].Value);
-                    hunkIndex++;
-
-                    currentOffset += headerHeight;
-                }
-                else if (hunkIndex >= 0)
-                {
-                    var style = lines[i][0] switch { '+' => DiffAdded.Value, '-' => DiffRemoved.Value, _ => DiffUnchanged.Value };
-                    if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
-                        EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, codeLineHeight), $"{lines[i][0]} {currentLine++,4} {lines[i][1..]}", style);
-                    currentOffset += codeLineHeight;
-                }
-            }
-            GUILayoutUtility.GetRect(width, currentOffset);
-            scrollPosition = scroll.scrollPosition;
-        }
     }
 
     public class GitDiffWindow : DefaultWindow
     {
         const int TopPanelHeight = 20;
 
+        static Regex hunkStartRegex = new Regex(@"@@ -(\d+),?(\d+)?.*?\+(\d+),?(\d+)?.*?@@");
         [SerializeField]
         bool staged;
         Vector2 scrollPosition;
         GUIContent[] toolbarContent;
         string[] diffLines;
+        HashSet<int> selectedLines;
 
         int lastHashCode = 0;
 
@@ -169,12 +119,89 @@ namespace Abuksigun.MRGitUI
             {
                 var diffStrings = staged ? stagedDiffs.Select(x => x.diff) : unstagedDiffs.Select(x => x.diff);
                 diffLines = diffStrings.SelectMany(x => x.Split('\n', RemoveEmptyEntries)).ToArray();
+                selectedLines = new();
                 lastHashCode = hashCode;
             }
             
-            GitDiff.DrawGitDiff(diffLines, position.size - TopPanelHeight.To0Y(), null, null, null, ref scrollPosition);
+            DrawGitDiff(position.size - TopPanelHeight.To0Y(), null, null, null, ref scrollPosition);
 
             base.OnGUI();
+        }
+        public void DrawGitDiff(Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, ref Vector2 scrollPosition)
+        {
+            if (diffLines == null || diffLines.Length == 0)
+                return;
+            int longestLine = diffLines.Max(x => x.Length);
+            float width = Mathf.Max(DiffUnchanged.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x) + 100;
+            int currentLine = 1;
+
+            using var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
+            int headerHeight = 15;
+            int codeLineHeight = 12;
+
+            float currentOffset = 0;
+            string currentFile = null;
+            int hunkIndex = -1;
+            for (int i = 0; i < diffLines.Length; i++)
+            {
+                if (diffLines[i][0] == 'd')
+                {
+                    i += 3;
+                    hunkIndex = -1;
+                    currentFile = diffLines[i][6..];
+                    if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
+                        EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, headerHeight), currentFile, Style.FileName.Value);
+                    currentOffset += headerHeight;
+                }
+                else if (diffLines[i].StartsWith("@@"))
+                {
+                    var match = hunkStartRegex.Match(diffLines[i]);
+                    if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
+                    {
+                        EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, headerHeight), match.Value, Style.FileName.Value);
+
+                        if (stageHunk != null && GUI.Button(new Rect(currentOffset, 0, 100, 20), $"Stage hunk {hunkIndex + 1}"))
+                            stageHunk.Invoke(currentFile, hunkIndex);
+                        if (unstageHunk != null && GUI.Button(new Rect(currentOffset, 100, 100, 20), $"Unstage hunk {hunkIndex + 1}"))
+                            unstageHunk.Invoke(currentFile, hunkIndex);
+                        if (discardHunk != null && GUI.Button(new Rect(currentOffset, 200, 100, 20), $"Discard hunk {hunkIndex + 1}"))
+                            discardHunk.Invoke(currentFile, hunkIndex);
+                    }
+
+                    currentLine = match.Groups[1].Value != "0" ? int.Parse(match.Groups[1].Value) : int.Parse(match.Groups[3].Value);
+                    hunkIndex++;
+
+                    currentOffset += headerHeight;
+                }
+                else if (hunkIndex >= 0)
+                {
+                    bool selected = selectedLines?.Contains(i) ?? false;
+                    var style = selected ? DiffSelected.Value : diffLines[i][0] switch { '+' => DiffAdded.Value, '-' => DiffRemoved.Value, _ => DiffUnchanged.Value };
+                    if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
+                    {
+                        var rect = new Rect(0, currentOffset, width, codeLineHeight);
+                        if (GUI.Toggle(rect, selected, $"{diffLines[i][0]} {currentLine++,4} {diffLines[i][1..]}", style) != selected)
+                            HandleSelection(selected, i);
+                    }
+                    currentOffset += codeLineHeight;
+                }
+            }
+            GUILayoutUtility.GetRect(width, currentOffset);
+            scrollPosition = scroll.scrollPosition;
+        }
+        void HandleSelection(bool previouslySelected, int index)
+        {
+            if (Event.current.control)
+            {
+                if (previouslySelected)
+                    selectedLines.Remove(index);
+                else
+                    selectedLines.Add(index);
+            }
+            else
+            {
+                selectedLines = new() { index };
+            }
         }
     }
 }

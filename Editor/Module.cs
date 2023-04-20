@@ -26,7 +26,7 @@ namespace Abuksigun.MRGitUI
         public int Added;
         public int Removed;
     }
-    public record FileStatus(string ModuleGuid, string FullPath, string OldName, char X, char Y, NumStat UnstagedNumStat, NumStat StagedNumStat)
+    public record FileStatus(string ModuleGuid, string FullProjectPath, string FullPath, string OldName, char X, char Y, NumStat UnstagedNumStat, NumStat StagedNumStat)
     {
         public bool IsInIndex => Y is not '?' and not '!';
         public bool IsUnstaged => Y is not ' ';
@@ -283,8 +283,9 @@ namespace Abuksigun.MRGitUI
                 string[] paths = line[2..].Split(new[] { " ->", "\t" }, RemoveEmptyEntries);
                 string path = paths[paths.Length - 1].Trim();
                 string oldPath = paths.Length > 1 ? paths[paths.Length - 2].Trim() : null;
-                string fullPath = GetLinkRelativePath(Path.Join(gitRepoPath, path.Trim('"')).NormalizeSlashes());
-                return new FileStatus(Guid, fullPath, oldPath, X: line[0], Y: line[1], numStatUnstaged.GetValueOrDefault(path), numStatStaged.GetValueOrDefault(path));
+                string fullPath = Path.Join(gitRepoPath, path.Trim('"')).NormalizeSlashes();
+                string fullProjectPath = GetLinkRelativePath(fullPath);
+                return new FileStatus(Guid, fullProjectPath, fullPath, oldPath, X: line[0], Y: line[1], numStatUnstaged.GetValueOrDefault(path), numStatStaged.GetValueOrDefault(path));
             }).ToArray();
         }
         Dictionary<string, NumStat> ParseNumStat(string numStatOutput)
@@ -357,7 +358,7 @@ namespace Abuksigun.MRGitUI
         public Task<CommandResult> Checkout(string localBranchName) => RunGit($"checkout {localBranchName}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         public Task CreateBranch(string branchName, bool checkout) => RunGit(checkout ? $"checkout -b {branchName}" : $"branch {branchName}").AfterCompletion(RefreshReferences);
         public Task RenameBranch(string oldBranchName, string newBranchName) => RunGit($"branch -m {oldBranchName} {newBranchName}").AfterCompletion(RefreshReferences);
-        public Task<CommandResult> DeleteBranch(string branchName) => RunGit($"branch -d {branchName}").AfterCompletion(RefreshReferences);
+        public Task<CommandResult> DeleteBranch(string branchName) => RunGit($"branch -D {branchName}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> DeleteRemoteBranch(string remoteAlias, string branchName) => RunGit($"push -d {remoteAlias} {branchName}").AfterCompletion(RefreshReferences);
         public Task CreateTag(string tagName, string message, string hash) => RunGit($"tag \"{tagName}\" {message} {hash}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> DeleteTag(string tagName) => RunGit($"tag -d {tagName}").AfterCompletion(RefreshReferences);
@@ -403,6 +404,10 @@ namespace Abuksigun.MRGitUI
         #endregion
 
         #region History
+        public Task<CommandResult> CherryPick(IEnumerable<string> commits)
+        {
+            return RunGit($"cherry-pick {commits.Join(' ')}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+        }
         public Task<CommandResult> Reset(string commit, bool hard)
         {
             return RunGit($"reset {(hard ? "--hard" : "--soft")} {commit}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
@@ -411,7 +416,6 @@ namespace Abuksigun.MRGitUI
         {
             return RunGit($"checkout {commit} -- {PackageShortcuts.JoinFileNames(filePaths)}").AfterCompletion(RefreshFilesStatus);
         }
-
         public Task<CommandResult> Stash(string commitMessage, IEnumerable<string> files)
         {
             return RunGit($"stash push -m {commitMessage.WrapUp()} -- {PackageShortcuts.JoinFileNames(files)}").AfterCompletion(RefreshFilesStatus, RefreshReferences);

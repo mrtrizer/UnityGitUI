@@ -132,7 +132,7 @@ namespace Abuksigun.MRGitUI
             var selectedAsset = statuses.SelectMany(x => x.Files).FirstOrDefault(x => x.FullPath.GetHashCode() == id);
             if (selectedAsset != null)
             {
-                string logicalPath = FileUtil.GetProjectRelativePath(selectedAsset.FullPath);
+                string logicalPath = FileUtil.GetProjectRelativePath(selectedAsset.FullProjectPath);
                 Selection.objects = new[] { AssetDatabase.LoadAssetAtPath<Object>(logicalPath) };
             }
         }
@@ -146,8 +146,8 @@ namespace Abuksigun.MRGitUI
             var indexedSelectionPerModule = modules.Select(module => 
                 (module, files: files.Where(x => x.IsInIndex && x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray()));
 
-            menu.AddItem(new GUIContent("Open"), false, () => GUIShortcuts.OpenFiles(files.Select(x => x.FullPath)));
-            menu.AddItem(new GUIContent("Browse"), false, () => GUIShortcuts.BrowseFiles(files.Select(x => x.FullPath)));
+            menu.AddItem(new GUIContent("Open"), false, () => GUIShortcuts.OpenFiles(files.Select(x => x.FullProjectPath)));
+            menu.AddItem(new GUIContent("Browse"), false, () => GUIShortcuts.BrowseFiles(files.Select(x => x.FullProjectPath)));
             menu.AddSeparator("");
             
             if (files.Any(x => x.IsInIndex))
@@ -187,6 +187,7 @@ namespace Abuksigun.MRGitUI
                     {
                         foreach (var module in modules)
                             _ = module.TakeOurs(conflictedFilesList[module]);
+                        AssetDatabase.Refresh();
                     }
                 });
                 menu.AddItem(new GUIContent("Take Theirs"), false, () => {
@@ -194,6 +195,7 @@ namespace Abuksigun.MRGitUI
                     {
                         foreach (var module in modules)
                             _ = module.TakeTheirs(conflictedFilesList[module]);
+                        AssetDatabase.Refresh();
                     }
                 });
             }

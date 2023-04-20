@@ -97,6 +97,10 @@ namespace Abuksigun.MRGitUI
             string commitLine = lines?.FirstOrDefault(x => x.GetHashCode() == id);
             return commitLine != null ? commitHashRegex.Match(commitLine)?.Groups[1].Value : null;
         }
+        IEnumerable<string> GetSelectedCommitHashes(IEnumerable<int> ids)
+        {
+            return lines.Where(x => ids.Contains(x.GetHashCode())).Select(x => commitHashRegex.Match(x)?.Groups[1].Value);
+        }
 
         [SerializeField]
         TreeViewState treeViewLogState = new();
@@ -142,12 +146,12 @@ namespace Abuksigun.MRGitUI
                 lastLog = log;
                 lines = log.Where(x => x.Contains('*')).ToList();
                 cells = ParseGraph(lines);
-                treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, false, multiColumnHeader ??= new(multiColumnHeaderState), DrawCell);
+                treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, true, multiColumnHeader ??= new(multiColumnHeaderState), DrawCell);
                 treeViewFiles = new(statuses => GUIShortcuts.GenerateFileItems(statuses, true), treeViewStateFiles, true);
             }
             multiColumnHeaderState.visibleColumns = Enumerable.Range(HideGraph ? 1 : 0, multiColumnHeaderState.columns.Length - (HideGraph ? 1 : 0)).ToArray();
 
-            string selectedCommitHash = GetSelectedCommitHash(treeViewLogState.selectedIDs.FirstOrDefault());
+            string selectedCommitHash = GetSelectedCommitHash(treeViewLogState.lastClickedID);
             
             DrawLog(module, selectedCommitHash);
             
@@ -162,7 +166,7 @@ namespace Abuksigun.MRGitUI
             float currentFilesPanelHeight = selectedCommitHash != null ? FilesPanelHeight : 0;
 
             treeViewLog.Draw(new Vector2(position.width, position.height - currentFilesPanelHeight), new[] { lastLog }, id => {
-                _ = ShowCommitContextMenu(module, GetSelectedCommitHash(id));
+                _ = ShowCommitContextMenu(module, GetSelectedCommitHash(id), GetSelectedCommitHashes(treeViewLogState.selectedIDs));
             });
 
             if (!HideGraph && Event.current.type == EventType.Repaint)
@@ -214,8 +218,8 @@ namespace Abuksigun.MRGitUI
                 using (new EditorGUILayout.VerticalScope(GUILayout.Height(FilesPanelHeight)))
                 {
                     EditorGUILayout.SelectableLabel(selectedCommitHash);
-                    string commitLine = lines?.FirstOrDefault(x => x.GetHashCode() == treeViewLogState.selectedIDs.FirstOrDefault());
-                    EditorGUILayout.SelectableLabel(commitLine.AfterFirst('-'), CommitInfoStyle.Value);
+                    string commitLine = lines?.FirstOrDefault(x => x.GetHashCode() == treeViewLogState.lastClickedID);
+                    EditorGUILayout.SelectableLabel(commitLine.AfterFirst('-'), CommitInfoStyle.Value, GUILayout.Height(FilesPanelHeight - 50));
                 }
             }
         }
@@ -302,7 +306,7 @@ namespace Abuksigun.MRGitUI
             }
             return cells;
         }
-        static async Task ShowCommitContextMenu(Module module, string selectedCommit)
+        static async Task ShowCommitContextMenu(Module module, string selectedCommit, IEnumerable<string> selectedCommits)
         {
             var menu = new GenericMenu();
             var commitReference = new[] { new Reference(selectedCommit, selectedCommit, selectedCommit) };
@@ -324,6 +328,10 @@ namespace Abuksigun.MRGitUI
                 });
                 menu.AddItem(new GUIContent($"New Tag"), false, () => GUIShortcuts.MakeTag(selectedCommit));
             }
+            menu.AddItem(new GUIContent($"Cherry Pick/{selectedCommits.Join(", ")}"), false, () => {
+                if (EditorUtility.DisplayDialog("Are you sure you want to cherry-pick these commits?", selectedCommits.Join(", "), "Yes", "No"))
+                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.CherryPick(selectedCommits));
+            });
             menu.ShowAsContext();
         }
         static void ShowFileContextMenu(Module module, IEnumerable<FileStatus> files, string selectedCommit)

@@ -121,34 +121,23 @@ namespace Abuksigun.MRGitUI
             BranchesToItems(modules, references, x => x is Stash, 1, items);
             return items;
         }
-        static async void MakeBranch()
+        static async void CreateOrRenameBranch(string oldName = null)
         {
-            string branchName = "";
+            string newName = oldName;
             bool checkout = true;
-            
-            await GUIShortcuts.ShowModalWindow("New Branch", new Vector2Int(300, 150), (window) => {
-                GUILayout.Label("Branch Name: ");
-                branchName = EditorGUILayout.TextField(branchName);
-                checkout = GUILayout.Toggle(checkout, "Checkout to this branch");
+
+            await GUIShortcuts.ShowModalWindow(oldName == null ? "Create Branch" : "Rename Branch", new Vector2Int(300, 150), (window) => {
+                GUILayout.Label("New Branch Name: ");
+                newName = EditorGUILayout.TextField(newName);
+                if (oldName == null)
+                    checkout = GUILayout.Toggle(checkout, "Checkout to this branch");
+                else
+                    GUILayout.Space(20);
                 GUILayout.Space(40);
                 if (GUILayout.Button("Ok", GUILayout.Width(200)))
                 {
-                    _ = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.CreateBranch(branchName, checkout)));
-                    window.Close();
-                }
-            });
-        }
-        static async void RenameBranch(string oldName)
-        {
-            string newName = oldName;
-
-            await GUIShortcuts.ShowModalWindow("Rename Branch", new Vector2Int(300, 150), (window) => {
-                GUILayout.Label("New Branch Name: ");
-                newName = EditorGUILayout.TextField(newName);
-                GUILayout.Space(60);
-                if (GUILayout.Button("Ok", GUILayout.Width(200)))
-                {
-                    _ = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.RenameBranch(oldName, newName)));
+                    var modules = PackageShortcuts.GetSelectedGitModules();
+                    _ = Task.WhenAll(modules.Select(module => oldName == null ? module.CreateBranch(newName, checkout) : module.RenameBranch(oldName, newName)));
                     window.Close();
                 }
             });
@@ -169,7 +158,7 @@ namespace Abuksigun.MRGitUI
                         task = GUIShortcuts.RunGitAndErrorCheck(relevantModules, x => x.DeleteBranch(localBranch.Name));
                 });
                 menu.AddItem(new GUIContent($"Rename local [{branchName}]"), false, () => {
-                    RenameBranch(localBranch.Name);
+                    CreateOrRenameBranch(localBranch.Name);
                 });
             }
             else if (selectedReference is RemoteBranch remoteBranch)
@@ -222,7 +211,7 @@ namespace Abuksigun.MRGitUI
 
             if (selectedReference != null)
                 menu.AddSeparator("");
-            menu.AddItem(new GUIContent($"New Branch"), false, MakeBranch);
+            menu.AddItem(new GUIContent($"New Branch"), false, () => CreateOrRenameBranch());
             menu.AddItem(new GUIContent($"New Tag"), false, () =>  GUIShortcuts.MakeTag());
             menu.ShowAsContext();
         }

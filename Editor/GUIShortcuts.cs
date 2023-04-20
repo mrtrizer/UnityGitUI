@@ -149,10 +149,10 @@ namespace Abuksigun.MRGitUI
                     items.Add(new TreeViewItem(module.Guid.GetHashCode(), 0, module.DisplayName));
                 foreach (var file in visibleFiles)
                 {
-                    var icon = AssetDatabase.GetCachedIcon(PackageShortcuts.GetUnityLogicalPath(file.FullPath));
+                    var icon = AssetDatabase.GetCachedIcon(PackageShortcuts.GetUnityLogicalPath(file.FullProjectPath));
                     if (!icon)
                         icon = EditorGUIUtility.IconContent("DefaultAsset Icon").image;
-                    string relativePath = Path.GetRelativePath(module.PhysicalPath, file.FullPath);
+                    string relativePath = Path.GetRelativePath(module.PhysicalPath, file.FullProjectPath);
                     var numStat = staged ? file.StagedNumStat : file.UnstagedNumStat;
                     var content = $"{(staged ? file.X : file.Y)} {relativePath}{file.OldName?.WrapUp(" (", ")")} +{numStat.Added} -{numStat.Removed} ";
                     items.Add(new TreeViewItem(file.FullPath.GetHashCode(), validStatuses.Count() > 1 ? 1 : 0, content) { icon = icon as Texture2D });

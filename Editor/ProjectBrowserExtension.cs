@@ -23,8 +23,8 @@ namespace Abuksigun.MRGitUI
         static void SelectionChanged()
         {
             var assets = Selection.assetGUIDs.Select(x => GetAssetGitInfo(x)).Where(x => x != null);
-            var stagedSelection = assets.SelectMany(x => x.FileStatuses).Where(x => x.IsStaged).Select(x => new GitFileReference(x.ModuleGuid, x.FullPath, true));
-            var unstagedSelection = assets.SelectMany(x => x.FileStatuses).Where(x => x.IsUnstaged).Select(x => new GitFileReference(x.ModuleGuid, x.FullPath, false));
+            var stagedSelection = assets.SelectMany(x => x.FileStatuses).Where(x => x.IsStaged).Select(x => new GitFileReference(x.ModuleGuid, x.FullProjectPath, true));
+            var unstagedSelection = assets.SelectMany(x => x.FileStatuses).Where(x => x.IsUnstaged).Select(x => new GitFileReference(x.ModuleGuid, x.FullProjectPath, false));
             SetSelectedFiles(stagedSelection.Concat(unstagedSelection));
         }
 
