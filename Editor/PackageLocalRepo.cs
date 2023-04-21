@@ -109,7 +109,8 @@ namespace Abuksigun.MRGitUI
                     foreach (var packageName in packageStatus.Keys.ToList())
                     {
                         var status = packageStatus[packageName];
-                        string args = $"clone -b {status.branch} {status.url} {status.clonePath.WrapUp()}";
+                        string url = status.url.StartsWith("git+") ? status.url[4..] : status.url;
+                        string args = $"clone -b {status.branch} {url.WrapUp()} {status.clonePath.WrapUp()}";
                         status.task = PackageShortcuts.RunCommand(Directory.GetCurrentDirectory(), "git", args, (_, data) => HandleCloneOutput(data, status.log)).task;
                         status.log.Add(new IOData { Data = $">> git {args}" });
                         packageStatus[packageName] = status;
