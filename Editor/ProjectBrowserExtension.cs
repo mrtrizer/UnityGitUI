@@ -22,7 +22,7 @@ namespace Abuksigun.MRGitUI
 
         static void SelectionChanged()
         {
-            var assets = Selection.assetGUIDs.Select(x => GetAssetGitInfo(x)).Where(x => x != null);
+            var assets = Selection.assetGUIDs.Select(x => GetAssetGitInfo(x)).Where(x => x?.FileStatuses != null);
             var stagedSelection = assets.SelectMany(x => x.FileStatuses).Where(x => x.IsStaged).Select(x => new GitFileReference(x.ModuleGuid, x.FullProjectPath, true));
             var unstagedSelection = assets.SelectMany(x => x.FileStatuses).Where(x => x.IsUnstaged).Select(x => new GitFileReference(x.ModuleGuid, x.FullProjectPath, false));
             SetSelectedFiles(stagedSelection.Concat(unstagedSelection));
@@ -85,9 +85,9 @@ namespace Abuksigun.MRGitUI
                 rect.x -= 8;
                 if (assetInfo.FileStatuses != null && assetInfo.NestedFileModified)
                     GUI.Label(rect, "     <color=blue>*</color>", FileMarkStyle.Value);
-                else if (assetInfo.FileStatuses.Any(x => x.IsUnstaged))
+                else if (assetInfo.FileStatuses?.Any(x => x.IsUnstaged) ?? false)
                     GUI.Label(rect, GUIShortcuts.MakePrintableStatus(assetInfo.FileStatuses.First().Y), FileMarkStyle.Value);
-                else if (assetInfo.FileStatuses.Any(x => x.IsStaged))
+                else if (assetInfo.FileStatuses?.Any(x => x.IsStaged) ?? false)
                     GUI.Label(rect, "<color=green>✓</color>", FileMarkStyle.Value);
             }
 

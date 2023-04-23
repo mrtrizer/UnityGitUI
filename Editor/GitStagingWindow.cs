@@ -174,7 +174,7 @@ namespace Abuksigun.MRGitUI
                     {
                         var window = ScriptableObject.CreateInstance<GitLogWindow>();
                         window.titleContent = new GUIContent("Log Files");
-                        window.LogFiles = PackageShortcuts.JoinFileNames(files);
+                        window.LogFiles = files.ToList();
                         await GUIShortcuts.ShowModalWindow(window, new Vector2Int(800, 700));
                     }
                 });

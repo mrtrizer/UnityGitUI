@@ -141,10 +141,10 @@ namespace Abuksigun.MRGitUI
             int diffId = firstCommit?.GetHashCode() ?? 0 ^ lastCommit?.GetHashCode() ?? 0;
             return diffCache.TryGetValue(diffId, out var diff) ? diff : diffCache[diffId] = GetDiffFiles(firstCommit, lastCommit);
         }
-        public Task<string[]> LogFiles(string files)
+        public Task<string[]> LogFiles(IEnumerable<string> files)
         {
             fileLogCache ??= new();
-            int fileLogId = files?.GetHashCode() ?? 0;
+            int fileLogId = files?.GetCombinedHashCode() ?? 0;
             return fileLogCache.TryGetValue(fileLogId, out var diff) ? diff : fileLogCache[fileLogId] = GetLog(files);
         }
         async Task<string> GetRepoPath()
@@ -194,10 +194,11 @@ namespace Abuksigun.MRGitUI
                 .Cast<Reference>();
             return branches.Concat(stashes).Concat(tags).ToArray();
         }
-        async Task<string[]> GetLog(string files = null)
+        async Task<string[]> GetLog(IEnumerable<string> files = null)
         {
-            string log = (await RunGit($"log --graph --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ar) <b>%d</b> %s\" --branches --remotes --tags {files?.WrapUp("-- ", "")}")).Output;
-            return log.SplitLines();
+            string filesStr = PackageShortcuts.JoinFileNames(files)?.WrapUp("-- ", "");
+            var result = await RunGit($"log --graph --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ar) <b>%d</b> %s\" --branches --remotes --tags {filesStr}");
+            return result.Output.SplitLines();
         }
         async Task<string[]> GetStashes()
         {

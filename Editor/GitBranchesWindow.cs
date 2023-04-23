@@ -10,7 +10,7 @@ using UnityEngine;
 namespace Abuksigun.MRGitUI
 {
     public static class GitBranches
-    {    
+    {
         [MenuItem("Assets/Git/Branches", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
         [MenuItem("Window/Git GUI/Branches")]
@@ -24,18 +24,18 @@ namespace Abuksigun.MRGitUI
             }
         }
     }
-    
+
     public class ReferenceComparer : EqualityComparer<Reference>
     {
         public override bool Equals(Reference x, Reference y) => x.GetType() == y.GetType() && x.QualifiedName == y.QualifiedName;
         public override int GetHashCode(Reference obj) => obj.QualifiedName.GetHashCode() ^ obj.GetType().GetHashCode();
     }
-    
+
     class GitBranchesWindow : DefaultWindow
     {
         const int TopPanelHeight = 20;
         const int BottomPanelHeight = 30;
-        
+
         static readonly ReferenceComparer referenceComparer = new();
         public static event Action<Reference> ReferenceSelectedEvent;
 
@@ -145,7 +145,7 @@ namespace Abuksigun.MRGitUI
         void ShowContextMenu(IEnumerable<Module> modules, Reference selectedReference)
         {
             var menu = new GenericMenu();
-            
+
             string branchName = selectedReference?.QualifiedName?.Replace("/", "\u2215");
             if (selectedReference is LocalBranch localBranch)
             {
@@ -192,11 +192,11 @@ namespace Abuksigun.MRGitUI
                         task = GUIShortcuts.RunGitAndErrorCheck(modules, x => x.DeleteStash(stashName));
                 });
             }
-            
+
             if (selectedReference is Branch)
             {
                 menu.AddSeparator("");
-                
+
                 string affectedModules = modules.Select(x => $"{x.DisplayName}: {selectedReference.Name} into {x.CurrentBranch.GetResultOrDefault()}").Join('\n');
 
                 menu.AddItem(new GUIContent($"Merge [{branchName}]"), false, () => {

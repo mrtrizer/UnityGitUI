@@ -1,3 +1,4 @@
+using Codice.Client.Common.Locks;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -39,7 +40,7 @@ namespace Abuksigun.MRGitUI
             var assetsInfo = Selection.assetGUIDs.Select(x => PackageShortcuts.GetAssetGitInfo(x)).Where(x => x != null);
             var window = ScriptableObject.CreateInstance<GitLogWindow>();
             window.titleContent = new GUIContent("Log Files");
-            window.LogFiles = PackageShortcuts.JoinFileNames(assetsInfo.Select(x => x.FullPath));
+            window.LogFiles = assetsInfo.Select(x => x.FullPath).ToList();
             window.LockedModules = assetsInfo.Select(x => x.Module).Distinct().ToList();
             _ = GUIShortcuts.ShowModalWindow(window, new Vector2Int(800, 700));
         }
@@ -89,9 +90,9 @@ namespace Abuksigun.MRGitUI
         readonly Regex commitHashRegex = new Regex(@"([0-9a-f]+)");
         
         public bool ShowStash { get; set; }
-        public string LogFiles { get; set; } = null;
+        public List<string> LogFiles { get; set; } = null;
         public List<Module> LockedModules { get; set; } = null;
-        bool HideGraph => ShowStash || !string.IsNullOrEmpty(LogFiles);
+        bool HideGraph => ShowStash || LogFiles != null;
         string GetSelectedCommitHash(int id)
         {
             string commitLine = lines?.FirstOrDefault(x => x.GetHashCode() == id);
@@ -152,18 +153,20 @@ namespace Abuksigun.MRGitUI
             multiColumnHeaderState.visibleColumns = Enumerable.Range(HideGraph ? 1 : 0, multiColumnHeaderState.columns.Length - (HideGraph ? 1 : 0)).ToArray();
 
             string selectedCommitHash = GetSelectedCommitHash(treeViewLogState.lastClickedID);
-            
+
             DrawLog(module, selectedCommitHash);
-            
-            if (selectedCommitHash != null)
+
+            if (selectedCommitHash != null && LogFiles == null)
                 DrawFilesPanel(module, selectedCommitHash);
+            else if (LogFiles != null)
+                PackageShortcuts.SetSelectedFiles(guid, LogFiles, null, $"{selectedCommitHash}~1", selectedCommitHash);
             base.OnGUI();
         }
         private void DrawLog(Module module, string selectedCommitHash)
         {
             int itemNum = (int)(position.size.y / Space);
 
-            float currentFilesPanelHeight = selectedCommitHash != null ? FilesPanelHeight : 0;
+            float currentFilesPanelHeight = selectedCommitHash != null && LogFiles == null ? FilesPanelHeight : 0;
 
             treeViewLog.Draw(new Vector2(position.width, position.height - currentFilesPanelHeight), new[] { lastLog }, id => {
                 _ = ShowCommitContextMenu(module, GetSelectedCommitHash(id), GetSelectedCommitHashes(treeViewLogState.selectedIDs));

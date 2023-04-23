@@ -103,7 +103,12 @@ namespace Abuksigun.MRGitUI
         {
             SetSelectedFiles(statuses.Select(x => new GitFileReference (x.ModuleGuid, x.FullProjectPath, staged) { FirstCommit = firstCommit, LastCommit = lastCommit }));
         }
-        
+
+        public static void SetSelectedFiles(string moduleGuid, IEnumerable<string> filePaths, bool? staged, string firstCommit = null, string lastCommit = null)
+        {
+            SetSelectedFiles(filePaths.Select(x => new GitFileReference(moduleGuid, x, staged) { FirstCommit = firstCommit, LastCommit = lastCommit }));
+        }
+
         public static IEnumerable<GitFileReference> GetSelectedFiles()
         {
             return instance.lastGitFilesSelected ?? Array.Empty<GitFileReference>();
@@ -185,11 +190,13 @@ namespace Abuksigun.MRGitUI
                 return new AssetGitInfo(GetModule(fileStatuses.First().ModuleGuid), filePath, fileStatuses.ToArray(), false);
             if (allFiles.Where(x => x.FullProjectPath.Contains(filePath)) is { } nestedFileStatuses && nestedFileStatuses.Any())
                 return new AssetGitInfo(GetModule(nestedFileStatuses.First().ModuleGuid), filePath, nestedFileStatuses.ToArray(), true);
-            return null;
+            return new AssetGitInfo(FindModuleContainingPath(filePath), filePath, null, false);
         }
 
         public static string JoinFileNames(IEnumerable<string> fileNames)
         {
+            if (fileNames == null)
+                return null;
             return fileNames?.Select(x => $"\"{x}\"")?.Join(' ');
         }
 
