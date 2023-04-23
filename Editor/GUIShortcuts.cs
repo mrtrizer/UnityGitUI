@@ -161,24 +161,31 @@ namespace Abuksigun.MRGitUI
             return items;
         }
 
-        public static async Task<CommandResult> RunGitAndErrorCheck(IEnumerable<Module> modules, Func<Module, Task<CommandResult>> command)
+        public static async Task<CommandResult[]> RunGitAndErrorCheck(IEnumerable<Module> modules, Func<Module, Task<CommandResult>> command)
         {
-            CommandResult result = null;
-            await Task.WhenAll(modules.Select(async module => {
+            var taskPerModule = modules.ToDictionary(x => x, async module => {
                 try
                 {
                     var commandLog = new List<IOData>();
                     PushReloadAssembliesLock();
-                    result = await command(module);
-                    if (result.ExitCode != 0)
-                        EditorUtility.DisplayDialog($"Error in {module.DisplayName}", $">> {result.Command}\n{commandLog.Where(x => x.Error).Select(x => x.Data).Join('\n')}", "Ok");
+                    var result = await command(module);
+                    return result;
                 }
                 finally
                 {
                     PopReloadAssembliesLock();
                 }
-            }));
-            return result;
+            });
+            await Task.WhenAll(taskPerModule.Values);
+            if (taskPerModule.Values.Any(x => x.Result.ExitCode != 0))
+            {
+                string guid = "";
+                var erroredModules = taskPerModule.Where(x => x.Value.Result.ExitCode != 0).Select(x => x.Key).ToList();
+                await ShowModalWindow("Error", new Vector2Int(500, 400), (window) => {
+                    DrawProcessLogs(erroredModules, ref guid, window.position.size, taskPerModule.ToDictionary(x => x.Key.Guid, x => x.Value.Result.LocalProcessId));
+                });
+            }
+            return taskPerModule.Values.Select(x => x.Result).ToArray();
         }
 
         public static async void MakeTag(string hash = null)

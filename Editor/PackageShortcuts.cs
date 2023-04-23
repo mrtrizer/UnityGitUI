@@ -27,7 +27,7 @@ namespace Abuksigun.MRGitUI
         public bool Error { get; set; }
         public int LocalProcessId { get; set; }
     }
-    public record CommandResult(int ExitCode, string Output, string Command);
+    public record CommandResult(int ExitCode, string Output, string Command, int LocalProcessId);
 
     public record AssetGitInfo(Module Module, string FullPath, FileStatus[] FileStatuses, bool NestedFileModified);
 
@@ -243,7 +243,7 @@ namespace Abuksigun.MRGitUI
             };
             process.Disposed += (_, _) => {
                 string str = outputStringBuilder.ToString();
-                tcs.SetResult(new((int)exitCode, str, $"{command} {args}"));
+                tcs.SetResult(new((int)exitCode, str, $"{command} {args}", localProcessId));
             };
 
             _ = Task.Run(() => {

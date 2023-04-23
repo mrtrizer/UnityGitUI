@@ -50,6 +50,7 @@ namespace Abuksigun.MRGitUI
         Task<string> currentBranch;
         Task<string> currentCommit;
         Task<bool> isMergeInProgress;
+        Task<bool> isCherryPickInProgress;
         Task<Remote[]> remotes;
         Task<Remote> defaultRemote;
         Task<RemoteStatus> remoteStatus;
@@ -78,6 +79,7 @@ namespace Abuksigun.MRGitUI
         public Task<string> CurrentBranch => currentBranch ??= GetCurrentBranch();
         public Task<string> CurrentCommit => currentCommit ??= GetCommit();
         public Task<bool> IsMergeInProgress => isMergeInProgress ??= GetIsMergeInProgress();
+        public Task<bool> IsCherryPickInProgress => isCherryPickInProgress ??= GetIsCherryPickInProgress();
         public Task<Remote[]> Remotes => remotes ??= GetRemotes();
         public Task<Remote> DefaultRemote => defaultRemote ??= GetDefaultRemote();
         public Task<RemoteStatus> RemoteStatus => remoteStatus ??= GetRemoteStatus();
@@ -163,6 +165,10 @@ namespace Abuksigun.MRGitUI
         async Task<bool> GetIsMergeInProgress()
         {
             return File.Exists(Path.Combine(await GitRepoPath, ".git", "MERGE_HEAD"));
+        }
+        async Task<bool> GetIsCherryPickInProgress()
+        {
+            return File.Exists(Path.Combine(await GitRepoPath, ".git", "CHERRY_PICK_HEAD"));
         }
         async Task<Reference[]> GetReferences()
         {
@@ -321,6 +327,7 @@ namespace Abuksigun.MRGitUI
         public void RefreshFilesStatus()
         {
             isMergeInProgress = null;
+            isCherryPickInProgress = null;
             gitStatus = null;
             fileDiffCache = null;
             diffCache = null;
@@ -400,6 +407,14 @@ namespace Abuksigun.MRGitUI
         public Task<CommandResult[]> TakeTheirs(IEnumerable<string> files)
         {
             return Task.WhenAll(PackageShortcuts.BatchFiles(files).ToList().Select(batch => RunGit($"checkout --theirs  -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+        }
+        public Task<CommandResult> ContinueCherryPick()
+        {
+            return RunGit($"cherry-pick --continue").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+        }
+        public Task<CommandResult> AbortCherryPick()
+        {
+            return RunGit($"cherry-pick --abort").AfterCompletion(RefreshFilesStatus);
         }
         #endregion
 

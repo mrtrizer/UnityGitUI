@@ -39,7 +39,7 @@ namespace Abuksigun.MRGitUI
         LazyTreeView<GitStatus> treeViewStaged;
         string commitMessage = "";
         string guid = null;
-        List<Task<CommandResult>> tasksInProgress = new ();
+        List<Task> tasksInProgress = new ();
         Dictionary<Module, FilesSelection> selectionPerModule = new ();
 
         protected override void OnGUI()
@@ -54,41 +54,54 @@ namespace Abuksigun.MRGitUI
 
             tasksInProgress.RemoveAll(x => x.IsCompleted);
 
+            var modulesInCherryPickState = modules.Where(x => x.IsCherryPickInProgress.GetResultOrDefault());
             var modulesInMergingState = modules.Where(x => x.IsMergeInProgress.GetResultOrDefault());
-            var moduleNotInMergeState = modules.Where(x => !x.IsMergeInProgress.GetResultOrDefault());
+            var moduleNotInMergeState = modules.Where(x => !x.IsMergeInProgress.GetResultOrDefault() && !x.IsCherryPickInProgress.GetResultOrDefault());
             int modulesWithStagedFiles = moduleNotInMergeState.Count(x => x.GitStatus.GetResultOrDefault()?.Staged?.Count() > 0);
             bool commitAvailable = modulesWithStagedFiles > 0 && !string.IsNullOrWhiteSpace(commitMessage) && !tasksInProgress.Any();
 
             using (new GUILayout.HorizontalScope())
+            using (new EditorGUI.DisabledGroupScope(!commitAvailable))
             {
-                using (new EditorGUI.DisabledGroupScope(!commitAvailable))
+                if (GUILayout.Button($"Commit {modulesWithStagedFiles}/{modules.Count}", GUILayout.Width(150)))
                 {
-                    if (GUILayout.Button($"Commit {modulesWithStagedFiles}/{modules.Count} modules", GUILayout.Width(200)))
-                    {
-                        tasksInProgress.AddRange(moduleNotInMergeState.Select(module => module.Commit(commitMessage)));
-                        commitMessage = "";
-                    }
-                    if (GUILayout.Button($"Stash {modulesWithStagedFiles}/{modules.Count} modules", GUILayout.Width(200)))
-                    {
-                        tasksInProgress.AddRange(moduleNotInMergeState.Select(module => {
-                            var files = module.GitStatus.GetResultOrDefault().Files.Where(x => x.IsStaged).Select(x => x.FullPath);
-                            return module.Stash(commitMessage, files);
-                        }));
-                        commitMessage = "";
-                    }
+                    tasksInProgress.AddRange(moduleNotInMergeState.Select(module => module.Commit(commitMessage)));
+                    commitMessage = "";
                 }
-                if (modulesInMergingState.Any() && GUILayout.Button($"Commit merge in {modulesInMergingState.Count()}/{modules.Count} modules", GUILayout.Width(200))
+                if (GUILayout.Button($"Stash {modulesWithStagedFiles}/{modules.Count}", GUILayout.Width(150)))
+                {
+                    tasksInProgress.AddRange(moduleNotInMergeState.Select(module => {
+                        var files = module.GitStatus.GetResultOrDefault().Files.Where(x => x.IsStaged).Select(x => x.FullPath);
+                        return module.Stash(commitMessage, files);
+                    }));
+                    commitMessage = "";
+                }
+            }
+            using (new GUILayout.HorizontalScope())
+            {
+                if (modulesInMergingState.Any() && GUILayout.Button($"Commit merge in {modulesInMergingState.Count()}/{modules.Count}", GUILayout.Width(200))
                     && EditorUtility.DisplayDialog($"Are you sure you want COMMIT merge?", "It will be default commit message for each module. You can't change it!", "Yes", "No"))
                 {
                     tasksInProgress.AddRange(modules.Select(module => module.Commit()));
                 }
-                if (modulesInMergingState.Any() && GUILayout.Button($"Abort merge in {modulesInMergingState.Count()}/{modules.Count} modules", GUILayout.Width(200))
-                    && EditorUtility.DisplayDialog($"Are you sure you want ABORT merge?", modulesInMergingState.Select(x => x.DisplayName).Join(", "), "Yes", "No"))
+                if (modulesInMergingState.Any() && GUILayout.Button($"Abort merge in {modulesInMergingState.Count()}/{modules.Count}", GUILayout.Width(200))
+                    && EditorUtility.DisplayDialog($"Are you sure you want ABORT merge?", modulesInCherryPickState.Select(x => x.DisplayName).Join(", "), "Yes", "No"))
                 {
                     tasksInProgress.AddRange(modules.Select(module => module.AbortMerge()));
                 }
+                if (modulesInCherryPickState.Any() && GUILayout.Button($"Continue cherry-pick in {modulesInCherryPickState.Count()}/{modules.Count}", GUILayout.Width(200)))
+                {
+                    tasksInProgress.Add(GUIShortcuts.RunGitAndErrorCheck(modules, module => module.ContinueCherryPick()));
+                }
+                if (modulesInCherryPickState.Any() && GUILayout.Button($"Abort cherry-pick in {modulesInCherryPickState.Count()}/{modules.Count}", GUILayout.Width(200))
+                    && EditorUtility.DisplayDialog($"Are you sure you want ABORT cherry-pick?", modulesInCherryPickState.Select(x => x.DisplayName).Join(", "), "Yes", "No"))
+                {
+                    tasksInProgress.AddRange(modules.Select(module => module.AbortCherryPick()));
+                }
             }
-            GUILayout.Space(20);
+
+            if (!modulesInMergingState.Any() && !modulesInCherryPickState.Any())
+                EditorGUILayout.Space(21);
 
             var statuses = modules.Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
             var unstagedSelection = statuses.SelectMany(x => x.Files)
