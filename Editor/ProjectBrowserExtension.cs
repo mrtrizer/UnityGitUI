@@ -77,17 +77,17 @@ namespace Abuksigun.MRGitUI
                 }
             }
             var assetInfo = GetAssetGitInfo(guid);
-            if (module == null && assetInfo != null)
+            if (module == null && assetInfo != null && assetInfo.FileStatuses != null)
             {
                 var rect = drawRect;
                 rect.height = 15;
                 rect.y += 2;
                 rect.x -= 8;
-                if (assetInfo.FileStatuses != null && assetInfo.NestedFileModified)
+                if (assetInfo.NestedFileModified)
                     GUI.Label(rect, "     <color=blue>*</color>", FileMarkStyle.Value);
-                else if (assetInfo.FileStatuses != null && assetInfo.FileStatuses.Any(x => x != null && x.IsUnstaged))
+                else if (assetInfo.FileStatuses.Any(x => x.IsUnstaged))
                     GUI.Label(rect, GUIShortcuts.MakePrintableStatus(assetInfo.FileStatuses.First().Y), FileMarkStyle.Value);
-                else if (assetInfo.FileStatuses != null && assetInfo.FileStatuses.Any(x => x != null && x.IsStaged))
+                else if (assetInfo.FileStatuses.Any(x => x.IsStaged))
                     GUI.Label(rect, "<color=green>✓</color>", FileMarkStyle.Value);
             }
 
