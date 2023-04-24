@@ -85,9 +85,9 @@ namespace Abuksigun.MRGitUI
                 rect.x -= 8;
                 if (assetInfo.FileStatuses != null && assetInfo.NestedFileModified)
                     GUI.Label(rect, "     <color=blue>*</color>", FileMarkStyle.Value);
-                else if (assetInfo.FileStatuses?.Any(x => x.IsUnstaged) ?? false)
+                else if (assetInfo.FileStatuses != null && assetInfo.FileStatuses.Any(x => x != null && x.IsUnstaged))
                     GUI.Label(rect, GUIShortcuts.MakePrintableStatus(assetInfo.FileStatuses.First().Y), FileMarkStyle.Value);
-                else if (assetInfo.FileStatuses?.Any(x => x.IsStaged) ?? false)
+                else if (assetInfo.FileStatuses != null && assetInfo.FileStatuses.Any(x => x != null && x.IsStaged))
                     GUI.Label(rect, "<color=green>✓</color>", FileMarkStyle.Value);
             }
 

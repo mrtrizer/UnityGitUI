@@ -1,4 +1,3 @@
-using Codice.Client.Common.Locks;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,7 +7,6 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
-using UnityEditor.PackageManager.UI;
 using UnityEngine;
 
 namespace Abuksigun.MRGitUI
