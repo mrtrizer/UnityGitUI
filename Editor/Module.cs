@@ -222,7 +222,14 @@ namespace Abuksigun.MRGitUI
         }
         async Task<Remote> GetDefaultRemote()
         {
-            return (await GetRemotes()).FirstOrDefault();
+            string currentBranchName = await CurrentBranch;
+            var remotes = await Remotes;
+            var references = await References;
+            var currentBranch = references.FirstOrDefault(x => x is LocalBranch && x.Name == currentBranchName);
+            var remote = (await GetRemotes()).FirstOrDefault();
+            if (currentBranch is LocalBranch { TrackingBranch : not null } localBranch)
+                remote = remotes.FirstOrDefault(x => localBranch.TrackingBranch.StartsWith($"refs/remotes/{x.Alias}")) ?? remote;
+            return remote;
         }
         async Task<RemoteStatus> GetRemoteStatus()
         {
@@ -231,7 +238,7 @@ namespace Abuksigun.MRGitUI
                 return null;
             string currentBranch = await CurrentBranch;
             await RunGit("fetch");
-            string remoteAlias = remotes[0].Alias;
+            string remoteAlias = (await DefaultRemote).Alias;
             var branches = await References;
             if (!branches.Any(x => x is RemoteBranch remoteBranch && remoteBranch.RemoteAlias == remoteAlias && remoteBranch.Name == currentBranch))
                 return null;
@@ -341,20 +348,17 @@ namespace Abuksigun.MRGitUI
         #endregion
 
         #region RepoSync
-        public async Task<CommandResult> Pull()
+        public async Task<CommandResult> Pull(Remote remote = null)
         {
-            var remote = await DefaultRemote;
             return await RunGit($"pull {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         }
-        public async Task<CommandResult> Fetch(bool prune)
+        public async Task<CommandResult> Fetch(bool prune, Remote remote = null)
         {
-            var remote = await DefaultRemote;
             return await RunGit($"fetch {remote?.Alias} {"--prune".When(prune)}").AfterCompletion(RefreshRemoteStatus);
         }
-        public async Task<CommandResult> Push(bool pushTags, bool forcePush)
+        public async Task<CommandResult> Push(bool pushTags, bool forcePush, Remote remote = null)
         {
             string branch = await CurrentBranch;
-            var remote = await DefaultRemote;
             return await RunGit($"push {"--tags".When(pushTags)} {"--force".When(forcePush)} -u {remote?.Alias} {branch}:{branch}").AfterCompletion(RefreshRemoteStatus);
         }
         #endregion

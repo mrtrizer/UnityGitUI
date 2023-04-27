@@ -240,7 +240,7 @@ namespace Abuksigun.MRGitUI
             var outputStringBuilder = new StringBuilder();
             var errorStringBuilder = new StringBuilder();
             object exitCode = null;
-            int localProcessId = instance.lastLocalProcessId++;
+            int localProcessId = ++instance.lastLocalProcessId;
 
             process.OutputDataReceived += (_, args) => HandleData(outputStringBuilder, false, args);
             process.ErrorDataReceived += (_, args) => HandleData(errorStringBuilder, true, args);

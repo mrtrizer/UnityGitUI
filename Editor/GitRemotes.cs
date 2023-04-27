@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Abuksigun.MRGitUI
 {
@@ -32,6 +34,7 @@ namespace Abuksigun.MRGitUI
             
             var scrollPosition = Vector2.zero;
             var tasks = new Dictionary<string, (int localProcessId, Task<CommandResult> task)>();
+            var remotes = new Dictionary<Module, Remote>();
             string currentLogGuid = null;
 
             await GUIShortcuts.ShowModalWindow("Remotes", new Vector2Int(500, 400), (window) => {
@@ -43,23 +46,24 @@ namespace Abuksigun.MRGitUI
                     if (mode == Mode.Fetch)
                     {
                         if (GUILayout.Button(new GUIContent($"Fetch {modules.Length} modules", EditorGUIUtility.IconContent("Refresh@2x").image), GUILayout.Width(150)))
-                            tasks = modules.ToDictionary(x => x.Guid, module => (PackageShortcuts.GetNextRunCommandProcessId(), module.Fetch(prune)));
+                            tasks = modules.ToDictionary(x => x.Guid, module => (PackageShortcuts.GetNextRunCommandProcessId(), module.Fetch(prune, remotes[module])));
                         prune = GUILayout.Toggle(prune, "Prune");
                     }
                     if (mode == Mode.Pull)
                     {
                         if (GUILayout.Button(new GUIContent($"Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image), GUILayout.Width(150)))
-                            tasks = modules.ToDictionary(x => x.Guid, module => (PackageShortcuts.GetNextRunCommandProcessId(), module.Pull()));
+                            tasks = modules.ToDictionary(x => x.Guid, module => (PackageShortcuts.GetNextRunCommandProcessId(), module.Pull(remotes[module])));
                     }
                     if (mode == Mode.Push)
                     {
                         if (GUILayout.Button(new GUIContent($"Push {modules.Length} modules", EditorGUIUtility.IconContent("Update-Available@2x").image), GUILayout.Width(150)))
-                            tasks = modules.ToDictionary(x => x.Guid, module => (PackageShortcuts.GetNextRunCommandProcessId(), module.Push(pushTags, forcePush)));
+                            tasks = modules.ToDictionary(x => x.Guid, module => (PackageShortcuts.GetNextRunCommandProcessId(), module.Push(pushTags, forcePush, remotes[module])));
                         pushTags = GUILayout.Toggle(pushTags, "Push tags");
                         forcePush = GUILayout.Toggle(forcePush, "Force push");
                     }
                 }
                 GUILayout.Space(20);
+
                 var width = GUILayout.Width(window.position.width);
                 var height = GUILayout.Height(window.position.height - TopPanelHeight - LogHeight);
                 using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, width, height))
@@ -68,6 +72,15 @@ namespace Abuksigun.MRGitUI
                     {
                         using (new GUILayout.HorizontalScope())
                         {
+                            var selectedRemote = remotes.GetValueOrDefault(module) ?? (remotes[module] = module.DefaultRemote.GetResultOrDefault());
+                            if (selectedRemote != null && EditorGUILayout.DropdownButton(new (selectedRemote.Alias), FocusType.Keyboard, EditorStyles.toolbarDropDown, GUILayout.Width(100)))
+                            {
+                                GenericMenu menu = new GenericMenu();
+                                foreach (var remote in module.Remotes.GetResultOrDefault(Array.Empty<Remote>()))
+                                    menu.AddItem(new GUIContent(remote.Alias), selectedRemote == remote, _ => remotes[module] = remote, remote);
+                                menu.DropDown(GUILayoutUtility.GetLastRect().Resize(0, 20));
+                            }
+
                             GUILayout.Label($"{module.DisplayName} [{module.CurrentBranch.GetResultOrDefault()}]", GUILayout.Width(300));
                             var task = tasks.GetValueOrDefault(module.Guid);
                             if (task.task != null)

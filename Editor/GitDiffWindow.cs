@@ -1,4 +1,3 @@
-using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -146,6 +145,11 @@ namespace Abuksigun.MRGitUI
             {
                 if (diffLines[i][0] == 'd')
                 {
+                    if (diffLines[i + 2].StartsWith("Binary"))
+                    {
+                        EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, headerHeight), diffLines[i + 2], Style.FileName.Value);
+                        break;
+                    }
                     i += 3;
                     hunkIndex = -1;
                     currentFile = diffLines[i][6..];
