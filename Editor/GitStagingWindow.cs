@@ -145,7 +145,7 @@ namespace Abuksigun.MRGitUI
             var selectedAsset = statuses.SelectMany(x => x.Files).FirstOrDefault(x => x.FullPath.GetHashCode() == id);
             if (selectedAsset != null)
             {
-                string logicalPath = FileUtil.GetProjectRelativePath(selectedAsset.FullProjectPath);
+                string logicalPath = PackageShortcuts.GetUnityLogicalPath(selectedAsset.FullProjectPath);
                 Selection.objects = new[] { AssetDatabase.LoadAssetAtPath<Object>(logicalPath) };
             }
         }
