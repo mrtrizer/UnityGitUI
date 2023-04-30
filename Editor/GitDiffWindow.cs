@@ -66,6 +66,7 @@ namespace Abuksigun.MRGitUI
         GUIContent[] toolbarContent;
         string[] diffLines;
         HashSet<int> selectedLines;
+        int lastSelectedLine = -1;
 
         int lastHashCode = 0;
 
@@ -119,10 +120,17 @@ namespace Abuksigun.MRGitUI
                 var diffStrings = staged ? stagedDiffs.Select(x => x.diff) : unstagedDiffs.Select(x => x.diff);
                 diffLines = diffStrings.SelectMany(x => x.Split('\n', RemoveEmptyEntries)).ToArray();
                 selectedLines = new();
+                lastSelectedLine = -1;
                 lastHashCode = hashCode;
             }
             
             DrawGitDiff(position.size - TopPanelHeight.To0Y(), null, null, null, ref scrollPosition);
+
+            if (focusedWindow == this && Event.current.control && Event.current.keyCode == KeyCode.C)
+            {
+                var selectedText = string.Join("\n", selectedLines.Select(x => diffLines[x]));
+                EditorGUIUtility.systemCopyBuffer = selectedText;
+            }
 
             base.OnGUI();
         }
@@ -202,10 +210,20 @@ namespace Abuksigun.MRGitUI
                 else
                     selectedLines.Add(index);
             }
+            if (Event.current.shift)
+            {
+                int min = Mathf.Min(index, lastSelectedLine);
+                int max = Mathf.Max(index, lastSelectedLine);
+                for (int i = min; i <= max; i++)
+                {
+                    selectedLines.Add(i);
+                }
+            }
             else
             {
                 selectedLines = new() { index };
             }
+            lastSelectedLine = index;
         }
     }
 }
