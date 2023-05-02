@@ -30,13 +30,15 @@ namespace Abuksigun.MRGitUI
         public delegate void DrawRowCallback(TreeViewItem item, int columnIndex, Rect rect);
 
         public event Action selectionChangedEvent;
-        
+
         DrawRowCallback drawRowCallback;
         Action<int> contextMenuCallback;
         Action<int> doubleClickCallback;
         GenerateItemsCallback generateItems;
         bool multiSelection;
         List<T> sourceObjects;
+
+        public float RowHeight => rowHeight;
 
         public LazyTreeView(GenerateItemsCallback generateItems, TreeViewState treeViewState, bool multiSelection, MultiColumnHeader multicolumnHeader = null, DrawRowCallback drawRowCallback = null) 
             : base(treeViewState, multicolumnHeader)

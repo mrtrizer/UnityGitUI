@@ -17,7 +17,7 @@ namespace Abuksigun.MRGitUI
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
         [MenuItem("Window/Git GUI/Log")]
         [MenuItem("Assets/Git/Log", priority = 100)]
-        public static void Invoke() 
+        public static void Invoke()
         {
             if (EditorWindow.GetWindow<GitLogWindow>() is { } window && window)
             {
@@ -59,7 +59,7 @@ namespace Abuksigun.MRGitUI
         public string Date { get; set; }
         public string Message { get; set; }
     }
-    
+
     public class GitLogWindow : DefaultWindow
     {
         public static Lazy<GUIStyle> CommitInfoStyle => new(() => new(Style.RichTextLabel.Value) { richText = true, wordWrap = true });
@@ -86,7 +86,7 @@ namespace Abuksigun.MRGitUI
         string[] lastLog;
         List<string> lines;
         readonly Regex commitHashRegex = new Regex(@"([0-9a-f]+)");
-        
+
         public bool ShowStash { get; set; }
         public List<string> LogFiles { get; set; } = null;
         public List<Module> LockedModules { get; set; } = null;
@@ -119,18 +119,16 @@ namespace Abuksigun.MRGitUI
         TreeViewState treeViewStateFiles = new();
         LazyTreeView<GitStatus> treeViewFiles;
 
-        private void OnEnable()
+        public static void SelectHash(string hash)
         {
-            GitBranchesWindow.ReferenceSelectedEvent += OnReferenceSelected;
-        }
-        private void OnDisable()
-        {
-            GitBranchesWindow.ReferenceSelectedEvent -= OnReferenceSelected;
-        }
-        void OnReferenceSelected(Reference reference)
-        {
-            if (PackageShortcuts.GetModule(guid).Log?.GetResultOrDefault() is { } log)
-                treeViewLog.SetSelection(log.Where(x => x.Contains($"#{reference.Hash.Substring(0,7)}")).Select(x => x.GetHashCode()).ToList());
+            var instance = GetWindow<GitLogWindow>();
+            if (PackageShortcuts.GetModule(instance.guid).Log?.GetResultOrDefault() is { } log)
+            {
+                string shortHash = $"#{hash.Substring(0, 7)}";
+                int index = Array.FindIndex(log, x => x.Contains(shortHash));
+                instance.treeViewLog.SetSelection(log.Where(x => x.Contains(shortHash)).Select(x => x.GetHashCode()).ToList());
+                instance.treeViewLogState.scrollPos = Vector2.up * (index - 10) * instance.treeViewLog.RowHeight;
+            }
         }
         protected override void OnGUI()
         {

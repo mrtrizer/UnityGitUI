@@ -37,7 +37,6 @@ namespace Abuksigun.MRGitUI
         const int BottomPanelHeight = 30;
 
         static readonly ReferenceComparer referenceComparer = new();
-        public static event Action<Reference> ReferenceSelectedEvent;
 
         bool showAllBranches = false;
         Task task = null;
@@ -80,7 +79,7 @@ namespace Abuksigun.MRGitUI
                 },
                 doubleClickCallback: id => {
                     if (references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id) is { }  reference)
-                        ReferenceSelectedEvent?.Invoke(reference);
+                        GitLogWindow.SelectHash(reference.Hash);
                 });
 
             using (new EditorGUILayout.HorizontalScope())

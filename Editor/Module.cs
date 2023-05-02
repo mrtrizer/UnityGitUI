@@ -13,6 +13,7 @@ namespace Abuksigun.MRGitUI
 {
     using static Const;
 
+    public record BlameLine(string Hash, string Author, DateTime Date, string Text, int Line);
     public record Reference(string Name, string QualifiedName, string Hash);
     public record Tag(string Name, string Hash) : Reference(Name, Name, Hash);
     public record Stash(string Message, int Id, string Hash) : Reference(Message, Message.Replace("/", "\u2215"), Hash);
@@ -58,6 +59,7 @@ namespace Abuksigun.MRGitUI
         Dictionary<int, Task<string>> fileDiffCache;
         Dictionary<int, Task<GitStatus>> diffCache;
         Dictionary<int, Task<string[]>> fileLogCache;
+        Dictionary<string, Task<BlameLine[]>> fileBlameCache;
 
         List<IOData> processLog = new();
         List<IOData> processLogConcurent = new();
@@ -147,6 +149,11 @@ namespace Abuksigun.MRGitUI
             int fileLogId = files?.GetCombinedHashCode() ?? 0;
             return fileLogCache.TryGetValue(fileLogId, out var diff) ? diff : fileLogCache[fileLogId] = GetLog(files);
         }
+        public Task<BlameLine[]> BlameFile(string filePath)
+        {
+            fileBlameCache ??= new();
+            return fileBlameCache.TryGetValue(filePath, out var blame) ? blame : fileBlameCache[filePath] = GetBlame(filePath);
+        }
         async Task<string> GetRepoPath()
         {
             return (await RunGit("rev-parse --show-toplevel")).Output.Trim();
@@ -199,6 +206,16 @@ namespace Abuksigun.MRGitUI
             string filesStr = PackageShortcuts.JoinFileNames(files)?.WrapUp("-- ", "");
             var result = await RunGit($"log --graph --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ar) <b>%d</b> %s\" --branches --remotes --tags {filesStr}");
             return result.Output.SplitLines();
+        }
+        async Task<BlameLine[]> GetBlame(string filePath)
+        {
+            var blameLineRegex = new Regex(@"^([a-f0-9]+) .*?\(([^)]+) (\d+) ([+-]\d{4})\s+\d+\) (.*)$", RegexOptions.Multiline);
+            var result = await RunGit($"blame --date=raw -- {filePath}");
+            return result.Output.SplitLines().Select((x, i) => {
+                var match = blameLineRegex.Match(x);
+                var dateTime = DateTimeOffset.FromUnixTimeSeconds(long.Parse(match.Groups[3].Value)).DateTime;
+                return new BlameLine(match.Groups[1].Value, match.Groups[2].Value, dateTime, match.Groups[5].Value, i);
+            }).ToArray();
         }
         async Task<string[]> GetStashes()
         {
@@ -321,6 +338,7 @@ namespace Abuksigun.MRGitUI
             currentBranch = null;
             currentCommit = null;
             fileLogCache = null;
+            fileBlameCache = null;
         }
 
         public void RefreshRemoteStatus()
