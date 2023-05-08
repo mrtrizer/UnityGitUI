@@ -101,16 +101,25 @@ namespace Abuksigun.MRGitUI
                         var modules = stagedDiffs.Select(x => x.module).Distinct();
                         var filesPerModule = modules.Select(module => (module, stagedDiffs.Where(x => x.module == module).Select(x => x.fullPath).ToArray()));
                         if (GUILayout.Button($"Unstage All ({stagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
+                        {
                             GUIShortcuts.Unstage(filesPerModule);
+                            UpdateSelection(modules.ToArray());
+                        }
                     }
                     else
                     {
                         var modules = unstagedDiffs.Select(x => x.module).Distinct();
                         var filesPerModule = modules.Select(module => (module, unstagedDiffs.Where(x => x.module == module).Select(x => x.fullPath).ToArray()));
                         if (GUILayout.Button($"Stage All ({unstagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
+                        {
                             GUIShortcuts.Stage(filesPerModule);
+                            UpdateSelection(modules.ToArray());
+                        }
                         if (GUILayout.Button($"Discard All ({unstagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
+                        {
                             GUIShortcuts.DiscardFiles(filesPerModule);
+                            UpdateSelection(modules.ToArray());
+                        }
                     }
                 }
             }
@@ -138,11 +147,11 @@ namespace Abuksigun.MRGitUI
                 }
             }
 
-            DrawGitDiff(position.size - TopPanelHeight.To0Y(), StageHunk, UnstageHunk, DiscardHunk, ref scrollPosition);
+            DrawGitDiff(position.size - TopPanelHeight.To0Y(), StageHunk, UnstageHunk, DiscardHunk, staged, ref scrollPosition);
 
             base.OnGUI();
         }
-        public void DrawGitDiff(Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, ref Vector2 scrollPosition)
+        public void DrawGitDiff(Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, bool staged, ref Vector2 scrollPosition)
         {
             if (diffLines == null || diffLines.Length == 0)
                 return;
@@ -190,11 +199,11 @@ namespace Abuksigun.MRGitUI
                             const float buttonWidth = 70;
                             float verticalOffsest = size.x;
                             var fileStatus = status.Files.FirstOrDefault(x => x.FullProjectPath.Contains(currentFile));
-                            if (fileStatus.IsUnstaged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Stage", EditorStyles.toolbarButton))
+                            if (!staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Stage", EditorStyles.toolbarButton))
                                 stageHunk.Invoke(fileStatus, hunkIndex + 1);
-                            if (fileStatus.IsStaged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Unstage", EditorStyles.toolbarButton))
+                            if (staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Unstage", EditorStyles.toolbarButton))
                                 unstageHunk.Invoke(fileStatus, hunkIndex + 1);
-                            if (fileStatus.IsUnstaged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Discard", EditorStyles.toolbarButton))
+                            if (!staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Discard", EditorStyles.toolbarButton))
                                 discardHunk.Invoke(fileStatus, hunkIndex + 1);
                         }
                     }
@@ -268,15 +277,21 @@ namespace Abuksigun.MRGitUI
             await module.RunProcess("git", $"{args} -- {file.FullPath}", data => {
                 if (!inputApplied)
                 {
-                    data.Process.StandardInput.Write(Enumerable.Repeat("n", id).Join("\n") + "y\nd\n");
+                    for (int i = 0; i < id; i++)
+                        data.Process.StandardInput.WriteLine("n");
+                    data.Process.StandardInput.WriteLine("y");
+                    data.Process.StandardInput.WriteLine("d");
                     data.Process.StandardInput.Flush();
                     inputApplied = true;
                 }
             });
-            module.RefreshFilesStatus();
-            await module.FileDiff(new GitFileReference(file.ModuleGuid, file.FullProjectPath, true));
-            await module.GitStatus;
-            ProjectBrowserExtension.UpdateSelection();
+            UpdateSelection(module);
+        }
+        void UpdateSelection(params Module[] modules)
+        {
+            foreach (var module in modules)
+                module.RefreshFilesStatus();
+            _ = ProjectBrowserExtension.UpdateSelection();
             lastHashCode = 0;
         }
     }

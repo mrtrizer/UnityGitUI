@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -28,8 +29,13 @@ namespace Abuksigun.MRGitUI
             SelectAssets(assets);
         }
 
-        public static void UpdateSelection()
+        public static async Task UpdateSelection()
         {
+            foreach (var file in GetSelectedFiles())
+            {
+                await file.Module.FileDiff(new GitFileReference(file.ModuleGuid, file.FullPath, true));
+                await file.Module.GitStatus;
+            }
             var assets = GetSelectedFiles().Select(x => x.FullPath).Distinct().Select(x => GetFileGitInfo(x)).Where(x => x?.FileStatuses != null);
             SelectAssets(assets);
         }
