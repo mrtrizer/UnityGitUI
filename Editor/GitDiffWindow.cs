@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -12,31 +13,6 @@ namespace Abuksigun.MRGitUI
     
     public class GitDiff
     {
-        public delegate void HunkAction(string fileName, int hunkIndex);
-
-        public static Lazy<GUIStyle> DiffUnchanged => new(() => new() {
-            normal = new GUIStyleState {
-                background = Style.GetColorTexture(Color.white)
-            },
-            font = Style.MonospacedFont.Value,
-            fontSize = 10
-        });
-        public static Lazy<GUIStyle> DiffAdded => new(() => new(DiffUnchanged.Value) {
-            normal = new GUIStyleState {
-                background = Style.GetColorTexture(new Color(0.505f, 0.99f, 0.618f))
-            }
-        });
-        public static Lazy<GUIStyle> DiffRemoved => new(() => new(DiffUnchanged.Value) {
-            normal = new GUIStyleState {
-                background = Style.GetColorTexture(new Color(0.990f, 0.564f, 0.564f))
-            }
-        });
-        public static Lazy<GUIStyle> DiffSelected => new(() => new(DiffUnchanged.Value) {
-            normal = new GUIStyleState {
-                background = Style.GetColorTexture(new Color(0.505f, 0.618f, 0.99f))
-            }
-        });
-
         [MenuItem("Assets/Git File Diff", true)]
         public static bool Check() => Selection.assetGUIDs.Any(x => PackageShortcuts.GetAssetGitInfo(x) != null);
         [MenuItem("Window/Git GUI/Diff")]
@@ -57,6 +33,8 @@ namespace Abuksigun.MRGitUI
 
     public class GitDiffWindow : DefaultWindow
     {
+        public delegate void HunkAction(FileStatus filePath, int hunkIndex);
+
         const int TopPanelHeight = 20;
 
         static Regex hunkStartRegex = new Regex(@"@@ -(\d+),?(\d+)?.*?\+(\d+),?(\d+)?.*?@@");
@@ -69,6 +47,29 @@ namespace Abuksigun.MRGitUI
         int lastSelectedLine = -1;
 
         int lastHashCode = 0;
+
+        Lazy<GUIStyle> DiffUnchanged => new(() => new() {
+            normal = new GUIStyleState {
+                background = Style.GetColorTexture(Color.white)
+            },
+            font = Style.MonospacedFont.Value,
+            fontSize = 10
+        });
+        Lazy<GUIStyle> DiffAdded => new(() => new(DiffUnchanged.Value) {
+            normal = new GUIStyleState {
+                background = Style.GetColorTexture(new Color(0.505f, 0.99f, 0.618f))
+            }
+        });
+        Lazy<GUIStyle> DiffRemoved => new(() => new(DiffUnchanged.Value) {
+            normal = new GUIStyleState {
+                background = Style.GetColorTexture(new Color(0.990f, 0.564f, 0.564f))
+            }
+        });
+        Lazy<GUIStyle> DiffSelected => new(() => new(DiffUnchanged.Value) {
+            normal = new GUIStyleState {
+                background = Style.GetColorTexture(new Color(0.505f, 0.618f, 0.99f))
+            }
+        });
 
         protected override void OnGUI()
         {
@@ -117,20 +118,27 @@ namespace Abuksigun.MRGitUI
             var hashCode = selectedFiles.GetCombinedHashCode() ^ staged.GetHashCode();
             if (hashCode != lastHashCode && diffs.All(x => x.diff.IsCompleted))
             {
-                var diffStrings = staged ? stagedDiffs.Select(x => x.diff) : unstagedDiffs.Select(x => x.diff);
+                var diffStrings = staged ? stagedDiffs.Select(x => $"#{x.module.Guid}\n{x.diff}") : unstagedDiffs.Select(x => $"#{x.module.Guid}\n{x.diff}");
                 diffLines = diffStrings.SelectMany(x => x.Split('\n', RemoveEmptyEntries)).ToArray();
                 selectedLines = new();
                 lastSelectedLine = -1;
                 lastHashCode = hashCode;
             }
-            
-            DrawGitDiff(position.size - TopPanelHeight.To0Y(), null, null, null, ref scrollPosition);
 
-            if (focusedWindow == this && Event.current.control && Event.current.keyCode == KeyCode.C)
+            if (focusedWindow == this)
             {
-                var selectedText = string.Join("\n", selectedLines.Select(x => diffLines[x]));
-                EditorGUIUtility.systemCopyBuffer = selectedText;
+                if (Event.current.control && Event.current.keyCode == KeyCode.C)
+                    CopySelected();
+                if (Event.current.type == EventType.MouseDown && Event.current.button == 1)
+                {
+                    var menu = new GenericMenu();
+                    menu.AddItem(new GUIContent("Copy"), false, CopySelected);
+                    menu.ShowAsContext();
+                    Event.current.Use();
+                }
             }
+
+            DrawGitDiff(position.size - TopPanelHeight.To0Y(), StageHunk, UnstageHunk, DiscardHunk, ref scrollPosition);
 
             base.OnGUI();
         }
@@ -143,15 +151,20 @@ namespace Abuksigun.MRGitUI
             int currentLine = 1;
 
             using var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
-            int headerHeight = 15;
+            float headerHeight = EditorStyles.toolbarButton.fixedHeight;
             int codeLineHeight = 12;
+            Module module = null;
 
             float currentOffset = 0;
             string currentFile = null;
             int hunkIndex = -1;
             for (int i = 0; i < diffLines.Length; i++)
             {
-                if (diffLines[i][0] == 'd')
+                if (diffLines[i][0] == '#')
+                {
+                    module = PackageShortcuts.GetModule(diffLines[i][1..]);
+                }
+                else if (diffLines[i][0] == 'd')
                 {
                     if (diffLines[i + 2].StartsWith("Binary"))
                     {
@@ -160,7 +173,7 @@ namespace Abuksigun.MRGitUI
                     }
                     i += 3;
                     hunkIndex = -1;
-                    currentFile = diffLines[i][6..];
+                    currentFile = diffLines[i][6..].Trim();
                     if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
                         EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, headerHeight), currentFile, Style.FileName.Value);
                     currentOffset += headerHeight;
@@ -170,14 +183,20 @@ namespace Abuksigun.MRGitUI
                     var match = hunkStartRegex.Match(diffLines[i]);
                     if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
                     {
-                        EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, headerHeight), match.Value, Style.FileName.Value);
+                        EditorGUI.LabelField(new Rect(0, currentOffset, width, headerHeight), match.Value, Style.FileName.Value);
 
-                        if (stageHunk != null && GUI.Button(new Rect(currentOffset, 0, 100, 20), $"Stage hunk {hunkIndex + 1}"))
-                            stageHunk.Invoke(currentFile, hunkIndex);
-                        if (unstageHunk != null && GUI.Button(new Rect(currentOffset, 100, 100, 20), $"Unstage hunk {hunkIndex + 1}"))
-                            unstageHunk.Invoke(currentFile, hunkIndex);
-                        if (discardHunk != null && GUI.Button(new Rect(currentOffset, 200, 100, 20), $"Discard hunk {hunkIndex + 1}"))
-                            discardHunk.Invoke(currentFile, hunkIndex);
+                        if (module.GitStatus.GetResultOrDefault() is { } status)
+                        {
+                            const float buttonWidth = 70;
+                            float verticalOffsest = size.x;
+                            var fileStatus = status.Files.FirstOrDefault(x => x.FullProjectPath.Contains(currentFile));
+                            if (fileStatus.IsUnstaged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Stage", EditorStyles.toolbarButton))
+                                stageHunk.Invoke(fileStatus, hunkIndex + 1);
+                            if (fileStatus.IsStaged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Unstage", EditorStyles.toolbarButton))
+                                unstageHunk.Invoke(fileStatus, hunkIndex + 1);
+                            if (fileStatus.IsUnstaged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Discard", EditorStyles.toolbarButton))
+                                discardHunk.Invoke(fileStatus, hunkIndex + 1);
+                        }
                     }
 
                     currentLine = match.Groups[1].Value != "0" ? int.Parse(match.Groups[1].Value) : int.Parse(match.Groups[3].Value);
@@ -224,6 +243,41 @@ namespace Abuksigun.MRGitUI
                 selectedLines = new() { index };
             }
             lastSelectedLine = index;
+        }
+        void CopySelected()
+        {
+            var selectedText = string.Join("\n", selectedLines.Select(x => diffLines[x][1..]));
+            EditorGUIUtility.systemCopyBuffer = selectedText;
+        }
+        async void DiscardHunk(FileStatus file, int id)
+        {
+            await GitPatch("checkout -q --patch", file, id);
+        }
+        async void StageHunk(FileStatus file, int id)
+        {
+            await GitPatch("add --patch", file, id);
+        }
+        async void UnstageHunk(FileStatus file, int id)
+        {
+            await GitPatch("reset -q --patch", file, id);
+        }
+        async Task GitPatch(string args, FileStatus file, int id)
+        {
+            bool inputApplied = false;
+            var module = PackageShortcuts.GetModule(file.ModuleGuid);
+            await module.RunProcess("git", $"{args} -- {file.FullPath}", data => {
+                if (!inputApplied)
+                {
+                    data.Process.StandardInput.Write(Enumerable.Repeat("n", id).Join("\n") + "y\nd\n");
+                    data.Process.StandardInput.Flush();
+                    inputApplied = true;
+                }
+            });
+            module.RefreshFilesStatus();
+            await module.FileDiff(new GitFileReference(file.ModuleGuid, file.FullProjectPath, true));
+            await module.GitStatus;
+            ProjectBrowserExtension.UpdateSelection();
+            lastHashCode = 0;
         }
     }
 }

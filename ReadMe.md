@@ -27,7 +27,9 @@ This tool is useful even if you have a single repository and use another GitUI a
 - **Manage branches, tags, and stash**
 - **Stage and Commit**
 - **Merge** (choose theirs/mine)
-- View **Diff** (hunk handling in progress)
+- View **Diff**
+- **Hunk Stage/Unstage/Discard**
+- **Blame**
 - **Fetch/Pull/Push**
 - Project Browser extension
     - Display current status of repositories, current branch, and remote status
@@ -40,8 +42,6 @@ This tool is useful even if you have a single repository and use another GitUI a
 - View **Process Log**, showing the exact git commands executed and their output
 
 ### Not implemented yet ###
-- **Hunks managment**
-- **Blame**
 - **Extentions support**
 - **Adding new commands without coding**
 - **Git LFS features**

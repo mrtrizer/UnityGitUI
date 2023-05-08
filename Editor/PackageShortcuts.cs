@@ -26,6 +26,7 @@ namespace Abuksigun.MRGitUI
         public string Data { get; set; }
         public bool Error { get; set; }
         public int LocalProcessId { get; set; }
+        public Process Process { get; set; }
     }
     public record CommandResult(int ExitCode, string Output, string Command, int LocalProcessId);
 
@@ -61,7 +62,7 @@ namespace Abuksigun.MRGitUI
     {
         static Dictionary<string, Module> modules = new();
         static object processLock = new();
-        
+
         [SerializeField] int lastLocalProcessId = 0;
         [SerializeField] List<Module> lockeedModules;
         [SerializeField] GitFileReference[] lastGitFilesSelected = Array.Empty<GitFileReference>();
@@ -123,7 +124,7 @@ namespace Abuksigun.MRGitUI
         {
             return GetModules().Where(module => module != null && module.IsGitRepo.GetResultOrDefault()).Where(x => x != null);
         }
-        
+
         public static IEnumerable<Module> GetSelectedModules()
         {
             if (instance.lockeedModules != null)
@@ -153,7 +154,7 @@ namespace Abuksigun.MRGitUI
 
         public static Module FindModuleContainingPath(string path)
         {
-            string normalizedPath = GetFullPathFromUnityLogicalPath(path);
+            string normalizedPath = GetFullPathFromUnityLogicalPath(path.Trim().NormalizeSlashes());
             return modules.Values.Where(x => x != null).OrderByDescending(x => x.ProjectDirPath.Length).FirstOrDefault(x => normalizedPath.Contains(x.ProjectDirPath));
         }
 
@@ -177,12 +178,9 @@ namespace Abuksigun.MRGitUI
             return logicalPath;
         }
 
-        public static AssetGitInfo GetAssetGitInfo(string guid)
+        public static AssetGitInfo GetFileGitInfo(string filePath)
         {
-            if (guid == null)
-                return null;
             var gitModules = GetGitModules();
-            string filePath = GetFullPathFromGuid(guid);
             if (string.IsNullOrEmpty(filePath))
                 return null;
             var allFiles = gitModules.Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null).SelectMany(x => x.Files);
@@ -191,6 +189,14 @@ namespace Abuksigun.MRGitUI
             if (allFiles.Where(x => x.FullProjectPath.Contains(filePath)) is { } nestedFileStatuses && nestedFileStatuses.Any())
                 return new AssetGitInfo(GetModule(nestedFileStatuses.First().ModuleGuid), filePath, nestedFileStatuses.ToArray(), true);
             return new AssetGitInfo(FindModuleContainingPath(filePath), filePath, null, false);
+        }
+
+        public static AssetGitInfo GetAssetGitInfo(string guid)
+        {
+            if (guid == null)
+                return null;
+            string filePath = GetFullPathFromGuid(guid);
+            return GetFileGitInfo(filePath);
         }
 
         public static string JoinFileNames(IEnumerable<string> fileNames)
@@ -233,6 +239,7 @@ namespace Abuksigun.MRGitUI
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
+                    RedirectStandardInput = true,
                     WorkingDirectory = workingDir,
                 },
                 EnableRaisingEvents = true
@@ -266,7 +273,7 @@ namespace Abuksigun.MRGitUI
 
             void HandleData(StringBuilder stringBuilder, bool error, DataReceivedEventArgs args)
             {
-                if (args.Data != null && (dataHandler?.Invoke(process, new IOData { Data = args.Data, Error = error, LocalProcessId = localProcessId }) ?? true))
+                if (args.Data != null && (dataHandler?.Invoke(process, new IOData { Data = args.Data, Error = error, LocalProcessId = localProcessId, Process = process }) ?? true))
                     stringBuilder.AppendLine(args.Data);
             }
         }

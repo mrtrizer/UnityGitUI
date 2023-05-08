@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -23,6 +25,17 @@ namespace Abuksigun.MRGitUI
         static void SelectionChanged()
         {
             var assets = Selection.assetGUIDs.Select(x => GetAssetGitInfo(x)).Where(x => x?.FileStatuses != null);
+            SelectAssets(assets);
+        }
+
+        public static void UpdateSelection()
+        {
+            var assets = GetSelectedFiles().Select(x => x.FullPath).Distinct().Select(x => GetFileGitInfo(x)).Where(x => x?.FileStatuses != null);
+            SelectAssets(assets);
+        }
+
+        static void SelectAssets(IEnumerable<AssetGitInfo> assets)
+        {
             var stagedSelection = assets.SelectMany(x => x.FileStatuses).Where(x => x.IsStaged).Select(x => new GitFileReference(x.ModuleGuid, x.FullProjectPath, true));
             var unstagedSelection = assets.SelectMany(x => x.FileStatuses).Where(x => x.IsUnstaged).Select(x => new GitFileReference(x.ModuleGuid, x.FullProjectPath, false));
             SetSelectedFiles(stagedSelection.Concat(unstagedSelection));
@@ -32,7 +45,7 @@ namespace Abuksigun.MRGitUI
         {
             if (Application.isPlaying)
                 return;
-            
+
             EditorApplication.RepaintProjectWindow();
 
             var module = GetModule(guid);
