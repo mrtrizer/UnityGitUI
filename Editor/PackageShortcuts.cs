@@ -110,6 +110,11 @@ namespace Abuksigun.MRGitUI
             return (packageInfo != null && packageInfo.assetPath == path) || path == "Assets";
         }
 
+        public static void SetSelectedModules(IEnumerable<Module> modules)
+        {
+            instance.lastModulesSelection = modules.Select(x => x.Guid).ToList();
+        }
+
         public static void SetSelectedFiles(IEnumerable<GitFileReference> references)
         {
             instance.lastGitFilesSelected = references.ToArray();

@@ -79,7 +79,7 @@ namespace Abuksigun.MRGitUI
                 },
                 doubleClickCallback: id => {
                     if (references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id) is { }  reference)
-                        GitLogWindow.SelectHash(reference.Hash);
+                        GitLogWindow.SelectHash(null, reference.Hash);
                 });
 
             using (new EditorGUILayout.HorizontalScope())

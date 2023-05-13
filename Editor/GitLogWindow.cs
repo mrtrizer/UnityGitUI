@@ -119,8 +119,10 @@ namespace Abuksigun.MRGitUI
         TreeViewState treeViewStateFiles = new();
         LazyTreeView<GitStatus> treeViewFiles;
 
-        public static void SelectHash(string hash)
+        public static void SelectHash(Module module, string hash)
         {
+            if (module != null)
+                PackageShortcuts.SetSelectedModules(new[] { module });
             var instances = Resources.FindObjectsOfTypeAll<GitLogWindow>();
             foreach (var instance in instances)
             {
@@ -172,7 +174,7 @@ namespace Abuksigun.MRGitUI
 
             treeViewLog.Draw(new Vector2(position.width, position.height - currentFilesPanelHeight), new[] { lastLog }, 
                 id => ShowCommitContextMenu(module, GetSelectedCommitHash(id), GetSelectedCommitHashes(treeViewLogState.selectedIDs)),
-                id => SelectHash(GetSelectedCommitHash(id)));
+                id => SelectHash(module, GetSelectedCommitHash(id)));
 
             if (!HideGraph && Event.current.type == EventType.Repaint)
             {

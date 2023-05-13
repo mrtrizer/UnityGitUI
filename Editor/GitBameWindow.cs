@@ -39,11 +39,11 @@ public static class GitBameWindow
             treeView.Draw(window.position.size, blame,
                 contextMenuCallback: (id) => {
                     var menu = new GenericMenu();
-                    menu.AddItem(new GUIContent("Show in Log"), false, () => GitLogWindow.SelectHash(blame.FirstOrDefault(x => x.GetHashCode() == id)?.Hash));
+                    menu.AddItem(new GUIContent("Show in Log"), false, () => GitLogWindow.SelectHash(module, blame.FirstOrDefault(x => x.GetHashCode() == id)?.Hash));
                     menu.ShowAsContext();
                 },
                 doubleClickCallback: (id) => {
-                    GitLogWindow.SelectHash(blame.FirstOrDefault(x => x.GetHashCode() == id)?.Hash);
+                    GitLogWindow.SelectHash(module, blame.FirstOrDefault(x => x.GetHashCode() == id)?.Hash);
                 });
         });
     }
