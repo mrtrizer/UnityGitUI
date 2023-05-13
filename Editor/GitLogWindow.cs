@@ -118,6 +118,7 @@ namespace Abuksigun.MRGitUI
         [SerializeField]
         TreeViewState treeViewStateFiles = new();
         LazyTreeView<GitStatus> treeViewFiles;
+        string lastSelectedCommitHash;
 
         public static void SelectHash(Module module, string hash)
         {
@@ -162,8 +163,9 @@ namespace Abuksigun.MRGitUI
 
             if (selectedCommitHash != null && !HideFilesPanel)
                 DrawFilesPanel(module, selectedCommitHash);
-            else if (HideFilesPanel)
+            else if (HideFilesPanel && selectedCommitHash != lastSelectedCommitHash)
                 PackageShortcuts.SetSelectedFiles(guid, LogFiles, null, $"{selectedCommitHash}~1", selectedCommitHash);
+            lastSelectedCommitHash = selectedCommitHash;
             base.OnGUI();
         }
         private void DrawLog(Module module, string selectedCommitHash)
