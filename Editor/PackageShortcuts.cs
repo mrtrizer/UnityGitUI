@@ -70,6 +70,21 @@ namespace Abuksigun.MRGitUI
 
         public static List<Module> LockedModules => instance.lockeedModules;
 
+        [InitializeOnLoadMethod]
+        static void InitModules()
+        {
+            modules = new();
+            string assetsGuid = AssetDatabase.AssetPathToGUID("Assets");
+            modules.Add(assetsGuid, new Module(assetsGuid));
+            foreach (var package in PackageInfo.GetAllRegisteredPackages())
+            {
+                string guid = AssetDatabase.AssetPathToGUID(package.assetPath);
+                if (guid != null)
+                    modules.Add(guid, new Module(guid));
+            }
+            Debug.Log($"Initialized modules: {modules.Values.Select(x => x.Name).Join('\n')}");
+        }
+
         public static Module GetModule(string guid)
         {
             return modules.GetValueOrDefault(guid) ?? (modules[guid] = IsModule(guid) ? new Module(guid) : null);

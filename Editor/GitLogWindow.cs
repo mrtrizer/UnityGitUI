@@ -121,13 +121,18 @@ namespace Abuksigun.MRGitUI
 
         public static void SelectHash(string hash)
         {
-            var instance = GetWindow<GitLogWindow>();
-            if (PackageShortcuts.GetModule(instance.guid).Log?.GetResultOrDefault() is { } log)
+            var instances = Resources.FindObjectsOfTypeAll<GitLogWindow>();
+            foreach (var instance in instances)
             {
-                string shortHash = $"#{hash.Substring(0, 7)}";
-                int index = Array.FindIndex(log, x => x.Contains(shortHash));
-                instance.treeViewLog.SetSelection(log.Where(x => x.Contains(shortHash)).Select(x => x.GetHashCode()).ToList());
-                instance.treeViewLogState.scrollPos = Vector2.up * (index - 10) * instance.treeViewLog.RowHeight;
+                if (instance.LogFiles == null || instance.LogFiles.Count == 0)
+                    instance.Focus();
+                if (PackageShortcuts.GetModule(instance.guid).Log?.GetResultOrDefault() is { } log)
+                {
+                    string shortHash = $"#{hash.Substring(0, 7)}";
+                    int index = log.Where(x => x.Contains('#')).ToList().FindIndex(x => x.Contains(shortHash));
+                    instance.treeViewLog.SetSelection(log.Where(x => x.Contains(shortHash)).Select(x => x.GetHashCode()).ToList());
+                    instance.treeViewLogState.scrollPos = Vector2.up * (index - 10) * instance.treeViewLog.RowHeight;
+                }
             }
         }
         protected override void OnGUI()
@@ -165,9 +170,9 @@ namespace Abuksigun.MRGitUI
 
             float currentFilesPanelHeight = selectedCommitHash != null && HideFilesPanel ? 0 : FilesPanelHeight;
 
-            treeViewLog.Draw(new Vector2(position.width, position.height - currentFilesPanelHeight), new[] { lastLog }, id => {
-                _ = ShowCommitContextMenu(module, GetSelectedCommitHash(id), GetSelectedCommitHashes(treeViewLogState.selectedIDs));
-            });
+            treeViewLog.Draw(new Vector2(position.width, position.height - currentFilesPanelHeight), new[] { lastLog }, 
+                id => ShowCommitContextMenu(module, GetSelectedCommitHash(id), GetSelectedCommitHashes(treeViewLogState.selectedIDs)),
+                id => SelectHash(GetSelectedCommitHash(id)));
 
             if (!HideGraph && Event.current.type == EventType.Repaint)
             {
@@ -306,7 +311,7 @@ namespace Abuksigun.MRGitUI
             }
             return cells;
         }
-        static async Task ShowCommitContextMenu(Module module, string selectedCommit, IEnumerable<string> selectedCommits)
+        static async void ShowCommitContextMenu(Module module, string selectedCommit, IEnumerable<string> selectedCommits)
         {
             var menu = new GenericMenu();
             var commitReference = new[] { new Reference(selectedCommit, selectedCommit, selectedCommit) };

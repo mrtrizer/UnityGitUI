@@ -55,7 +55,7 @@ namespace Abuksigun.MRGitUI
 
         static IEnumerable<Module> GetSelectedGitPackages()
         {
-            return PackageShortcuts.GetSelectedModules().Where(x => x.PackageInfo.source == UnityEditor.PackageManager.PackageSource.Git);
+            return PackageShortcuts.GetSelectedModules().Where(x => x?.PackageInfo?.source == UnityEditor.PackageManager.PackageSource.Git);
         }
 
         static IEnumerable<Module> GetSelectedSymLinkPackages()

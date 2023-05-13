@@ -146,7 +146,7 @@ namespace Abuksigun.MRGitUI
         public Task<string[]> LogFiles(IEnumerable<string> files)
         {
             fileLogCache ??= new();
-            int fileLogId = files?.GetCombinedHashCode() ?? 0;
+            int fileLogId = files != null && files.Any() ? files.GetCombinedHashCode() : 0;
             return fileLogCache.TryGetValue(fileLogId, out var diff) ? diff : fileLogCache[fileLogId] = GetLog(files);
         }
         public Task<BlameLine[]> BlameFile(string filePath)
@@ -203,7 +203,7 @@ namespace Abuksigun.MRGitUI
         }
         async Task<string[]> GetLog(IEnumerable<string> files = null)
         {
-            string filesStr = PackageShortcuts.JoinFileNames(files)?.WrapUp("-- ", "");
+            string filesStr = files != null && files.Any() ? PackageShortcuts.JoinFileNames(files).WrapUp("--follow -- ", "") : null;
             var result = await RunGit($"log --graph --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ar) <b>%d</b> %s\" --branches --remotes --tags {filesStr}");
             return result.Output.SplitLines();
         }
