@@ -315,32 +315,48 @@ namespace Abuksigun.MRGitUI
             }
             return cells;
         }
-        static async void ShowCommitContextMenu(Module module, string selectedCommit, IEnumerable<string> selectedCommits)
+        async void ShowCommitContextMenu(Module module, string selectedCommit, IEnumerable<string> selectedCommits)
         {
             var menu = new GenericMenu();
             var commitReference = new[] { new Reference(selectedCommit, selectedCommit, selectedCommit) };
-            var references = commitReference.Concat((await module.References).Where(x => (x is LocalBranch || x is Tag) && x.Hash.StartsWith(selectedCommit)));
-            foreach (var reference in references)
+            var localReferences = commitReference.Concat((await module.References).Where(x => (x is LocalBranch || x is Tag) && x.Hash.StartsWith(selectedCommit)));
+            foreach (var reference in localReferences)
             {
                 var contextMenuname = reference.QualifiedName.Replace("/", "\u2215");
-                menu.AddItem(new GUIContent($"Checkout/{contextMenuname}"), false, () => {
-                    if (EditorUtility.DisplayDialog("Are you sure you want CHECKOUT to COMMIT", reference.QualifiedName, "Yes", "No"))
-                        _ = module.Checkout(reference.QualifiedName);
+                string filesLableString = LogFiles.Any() ? "Files" : "";
+                string filesList = LogFiles.Join();
+                menu.AddItem(new GUIContent($"Checkout {filesLableString}/{contextMenuname}"), false, () => {
+                    if (EditorUtility.DisplayDialog($"Are you sure you want CHECKOUT {filesLableString} to COMMIT", $"{reference.QualifiedName}\n{filesList}", "Yes", "No"))
+                        _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.Checkout(reference.QualifiedName, LogFiles));
                 });
-                menu.AddItem(new GUIContent($"Reset Soft/{contextMenuname}"), false, () => {
-                    if (EditorUtility.DisplayDialog("Are you sure you want RESET to COMMIT", reference.QualifiedName, "Yes", "No"))
-                        _ = module.Reset(reference.QualifiedName, false);
-                });
-                menu.AddItem(new GUIContent($"Reset Hard/{contextMenuname}"), false, () => {
-                    if (EditorUtility.DisplayDialog("Are you sure you want RESET HARD to COMMIT.", reference.QualifiedName, "Yes", "No"))
-                        _ = module.Reset(reference.QualifiedName, true);
-                });
-                menu.AddItem(new GUIContent($"New Tag"), false, () => GUIShortcuts.MakeTag(selectedCommit));
+                if (!LogFiles.Any())
+                {
+                    menu.AddItem(new GUIContent($"Reset Soft/{contextMenuname}"), false, () =>
+                    {
+                        if (EditorUtility.DisplayDialog("Are you sure you want RESET to COMMIT", reference.QualifiedName, "Yes", "No"))
+                            _ = module.Reset(reference.QualifiedName, false);
+                    });
+                    menu.AddItem(new GUIContent($"New Tag"), false, () => GUIShortcuts.MakeTag(selectedCommit));
+                }
             }
-            menu.AddItem(new GUIContent($"Cherry Pick/{selectedCommits.Join(", ")}"), false, () => {
-                if (EditorUtility.DisplayDialog("Are you sure you want to cherry-pick these commits?", selectedCommits.Join(", "), "Yes", "No"))
-                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.CherryPick(selectedCommits));
-            });
+            if (!LogFiles.Any())
+            {
+                var allReferences = commitReference.Concat((await module.References).Where(x => (x is Branch || x is Tag) && x.Hash.StartsWith(selectedCommit)));
+                foreach (var reference in allReferences)
+                {
+                    var contextMenuname = reference.QualifiedName.Replace("/", "\u2215");
+                    menu.AddItem(new GUIContent($"Reset Hard/{contextMenuname}"), false, () =>
+                    {
+                        if (EditorUtility.DisplayDialog("Are you sure you want RESET HARD to COMMIT.", reference.QualifiedName, "Yes", "No"))
+                            _ = module.Reset(reference.QualifiedName, true);
+                    });
+                }
+                menu.AddItem(new GUIContent($"Cherry Pick/{selectedCommits.Join(", ")}"), false, () =>
+                {
+                    if (EditorUtility.DisplayDialog("Are you sure you want to cherry-pick these commits?", selectedCommits.Join(", "), "Yes", "No"))
+                        _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.CherryPick(selectedCommits));
+                });
+            }
             menu.ShowAsContext();
         }
         static void ShowFileContextMenu(Module module, IEnumerable<FileStatus> files, string selectedCommit)

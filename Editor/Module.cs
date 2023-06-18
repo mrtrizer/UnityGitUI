@@ -22,6 +22,9 @@ namespace Abuksigun.MRGitUI
     public record RemoteBranch(string Name, string Hash, string RemoteAlias) : Branch(Name, RemoteAlias + '/' +Name, Hash);
     public record Remote(string Alias, string Url);
     public record RemoteStatus(string Remote, int Ahead, int Behind);
+    public record LfsFileStatus(string FileName, string Size, string LastModified, string Status);
+    public record SubmoduleInfo(string Path, string CurrentCommit);
+
     public struct NumStat
     {
         public int Added;
@@ -56,6 +59,10 @@ namespace Abuksigun.MRGitUI
         Task<Remote> defaultRemote;
         Task<RemoteStatus> remoteStatus;
         Task<GitStatus> gitStatus;
+        Task<bool> isLfsInstalled;
+        Task<bool> isLfsEnabled;
+        Task<LfsFileStatus[]> lfsStatus;
+        Task<SubmoduleInfo[]> submodules;
         Dictionary<int, Task<string>> fileDiffCache;
         Dictionary<int, Task<GitStatus>> diffCache;
         Dictionary<int, Task<string[]>> fileLogCache;
@@ -86,6 +93,11 @@ namespace Abuksigun.MRGitUI
         public Task<Remote> DefaultRemote => defaultRemote ??= GetDefaultRemote();
         public Task<RemoteStatus> RemoteStatus => remoteStatus ??= GetRemoteStatus();
         public Task<GitStatus> GitStatus => gitStatus ??= GetGitStatus();
+
+        public Task<bool> IsLfsInstalled => isLfsInstalled ??= IsGitLfsInstalled();
+        public Task<bool> IsLfsEnabled => isLfsEnabled ??= IsGitLfsEnabled();
+        public Task<LfsFileStatus[]> LfsStatus => lfsStatus ??= GetGitLfsStatus();
+        public Task<SubmoduleInfo[]> Submodules => submodules ??= GetGitSubmodules();
         public IReadOnlyList<IOData> ProcessLog => GetProcessLog();
         public DateTime RefreshTimestamp { get; private set; }
 
@@ -283,6 +295,42 @@ namespace Abuksigun.MRGitUI
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
             return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged), Guid);
         }
+        async Task<bool> IsGitLfsInstalled()
+        {
+            var result = await RunProcess("git", "lfs version");
+            return result.ExitCode == 0;
+        }
+        async Task<bool> IsGitLfsEnabled()
+        {
+            var result = await RunGit("lfs ls-files");
+            return result.ExitCode == 0;
+        }
+        async Task<LfsFileStatus[]> GetGitLfsStatus()
+        {
+            var result = await RunGit("lfs status");
+
+            var fileStatuses = result.Output.Split('\n')
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .Select(line => {
+                    var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    return new LfsFileStatus(parts[0], parts[1], parts[2], parts[3]);
+                }).ToArray();
+
+            return fileStatuses;
+        }
+        async Task<SubmoduleInfo[]> GetGitSubmodules()
+        {
+            var result = await RunGit("submodule status");
+
+            var submodules = result.Output.Split('\n')
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .Select(line => {
+                    var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    return new SubmoduleInfo(parts[0], parts[1]);
+                }).ToArray();
+
+            return submodules;
+        }
         async Task<string> GetFileDiff(GitFileReference logFileReference)
         {
             if (logFileReference.Staged is { } staged)
@@ -382,10 +430,14 @@ namespace Abuksigun.MRGitUI
         #endregion
 
         #region Branches
+        public Task<CommandResult> Checkout(string localBranchName, IEnumerable<string> files = null)
+        {
+            return RunGit($"checkout {localBranchName} {files?.Join()?.WrapUp("-- ", "")}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+        }
+
         public Task<CommandResult> CheckoutRemote(string branch) => RunGit($"switch {branch}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         public Task<CommandResult> Merge(string branchQualifiedName) => RunGit($"merge {branchQualifiedName}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         public Task<CommandResult> Rebase(string branchQualifiedName) => RunGit($"rebase {branchQualifiedName}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
-        public Task<CommandResult> Checkout(string localBranchName) => RunGit($"checkout {localBranchName}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         public Task CreateBranch(string branchName, bool checkout) => RunGit(checkout ? $"checkout -b {branchName}" : $"branch {branchName}").AfterCompletion(RefreshReferences);
         public Task RenameBranch(string oldBranchName, string newBranchName) => RunGit($"branch -m {oldBranchName} {newBranchName}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> DeleteBranch(string branchName) => RunGit($"branch -D {branchName}").AfterCompletion(RefreshReferences);

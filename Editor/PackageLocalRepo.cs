@@ -130,7 +130,8 @@ namespace Abuksigun.MRGitUI
         {
             string linkPath = Path.Join("Packages", packageName);
             SymLinkUtils.CreateDirectoryLink(localDirPath, linkPath);
-            File.WriteAllLines(ExcludeFilePath, File.ReadAllLines(ExcludeFilePath, Encoding.UTF8).Append(linkPath.NormalizeSlashes()).Distinct());
+            string[] excludeFileContent = File.Exists(ExcludeFilePath) ? File.ReadAllLines(ExcludeFilePath, Encoding.UTF8) : Array.Empty<string>();
+            File.WriteAllLines(ExcludeFilePath, excludeFileContent.Append(linkPath.NormalizeSlashes()).Distinct());
         }
 
         public static void DeleteLocalLink(Module module)

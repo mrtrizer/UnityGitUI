@@ -8,7 +8,6 @@ using UnityEngine;
 
 namespace Abuksigun.MRGitUI
 {
-    using static Abuksigun.MRGitUI.GitDiff;
     using static Const;
     
     public class GitDiff

@@ -52,7 +52,7 @@ namespace Abuksigun.MRGitUI
                         GUILayout.Label("Git User Email:");
                         userEmail = EditorGUILayout.TextField(userEmail);
 
-                        if (GUILayout.Button("Apply"))
+                        if (GUILayout.Button("Save Name And Email"))
                         {
                             SetUserName(userName);
                             SetUserEmail(userEmail);
