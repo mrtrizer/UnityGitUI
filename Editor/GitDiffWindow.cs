@@ -35,6 +35,7 @@ namespace Abuksigun.MRGitUI
         public delegate void HunkAction(FileStatus filePath, int hunkIndex);
 
         const int TopPanelHeight = 20;
+        const int maxChangesDisplay = 1000;
 
         static Regex hunkStartRegex = new Regex(@"@@ -(\d+),?(\d+)?.*?\+(\d+),?(\d+)?.*?@@");
         [SerializeField]
@@ -146,14 +147,19 @@ namespace Abuksigun.MRGitUI
                 }
             }
 
-            DrawGitDiff(position.size - TopPanelHeight.To0Y(), StageHunk, UnstageHunk, DiscardHunk, staged, ref scrollPosition);
+            DrawGitDiff(position.size - TopPanelHeight.To0Y(), StageHunk, UnstageHunk, DiscardHunk, staged, !viewingLog, ref scrollPosition);
 
             base.OnGUI();
         }
-        public void DrawGitDiff(Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, bool staged, ref Vector2 scrollPosition)
+        public void DrawGitDiff(Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, bool staged, bool showButtons, ref Vector2 scrollPosition)
         {
             if (diffLines == null || diffLines.Length == 0)
                 return;
+            if (diffLines.Length > maxChangesDisplay)
+            {
+                EditorGUI.LabelField(new Rect(Vector2.zero, size), $"Can't display without performance drop. More then {maxChangesDisplay} in the selected files.");
+                return;
+            }
             int longestLine = diffLines.Max(x => x.Length);
             float width = Mathf.Max(DiffUnchanged.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x) + 100;
             int currentLine = 1;
@@ -193,7 +199,7 @@ namespace Abuksigun.MRGitUI
                     {
                         EditorGUI.LabelField(new Rect(0, currentOffset, width, headerHeight), match.Value, Style.FileName.Value);
 
-                        if (module.GitStatus.GetResultOrDefault() is { } status)
+                        if (showButtons && module.GitStatus.GetResultOrDefault() is { } status)
                         {
                             const float buttonWidth = 70;
                             float verticalOffsest = size.x;
