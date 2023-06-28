@@ -19,7 +19,7 @@ namespace Abuksigun.MRGitUI
         private static Task<string> userEmailTask;
 
         public static string LocalRepoPaths => PlayerPrefs.GetString(LocalRepoPathsKey, "../");
-        
+
         [SettingsProvider]
         public static SettingsProvider CreateMyCustomSettingsProvider() => new("Preferences/External Tools/MR Unity Git UI", SettingsScope.User)
         {
@@ -27,7 +27,7 @@ namespace Abuksigun.MRGitUI
             {
                 userNameTask = GetGitConfigValue("user.name");
                 userEmailTask = GetGitConfigValue("user.email");
-                userName = null; 
+                userName = null;
                 userEmail = null;
 
                 rootElement.Add(new IMGUIContainer(() =>

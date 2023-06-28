@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
@@ -13,6 +14,9 @@ namespace Abuksigun.MRGitUI
 {
     using static Const;
 
+    public enum ConfigScope { Global, Local, None }
+
+    public record ConfigRef(string key, ConfigScope scope);
     public record BlameLine(string Hash, string Author, DateTime Date, string Text, int Line);
     public record Reference(string Name, string QualifiedName, string Hash);
     public record Tag(string Name, string Hash) : Reference(Name, Name, Hash);
@@ -67,6 +71,7 @@ namespace Abuksigun.MRGitUI
         Dictionary<int, Task<GitStatus>> diffCache;
         Dictionary<int, Task<string[]>> fileLogCache;
         Dictionary<string, Task<BlameLine[]>> fileBlameCache;
+        Dictionary<ConfigRef, Task<string>> configCache;
 
         List<IOData> processLog = new();
         List<IOData> processLogConcurent = new();
@@ -165,6 +170,17 @@ namespace Abuksigun.MRGitUI
         {
             fileBlameCache ??= new();
             return fileBlameCache.TryGetValue(filePath, out var blame) ? blame : fileBlameCache[filePath] = GetBlame(filePath);
+        }
+        public Task<string> GitConfigValue(string key, ConfigScope scope)
+        {
+            configCache ??= new();
+            var configRef = new ConfigRef(key, scope);
+            return configCache.TryGetValue(configRef, out var blame) ? blame : configCache[configRef] = GetGitConfigValue(key, scope);
+        }
+        async Task<string> GetGitConfigValue(string key, ConfigScope scope)
+        {
+            var result = await RunGit($"config {ScopeToString(scope)} --get {key}");
+            return result.Output.Trim();
         }
         async Task<string> GetRepoPath()
         {
@@ -405,6 +421,8 @@ namespace Abuksigun.MRGitUI
             gitStatus = null;
             fileDiffCache = null;
             diffCache = null;
+            configCache = null;
+            AssetDatabase.Refresh();
         }
 
         #region Remotes Managment
@@ -511,5 +529,21 @@ namespace Abuksigun.MRGitUI
             return RunGit($"stash push -m {commitMessage.WrapUp()} -- {PackageShortcuts.JoinFileNames(files)}").AfterCompletion(RefreshFilesStatus, RefreshReferences);
         }
         #endregion
+
+        #region Config
+        public Task<CommandResult> UnsetConfig(string key, ConfigScope scope)
+        {
+            return RunGit($"config --unset {ScopeToString(scope)} {key}").AfterCompletion(RefreshFilesStatus, RefreshReferences);
+        }
+        public Task<CommandResult> SetConfig(string key, ConfigScope scope, string newValue)
+        {
+            return RunGit($"config {ScopeToString(scope)} {key} \"{newValue}\"").AfterCompletion(RefreshFilesStatus, RefreshReferences);
+        }
+        #endregion
+
+        static string ScopeToString(ConfigScope scope)
+        {
+            return scope != ConfigScope.None ? "--" + scope.ToString().ToLower() : null;
+        }
     }
 }
