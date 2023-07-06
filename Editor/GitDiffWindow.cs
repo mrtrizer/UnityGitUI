@@ -48,28 +48,15 @@ namespace Abuksigun.MRGitUI
 
         int lastHashCode = 0;
 
-        Lazy<GUIStyle> DiffUnchanged => new(() => new() {
-            normal = new GUIStyleState {
-                background = Style.GetColorTexture(Color.white)
-            },
-            font = Style.MonospacedFont.Value,
-            fontSize = 10
-        });
-        Lazy<GUIStyle> DiffAdded => new(() => new(DiffUnchanged.Value) {
-            normal = new GUIStyleState {
-                background = Style.GetColorTexture(new Color(0.505f, 0.99f, 0.618f))
-            }
-        });
-        Lazy<GUIStyle> DiffRemoved => new(() => new(DiffUnchanged.Value) {
-            normal = new GUIStyleState {
-                background = Style.GetColorTexture(new Color(0.990f, 0.564f, 0.564f))
-            }
-        });
-        Lazy<GUIStyle> DiffSelected => new(() => new(DiffUnchanged.Value) {
-            normal = new GUIStyleState {
-                background = Style.GetColorTexture(new Color(0.505f, 0.618f, 0.99f))
-            }
-        });
+        GUIStyle diffUnchanged;
+        GUIStyle diffAdded;
+        GUIStyle diffRemoved;
+        GUIStyle diffSelected;
+
+        private void OnEnable()
+        {
+            diffUnchanged = diffAdded = diffRemoved = diffSelected = null;
+        }
 
         protected override void OnGUI()
         {
@@ -153,6 +140,21 @@ namespace Abuksigun.MRGitUI
         }
         public void DrawGitDiff(Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, bool staged, bool showButtons, ref Vector2 scrollPosition)
         {
+            diffUnchanged ??= new() {
+                normal = new GUIStyleState { background = Style.GetColorTexture(Color.white) },
+                font = Style.MonospacedFont.Value,
+                fontSize = 10
+            };
+            diffAdded ??= new(diffUnchanged) {
+                normal = new GUIStyleState { background = Style.GetColorTexture(new Color(0.505f, 0.99f, 0.618f)) }
+            };
+            diffRemoved ??= new(diffUnchanged) {
+                normal = new GUIStyleState { background = Style.GetColorTexture(new Color(0.990f, 0.564f, 0.564f)) }
+            };
+            diffSelected ??= new(diffUnchanged) {
+                normal = new GUIStyleState { background = Style.GetColorTexture(new Color(0.505f, 0.618f, 0.99f)) }
+            };
+
             if (diffLines == null || diffLines.Length == 0)
                 return;
             if (diffLines.Length > maxChangesDisplay)
@@ -161,7 +163,7 @@ namespace Abuksigun.MRGitUI
                 return;
             }
             int longestLine = diffLines.Max(x => x.Length);
-            float width = Mathf.Max(DiffUnchanged.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x) + 100;
+            float width = Mathf.Max(diffUnchanged.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x) + 100;
             int currentLine = 1;
 
             using var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
@@ -221,7 +223,7 @@ namespace Abuksigun.MRGitUI
                 else if (hunkIndex >= 0)
                 {
                     bool selected = selectedLines?.Contains(i) ?? false;
-                    var style = selected ? DiffSelected.Value : diffLines[i][0] switch { '+' => DiffAdded.Value, '-' => DiffRemoved.Value, _ => DiffUnchanged.Value };
+                    var style = selected ? diffSelected : diffLines[i][0] switch { '+' => diffAdded, '-' => diffRemoved, _ => diffUnchanged };
                     if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
                     {
                         var rect = new Rect(0, currentOffset, width, codeLineHeight);

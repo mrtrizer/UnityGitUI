@@ -18,13 +18,14 @@ namespace Abuksigun.MRGitUI
         const string ExcludeFilePath = ".git/info/exclude";
 
         [MenuItem("Assets/Git/Link Local Repo", true)]
-        public static bool SwitchToLocalCheck() => GetSelectedGitPackages().Any();
+        public static bool LinkLocalRepoCheck() => GetSelectedGitPackages().Any();
 
         [MenuItem("Assets/Git/Link Local Repo")]
-        public static async void SwitchToLocal()
+        public static async void LinkLocalRepo()
         {
             List<PackageInfo> packagesToClone = new();
-            foreach (var module in GetSelectedGitPackages())
+            var modules = GetSelectedGitPackages();
+            foreach (var module in modules)
             {
                 var list = PackageShortcuts.ListLocalPackageDirectories();
                 var packageDir = list.FirstOrDefault(x => x.Name == module.Name);
@@ -37,18 +38,21 @@ namespace Abuksigun.MRGitUI
             {
                 await ShowCloneWindow(packagesToClone);
             }
+            foreach (var module in modules)
+                PackageShortcuts.ResetModule(module);
             UnityEditor.PackageManager.Client.Resolve();
         }
 
         [MenuItem("Assets/Git/Unlink Local Repo", true)]
-        public static bool SwitchToDefaultSourceCheck() => GetSelectedSymLinkPackages().Any();
+        public static bool UnlinkLocalRepoCheck() => GetSelectedSymLinkPackages().Any();
 
         [MenuItem("Assets/Git/Unlink Local Repo")]
-        public static void SwitchToDefaultSource()
+        public static void UnlinkLocalRepo()
         {
             foreach (var module in GetSelectedSymLinkPackages())
             {
                 DeleteLocalLink(module);
+                PackageShortcuts.ResetModule(module);
             }
             UnityEditor.PackageManager.Client.Resolve();
         }

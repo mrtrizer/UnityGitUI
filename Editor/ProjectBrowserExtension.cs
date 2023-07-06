@@ -13,6 +13,7 @@ namespace Abuksigun.MRGitUI
     [InitializeOnLoad]
     public static class ProjectBrowserExtension
     {
+        static Lazy<GUIStyle> LFSLabelStyle = new(() => new GUIStyle(EditorStyles.label) { fontSize = 7, fontStyle = FontStyle.Bold, richText = true });
         static Lazy<GUIStyle> LabelStyle = new(() => new GUIStyle(EditorStyles.label) { fontSize = 8, richText = true });
         static Lazy<GUIStyle> FileMarkStyle = new(() => new GUIStyle(LabelStyle.Value) { fontStyle = FontStyle.Bold, fontSize = 10, richText = true });
         static int spinCounter;
@@ -108,6 +109,18 @@ namespace Abuksigun.MRGitUI
                     GUI.Label(rect, GUIShortcuts.MakePrintableStatus(assetInfo.FileStatuses.First().Y), FileMarkStyle.Value);
                 else if (assetInfo.FileStatuses.Any(x => x.IsStaged))
                     GUI.Label(rect, "<color=green>✓</color>", FileMarkStyle.Value);
+            }
+            if (module == null && assetInfo != null)
+            {
+                var rect = drawRect;
+                rect.height = 15;
+                rect.y -= 4.5f;
+                rect.x -= 13;
+                if (assetInfo.Module.LfsFiles.GetResultOrDefault()?.Any(x => x.FileName == assetInfo.FullPath) ?? false)
+                {
+                    GUI.Label(rect, "<color=brown>L</color>", LFSLabelStyle.Value);
+                    GUI.Label(rect.Move(0, 7), "<color=brown>F</color>", LFSLabelStyle.Value);
+                }
             }
 
             if (module == null && assetInfo != null && !assetInfo.NestedFileModified && drawRect.height < 20)

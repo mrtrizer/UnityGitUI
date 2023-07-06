@@ -157,7 +157,7 @@ namespace Abuksigun.MRGitUI
             }
             multiColumnHeaderState.visibleColumns = Enumerable.Range(HideGraph ? 1 : 0, multiColumnHeaderState.columns.Length - (HideGraph ? 1 : 0)).ToArray();
 
-            string selectedCommitHash = GetSelectedCommitHash(treeViewLogState.lastClickedID);
+            string selectedCommitHash = GetSelectedCommitHash(treeViewLogState.selectedIDs.First());
 
             DrawLog(module, selectedCommitHash);
 

@@ -26,7 +26,7 @@ namespace Abuksigun.MRGitUI
     public record RemoteBranch(string Name, string Hash, string RemoteAlias) : Branch(Name, RemoteAlias + '/' +Name, Hash);
     public record Remote(string Alias, string Url);
     public record RemoteStatus(string Remote, int Ahead, int Behind);
-    public record LfsFileStatus(string FileName, string Size, string LastModified, string Status);
+    public record LfsFileInfo(string FileName, string ObjectId, string DownloadStatus);
     public record SubmoduleInfo(string Path, string CurrentCommit);
 
     public struct NumStat
@@ -65,7 +65,7 @@ namespace Abuksigun.MRGitUI
         Task<GitStatus> gitStatus;
         Task<bool> isLfsInstalled;
         Task<bool> isLfsEnabled;
-        Task<LfsFileStatus[]> lfsStatus;
+        Task<LfsFileInfo[]> lfsFiles;
         Task<SubmoduleInfo[]> submodules;
         Dictionary<int, Task<string>> fileDiffCache;
         Dictionary<int, Task<GitStatus>> diffCache;
@@ -101,7 +101,7 @@ namespace Abuksigun.MRGitUI
 
         public Task<bool> IsLfsInstalled => isLfsInstalled ??= IsGitLfsInstalled();
         public Task<bool> IsLfsEnabled => isLfsEnabled ??= IsGitLfsEnabled();
-        public Task<LfsFileStatus[]> LfsStatus => lfsStatus ??= GetGitLfsStatus();
+        public Task<LfsFileInfo[]> LfsFiles => lfsFiles ??= GitLfsLsFiles();
         public Task<SubmoduleInfo[]> Submodules => submodules ??= GetGitSubmodules();
         public IReadOnlyList<IOData> ProcessLog => GetProcessLog();
         public DateTime RefreshTimestamp { get; private set; }
@@ -143,7 +143,7 @@ namespace Abuksigun.MRGitUI
                     processLog = processLogConcurent.ToList();
             return processLog;
         }
-        public string GetLinkRelativePath(string fullPath)
+        string GetLinkRelativePath(string fullPath)
         {
             // This method makes unreferenced path (that git returns) relative to symbolic link
             return IsLinkedPackage ? fullPath.NormalizeSlashes().Replace(UnreferencedPath, PhysicalPath) : fullPath;
@@ -171,7 +171,7 @@ namespace Abuksigun.MRGitUI
             fileBlameCache ??= new();
             return fileBlameCache.TryGetValue(filePath, out var blame) ? blame : fileBlameCache[filePath] = GetBlame(filePath);
         }
-        public Task<string> GitConfigValue(string key, ConfigScope scope)
+        public Task<string> GitConfigValue(string key, ConfigScope scope = ConfigScope.None)
         {
             configCache ??= new();
             var configRef = new ConfigRef(key, scope);
@@ -321,18 +321,18 @@ namespace Abuksigun.MRGitUI
             var result = await RunGit("lfs ls-files");
             return result.ExitCode == 0;
         }
-        async Task<LfsFileStatus[]> GetGitLfsStatus()
+        public async Task<LfsFileInfo[]> GitLfsLsFiles()
         {
-            var result = await RunGit("lfs status");
-
-            var fileStatuses = result.Output.Split('\n')
+            var result = await RunGit("lfs ls-files");
+            string gitRepoPath = await GitRepoPath;
+            var files = result.Output.SplitLines()
                 .Where(line => !string.IsNullOrWhiteSpace(line))
                 .Select(line => {
                     var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                    return new LfsFileStatus(parts[0], parts[1], parts[2], parts[3]);
+                    return new LfsFileInfo(Path.Combine(gitRepoPath, parts[2..].Join(' ')).NormalizeSlashes(), parts[0], parts[1]);
                 }).ToArray();
 
-            return fileStatuses;
+            return files;
         }
         async Task<SubmoduleInfo[]> GetGitSubmodules()
         {
@@ -467,9 +467,10 @@ namespace Abuksigun.MRGitUI
         #endregion
 
         #region Staging
-        public Task<CommandResult> Commit(string commitMessage = null)
+        public Task<CommandResult> Commit(string commitMessage = null, bool amend = false)
         {
-            string args = commitMessage == null ? "--no-edit" : commitMessage?.WrapUp("-m \"", "\"");
+            string args = amend ? "--amend" : "" 
+                + commitMessage == null ? "--no-edit" : commitMessage?.WrapUp("-m \"", "\"");
             return RunGit($"commit {args}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         }
         public Task<CommandResult[]> DiscardFiles(IEnumerable<string> files)
