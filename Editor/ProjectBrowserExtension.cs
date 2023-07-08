@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Abuksigun.MRGitUI
 {
-    using static PackageShortcuts;
+    using static Utils;
 
     [InitializeOnLoad]
     public static class ProjectBrowserExtension
@@ -105,7 +105,7 @@ namespace Abuksigun.MRGitUI
                 if (assetInfo.NestedFileModified)
                     GUI.Label(rect, "     <color=blue>*</color>", FileMarkStyle.Value);
                 else if (assetInfo.FileStatuses.Any(x => x.IsUnstaged))
-                    GUI.Label(rect, GUIShortcuts.MakePrintableStatus(assetInfo.FileStatuses.First().Y), FileMarkStyle.Value);
+                    GUI.Label(rect, GUIUtils.MakePrintableStatus(assetInfo.FileStatuses.First().Y), FileMarkStyle.Value);
                 else if (assetInfo.FileStatuses.Any(x => x.IsStaged))
                     GUI.Label(rect, "<color=green>✓</color>", FileMarkStyle.Value);
             }

@@ -13,7 +13,7 @@ namespace Abuksigun.MRGitUI
     public class GitDiff
     {
         [MenuItem("Assets/Git File Diff", true)]
-        public static bool Check() => Selection.assetGUIDs.Any(x => PackageShortcuts.GetAssetGitInfo(x) != null);
+        public static bool Check() => Selection.assetGUIDs.Any(x => Utils.GetAssetGitInfo(x) != null);
         [MenuItem("Window/Git GUI/Diff")]
         [MenuItem("Assets/Git File Diff", priority = 200)]
         public static void Invoke()
@@ -60,7 +60,7 @@ namespace Abuksigun.MRGitUI
 
         protected override void OnGUI()
         {
-            var selectedFiles = PackageShortcuts.GetSelectedFiles();
+            var selectedFiles = Utils.GetSelectedFiles();
             if (!selectedFiles.Any())
                 return;
             bool viewingLog = selectedFiles.Any(x => !string.IsNullOrEmpty(x.FirstCommit));
@@ -89,7 +89,7 @@ namespace Abuksigun.MRGitUI
                         var filesPerModule = modules.Select(module => (module, stagedDiffs.Where(x => x.module == module).Select(x => x.fullPath).ToArray()));
                         if (GUILayout.Button($"Unstage All ({stagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
                         {
-                            GUIShortcuts.Unstage(filesPerModule);
+                            GUIUtils.Unstage(filesPerModule);
                             UpdateSelection(modules.ToArray());
                         }
                     }
@@ -99,12 +99,12 @@ namespace Abuksigun.MRGitUI
                         var filesPerModule = modules.Select(module => (module, unstagedDiffs.Where(x => x.module == module).Select(x => x.fullPath).ToArray()));
                         if (GUILayout.Button($"Stage All ({unstagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
                         {
-                            GUIShortcuts.Stage(filesPerModule);
+                            GUIUtils.Stage(filesPerModule);
                             UpdateSelection(modules.ToArray());
                         }
                         if (GUILayout.Button($"Discard All ({unstagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
                         {
-                            GUIShortcuts.DiscardFiles(filesPerModule);
+                            GUIUtils.DiscardFiles(filesPerModule);
                             UpdateSelection(modules.ToArray());
                         }
                     }
@@ -115,7 +115,7 @@ namespace Abuksigun.MRGitUI
             if (hashCode != lastHashCode && diffs.All(x => x.diff.IsCompleted))
             {
                 var diffStrings = staged ? stagedDiffs.Select(x => $"#{x.module.Guid}\n{x.diff}") : unstagedDiffs.Select(x => $"#{x.module.Guid}\n{x.diff}");
-                diffLines = diffStrings.SelectMany(x => GUIShortcuts.EscapeAngleBrackets(x).Split('\n', RemoveEmptyEntries)).ToArray();
+                diffLines = diffStrings.SelectMany(x => GUIUtils.EscapeAngleBrackets(x).Split('\n', RemoveEmptyEntries)).ToArray();
                 selectedLines = new();
                 lastSelectedLine = -1;
                 lastHashCode = hashCode;
@@ -178,7 +178,7 @@ namespace Abuksigun.MRGitUI
             {
                 if (diffLines[i][0] == '#')
                 {
-                    module = PackageShortcuts.GetModule(diffLines[i][1..]);
+                    module = Utils.GetModule(diffLines[i][1..]);
                 }
                 else if (diffLines[i][0] == 'd')
                 {
@@ -280,7 +280,7 @@ namespace Abuksigun.MRGitUI
         async Task GitPatch(string args, FileStatus file, int id)
         {
             bool inputApplied = false;
-            var module = PackageShortcuts.GetModule(file.ModuleGuid);
+            var module = Utils.GetModule(file.ModuleGuid);
             await module.RunProcess("git", $"{args} -- {file.FullPath}", data => {
                 if (!inputApplied)
                 {

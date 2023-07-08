@@ -11,7 +11,7 @@ namespace Abuksigun.MRGitUI
     public static class GitLog
     {
         [MenuItem("Assets/Git/Log", true)]
-        public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
+        public static bool Check() => Utils.GetSelectedGitModules().Any();
         [MenuItem("Window/Git GUI/Log")]
         [MenuItem("Assets/Git/Log", priority = 100)]
         public static void Invoke()
@@ -32,12 +32,12 @@ namespace Abuksigun.MRGitUI
         [MenuItem("Assets/Git File Log", priority = 200)]
         public static void Invoke()
         {
-            var assetsInfo = Selection.assetGUIDs.Select(x => PackageShortcuts.GetAssetGitInfo(x)).Where(x => x != null);
+            var assetsInfo = Selection.assetGUIDs.Select(x => Utils.GetAssetGitInfo(x)).Where(x => x != null);
             var window = ScriptableObject.CreateInstance<GitLogWindow>();
             window.titleContent = new GUIContent("Log Files");
             window.LogFiles = assetsInfo.Select(x => x.FullPath).ToList();
             window.LockedModules = assetsInfo.Select(x => x.Module).Distinct().ToList();
-            _ = GUIShortcuts.ShowModalWindow(window, new Vector2Int(800, 700));
+            _ = GUIUtils.ShowModalWindow(window, new Vector2Int(800, 700));
         }
     }
 
@@ -132,7 +132,7 @@ namespace Abuksigun.MRGitUI
         public static void SelectHash(Module module, string hash)
         {
             if (module != null)
-                PackageShortcuts.SetSelectedModules(new[] { module });
+                Utils.SetSelectedModules(new[] { module });
             var instances = Resources.FindObjectsOfTypeAll<GitLogWindow>();
             foreach (var instance in instances)
             {
@@ -149,7 +149,7 @@ namespace Abuksigun.MRGitUI
         }
         protected override void OnGUI()
         {
-            var module = GUIShortcuts.ModuleGuidToolbar(LockedModules ?? PackageShortcuts.GetSelectedGitModules().ToList(), guid);
+            var module = GUIUtils.ModuleGuidToolbar(LockedModules ?? Utils.GetSelectedGitModules().ToList(), guid);
             if (module == null)
                 return;
             guid = module.Guid;
@@ -162,7 +162,7 @@ namespace Abuksigun.MRGitUI
                 lines = ParseGitLogLines(log);
                 cells = ParseGraph(lines);
                 treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, true, multiColumnHeader ??= new(multiColumnHeaderState), DrawCell);
-                treeViewFiles = new(statuses => GUIShortcuts.GenerateFileItems(statuses, true), treeViewStateFiles, true);
+                treeViewFiles = new(statuses => GUIUtils.GenerateFileItems(statuses, true), treeViewStateFiles, true);
             }
             multiColumnHeaderState.visibleColumns = Enumerable.Range(HideGraph ? 1 : 0, multiColumnHeaderState.columns.Length - (HideGraph ? 1 : 0)).ToArray();
 
@@ -178,7 +178,7 @@ namespace Abuksigun.MRGitUI
             if (selectedCommitHashes.Any() && !HideFilesPanel)
                 DrawFilesPanel(module, selectedCommitHashes);
             else if (HideFilesPanel && selectionChanged)
-                PackageShortcuts.SetSelectedFiles(guid, LogFiles, null, $"{selectedCommitHashes.First()}~1", selectedCommitHashes.Last());
+                Utils.SetSelectedFiles(guid, LogFiles, null, $"{selectedCommitHashes.First()}~1", selectedCommitHashes.Last());
             
             base.OnGUI();
         }
@@ -225,7 +225,7 @@ namespace Abuksigun.MRGitUI
             var selectedFiles = diffFiles?.Files.Where(x => treeViewStateFiles.selectedIDs.Contains(x.FullPath.GetHashCode()));
 
             if (selectedFiles != null && treeViewFiles.HasFocus())
-                PackageShortcuts.SetSelectedFiles(selectedFiles, null, firstCommit, lastCommit);
+                Utils.SetSelectedFiles(selectedFiles, null, firstCommit, lastCommit);
 
             using (new EditorGUILayout.HorizontalScope(GUILayout.Height(selectedCommitHashes.Any() ? FilesPanelHeight : 0)))
             {
@@ -349,7 +349,7 @@ namespace Abuksigun.MRGitUI
                 string filesList = LogFiles.Join();
                 menu.AddItem(new GUIContent($"Checkout {filesLableString}/{contextMenuname}"), false, () => {
                     if (EditorUtility.DisplayDialog($"Are you sure you want CHECKOUT {filesLableString} to COMMIT", $"{reference.QualifiedName}\n{filesList}", "Yes", "No"))
-                        _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.Checkout(reference.QualifiedName, LogFiles));
+                        _ = GUIUtils.RunGitAndErrorCheck(new[] { module }, x => x.Checkout(reference.QualifiedName, LogFiles));
                 });
                 if (!LogFiles.Any())
                 {
@@ -375,10 +375,10 @@ namespace Abuksigun.MRGitUI
                 menu.AddItem(new GUIContent($"Cherry Pick/{selectedCommits.Join(", ")}"), false, () =>
                 {
                     if (EditorUtility.DisplayDialog("Are you sure you want to cherry-pick these commits?", selectedCommits.Join(", "), "Yes", "No"))
-                        _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.CherryPick(selectedCommits));
+                        _ = GUIUtils.RunGitAndErrorCheck(new[] { module }, x => x.CherryPick(selectedCommits));
                 });
             }
-            menu.AddItem(new GUIContent($"New Tag"), false, () => GUIShortcuts.MakeTag(selectedCommit));
+            menu.AddItem(new GUIContent($"New Tag"), false, () => GUIUtils.MakeTag(selectedCommit));
             menu.ShowAsContext();
         }
         static void ShowFileContextMenu(Module module, IEnumerable<FileStatus> files, string selectedCommit)
@@ -390,11 +390,11 @@ namespace Abuksigun.MRGitUI
             menu.AddItem(new GUIContent("Diff"), false, () => GitDiff.ShowDiff());
             menu.AddItem(new GUIContent($"Revert to this commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
-                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.RevertFiles(selectedCommit, filePaths));
+                    _ = GUIUtils.RunGitAndErrorCheck(new[] { module }, x => x.RevertFiles(selectedCommit, filePaths));
             });
             menu.AddItem(new GUIContent($"Revert to previous commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
-                    _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.RevertFiles($"{selectedCommit}~1", filePaths));
+                    _ = GUIUtils.RunGitAndErrorCheck(new[] { module }, x => x.RevertFiles($"{selectedCommit}~1", filePaths));
             });
             menu.ShowAsContext();
         }

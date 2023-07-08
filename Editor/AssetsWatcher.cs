@@ -29,7 +29,7 @@ namespace Abuksigun.MRGitUI
         {
             if (hasFocus)
             {
-                foreach (var module in PackageShortcuts.GetGitModules())
+                foreach (var module in Utils.GetGitModules())
                     module.RefreshFilesStatus();
             }
         }
@@ -39,7 +39,7 @@ namespace Abuksigun.MRGitUI
             var allFilePaths = importedAssets.Concat(deletedAssets).Concat(movedAssets).Concat(movedFromAssetPaths);
             foreach (var filePath in allFilePaths)
             {
-                var module = PackageShortcuts.FindModuleContainingPath(filePath);
+                var module = Utils.FindModuleContainingPath(filePath);
                 module?.RefreshFilesStatus();
             }
         }

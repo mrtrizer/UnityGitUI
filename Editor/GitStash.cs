@@ -8,11 +8,11 @@ namespace Abuksigun.MRGitUI
     public static class GitStash
     {
         [MenuItem("Assets/Git/Stash", true)]
-        public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
+        public static bool Check() => Utils.GetSelectedGitModules().Any();
         [MenuItem("Assets/Git/Stash", priority = 100)]
         public static async void Invoke()
         {
-            await ShowStash(PackageShortcuts.GetSelectedGitModules().FirstOrDefault(), null);
+            await ShowStash(Utils.GetSelectedGitModules().FirstOrDefault(), null);
         }
 
         public static async Task ShowStash(Module module, string hash)
@@ -22,7 +22,7 @@ namespace Abuksigun.MRGitUI
             window.ShowStash = true;
             window.LockedHash = hash;
             window.LockedModules = new () { module };
-            await GUIShortcuts.ShowModalWindow(window, new Vector2Int(800, 700));
+            await GUIUtils.ShowModalWindow(window, new Vector2Int(800, 700));
         }
     }
 }

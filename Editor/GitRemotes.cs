@@ -16,12 +16,12 @@ namespace Abuksigun.MRGitUI
         public enum Mode { Fetch, Pull, Push};
 
         [MenuItem("Assets/Git Pull", true)]
-        public static bool PullCheck() => PackageShortcuts.GetSelectedGitModules().Any();
+        public static bool PullCheck() => Utils.GetSelectedGitModules().Any();
 
         [MenuItem("Assets/Git Pull", priority = 100)]
         public static void PullInvoke() => ShowRemotesSyncWindow(Mode.Pull);
         [MenuItem("Assets/Git Push", true)]
-        public static bool PushCheck() => PackageShortcuts.GetSelectedGitModules().Any();
+        public static bool PushCheck() => Utils.GetSelectedGitModules().Any();
 
         [MenuItem("Assets/Git Push", priority = 100)]
         public static void PushInvoke() =>ShowRemotesSyncWindow(Mode.Push);
@@ -37,8 +37,8 @@ namespace Abuksigun.MRGitUI
             var remotes = new Dictionary<Module, Remote>();
             string currentLogGuid = null;
 
-            await GUIShortcuts.ShowModalWindow("Remotes", new Vector2Int(500, 400), (window) => {
-                var modules = PackageShortcuts.GetSelectedGitModules().ToArray();
+            await GUIUtils.ShowModalWindow("Remotes", new Vector2Int(500, 400), (window) => {
+                var modules = Utils.GetSelectedGitModules().ToArray();
 
                 using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x.Value.task != null && !x.Value.task.IsCompleted)))
                 using (new GUILayout.HorizontalScope())
@@ -46,18 +46,18 @@ namespace Abuksigun.MRGitUI
                     if (mode == Mode.Fetch)
                     {
                         if (GUILayout.Button(new GUIContent($"Fetch {modules.Length} modules", EditorGUIUtility.IconContent("Refresh@2x").image), GUILayout.Width(150)))
-                            tasks = modules.ToDictionary(x => x.Guid, module => (PackageShortcuts.GetNextRunCommandProcessId(), module.Fetch(prune, remotes[module])));
+                            tasks = modules.ToDictionary(x => x.Guid, module => (Utils.GetNextRunCommandProcessId(), module.Fetch(prune, remotes[module])));
                         prune = GUILayout.Toggle(prune, "Prune");
                     }
                     if (mode == Mode.Pull)
                     {
                         if (GUILayout.Button(new GUIContent($"Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image), GUILayout.Width(150)))
-                            tasks = modules.ToDictionary(x => x.Guid, module => (PackageShortcuts.GetNextRunCommandProcessId(), module.Pull(remotes[module])));
+                            tasks = modules.ToDictionary(x => x.Guid, module => (Utils.GetNextRunCommandProcessId(), module.Pull(remotes[module])));
                     }
                     if (mode == Mode.Push)
                     {
                         if (GUILayout.Button(new GUIContent($"Push {modules.Length} modules", EditorGUIUtility.IconContent("Update-Available@2x").image), GUILayout.Width(150)))
-                            tasks = modules.ToDictionary(x => x.Guid, module => (PackageShortcuts.GetNextRunCommandProcessId(), module.Push(pushTags, forcePush, remotes[module])));
+                            tasks = modules.ToDictionary(x => x.Guid, module => (Utils.GetNextRunCommandProcessId(), module.Push(pushTags, forcePush, remotes[module])));
                         pushTags = GUILayout.Toggle(pushTags, "Push tags");
                         forcePush = GUILayout.Toggle(forcePush, "Force push");
                     }
@@ -94,7 +94,7 @@ namespace Abuksigun.MRGitUI
                     }
                     scrollPosition = scroll.scrollPosition;
                 }
-                GUIShortcuts.DrawProcessLogs(modules, ref currentLogGuid, new Vector2(window.position.width, LogHeight), tasks?.ToDictionary(x => x.Key, x => x.Value.localProcessId));
+                GUIUtils.DrawProcessLogs(modules, ref currentLogGuid, new Vector2(window.position.width, LogHeight), tasks?.ToDictionary(x => x.Key, x => x.Value.localProcessId));
             });
 
             await Task.WhenAll(tasks.Select(x => x.Value.task).Where(x => x != null));

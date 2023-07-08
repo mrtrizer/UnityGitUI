@@ -13,13 +13,13 @@ namespace Abuksigun.MRGitUI
     public static class GitSettings
     {
         [MenuItem("Assets/Git/Remote Settings", true)]
-        public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
+        public static bool Check() => Utils.GetSelectedGitModules().Any();
         [MenuItem("Assets/Git/Remote Settings", priority = 100)]
         public static async void Invoke()
         {
             var window = EditorWindow.CreateInstance<GitSettingsWindow>();
             window.titleContent = new GUIContent("Git Remote Settings");
-            await GUIShortcuts.ShowModalWindow(window, new Vector2Int(500, 300));
+            await GUIUtils.ShowModalWindow(window, new Vector2Int(500, 300));
         }
     }
 
@@ -46,8 +46,8 @@ namespace Abuksigun.MRGitUI
 
         protected override void OnGUI()
         {
-            var modules = PackageShortcuts.GetSelectedGitModules().ToList();
-            var module = GUIShortcuts.ModuleGuidToolbar(modules, guid);
+            var modules = Utils.GetSelectedGitModules().ToList();
+            var module = GUIUtils.ModuleGuidToolbar(modules, guid);
             guid = module?.Guid;
             if (module?.Remotes?.GetResultOrDefault() is { } remotes)
             {

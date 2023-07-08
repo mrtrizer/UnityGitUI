@@ -23,7 +23,7 @@ namespace Abuksigun.MRGitUI
         public Vector2 ScrollPosition { get; set; }
     }
 
-    public static class GUIShortcuts
+    public static class GUIUtils
     {
         static Dictionary<string, Vector2> logScrollPositions = new();
 
@@ -72,13 +72,13 @@ namespace Abuksigun.MRGitUI
             var validStatuses = statuses.Where(x => x != null);
             foreach (var status in validStatuses)
             {
-                var module = PackageShortcuts.GetModule(status.ModuleGuid);
+                var module = Utils.GetModule(status.ModuleGuid);
                 var visibleFiles = status.Files.Where(x => x.IsUnstaged && !staged || x.IsStaged && staged);
                 if (validStatuses.Count() > 1 && visibleFiles.Any())
                     items.Add(new TreeViewItem(module.Guid.GetHashCode(), 0, module.DisplayName));
                 foreach (var file in visibleFiles)
                 {
-                    var icon = AssetDatabase.GetCachedIcon(PackageShortcuts.GetUnityLogicalPath(file.FullProjectPath));
+                    var icon = AssetDatabase.GetCachedIcon(Utils.GetUnityLogicalPath(file.FullProjectPath));
                     if (!icon)
                         icon = EditorGUIUtility.IconContent("DefaultAsset Icon").image;
                     string relativePath = Path.GetRelativePath(module.PhysicalPath, file.FullProjectPath);
@@ -131,7 +131,7 @@ namespace Abuksigun.MRGitUI
                 if (GUILayout.Button("Ok", GUILayout.Width(200)))
                 {
                     string message = string.IsNullOrEmpty(annotation) ? "" : $"-m \"{annotation}\"";
-                    _ = Task.WhenAll(PackageShortcuts.GetSelectedGitModules().Select(module => module.CreateTag(tagName, message, hash)));
+                    _ = Task.WhenAll(Utils.GetSelectedGitModules().Select(module => module.CreateTag(tagName, message, hash)));
                     window.Close();
                 }
             });

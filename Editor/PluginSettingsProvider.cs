@@ -31,7 +31,7 @@ namespace Abuksigun.MRGitUI
                     GUILayout.Label("Visible repos:");
                     using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, GUILayout.Width(600), GUILayout.Height(300)))
                     {
-                        foreach (var packageDir in PackageShortcuts.ListLocalPackageDirectories())
+                        foreach (var packageDir in Utils.ListLocalPackageDirectories())
                             GUILayout.Label($"{packageDir.Name} {"GIT REPO".When(Directory.Exists(Path.Join(packageDir.Path, ".git")))}");
                         scrollPosition = scroll.scrollPosition;
                     }

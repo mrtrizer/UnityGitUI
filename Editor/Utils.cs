@@ -2,13 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.PackageManager;
-using UnityEditorInternal;
 using UnityEngine;
 using DataReceivedEventArgs = System.Diagnostics.DataReceivedEventArgs;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
@@ -36,7 +34,7 @@ namespace Abuksigun.MRGitUI
     public class GitFileReference
     {
         public GitFileReference(string moduleGuid, string fullPath, bool? staged) => (ModuleGuid, FullPath, Staged) = (moduleGuid, fullPath, staged);
-        public Module Module => PackageShortcuts.GetModule(ModuleGuid);
+        public Module Module => Utils.GetModule(ModuleGuid);
         [field: SerializeField]
         public string ModuleGuid { get; set; }
         [field: SerializeField]
@@ -58,7 +56,7 @@ namespace Abuksigun.MRGitUI
         public string name;
     }
 
-    public class PackageShortcuts : ScriptableSingleton<PackageShortcuts>
+    public class Utils : ScriptableSingleton<Utils>
     {
         static Dictionary<string, Module> modules = new();
         static object processLock = new();

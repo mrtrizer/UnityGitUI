@@ -125,8 +125,8 @@ namespace Abuksigun.MRGitUI
         public Task<CommandResult> RunProcess(string command, string args, Action<IOData> dataHandler = null)
         {
             lock (processLogConcurent)
-                processLogConcurent.Add(new IOData { Data = $">> {command} {args}", Error = false, LocalProcessId = PackageShortcuts.GetNextRunCommandProcessId() });
-            var result =  PackageShortcuts.RunCommand(PhysicalPath, command, args, (_, data) => {
+                processLogConcurent.Add(new IOData { Data = $">> {command} {args}", Error = false, LocalProcessId = Utils.GetNextRunCommandProcessId() });
+            var result =  Utils.RunCommand(PhysicalPath, command, args, (_, data) => {
                 lock (processLogConcurent)
                     processLogConcurent.Add(data);
                 dataHandler?.Invoke(data);
@@ -229,7 +229,7 @@ namespace Abuksigun.MRGitUI
         }
         async Task<string[]> GetLog(IEnumerable<string> files = null)
         {
-            string filesStr = files != null && files.Any() ? PackageShortcuts.JoinFileNames(files).WrapUp("--follow -- ", "") : null;
+            string filesStr = files != null && files.Any() ? Utils.JoinFileNames(files).WrapUp("--follow -- ", "") : null;
             var result = await RunGit($"log --graph --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ar) <b>%d</b> %s\" --branches --remotes --tags {filesStr}");
             return result.Output.SplitLines();
         }
@@ -478,20 +478,20 @@ namespace Abuksigun.MRGitUI
         }
         public Task<CommandResult[]> DiscardFiles(IEnumerable<string> files)
         {
-            return Task.WhenAll(PackageShortcuts.BatchFiles(files).ToList().Select(batch => RunGit($"checkout -q -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+            return Task.WhenAll(Utils.BatchFiles(files).ToList().Select(batch => RunGit($"checkout -q -- {batch}"))).AfterCompletion(RefreshFilesStatus);
         }
         public async Task<CommandResult[]> Stage(IEnumerable<string> files)
         {
             // Can't be done in parallel due to unavoidable lock
             var results = new List<CommandResult>();
-            foreach (var batch in PackageShortcuts.BatchFiles(files).ToList())
+            foreach (var batch in Utils.BatchFiles(files).ToList())
                 results.Add(await RunGit($"add -f -- {batch}"));
             RefreshFilesStatus();
             return results.ToArray();
         }
         public Task<CommandResult[]> Unstage(IEnumerable<string> files)
         {
-            return Task.WhenAll(PackageShortcuts.BatchFiles(files).ToList().Select(batch => RunGit($"reset -q -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+            return Task.WhenAll(Utils.BatchFiles(files).ToList().Select(batch => RunGit($"reset -q -- {batch}"))).AfterCompletion(RefreshFilesStatus);
         }
         public Task<CommandResult> AbortMerge()
         {
@@ -499,11 +499,11 @@ namespace Abuksigun.MRGitUI
         }
         public Task<CommandResult[]> TakeOurs(IEnumerable<string> files)
         {
-            return Task.WhenAll(PackageShortcuts.BatchFiles(files).ToList().Select(batch => RunGit($"checkout --ours  -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+            return Task.WhenAll(Utils.BatchFiles(files).ToList().Select(batch => RunGit($"checkout --ours  -- {batch}"))).AfterCompletion(RefreshFilesStatus);
         }
         public Task<CommandResult[]> TakeTheirs(IEnumerable<string> files)
         {
-            return Task.WhenAll(PackageShortcuts.BatchFiles(files).ToList().Select(batch => RunGit($"checkout --theirs  -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+            return Task.WhenAll(Utils.BatchFiles(files).ToList().Select(batch => RunGit($"checkout --theirs  -- {batch}"))).AfterCompletion(RefreshFilesStatus);
         }
         public Task<CommandResult> ContinueCherryPick()
         {
@@ -545,11 +545,11 @@ namespace Abuksigun.MRGitUI
         }
         public Task<CommandResult> RevertFiles(string commit, IEnumerable<string> filePaths)
         {
-            return RunGit($"checkout {commit} -- {PackageShortcuts.JoinFileNames(filePaths)}").AfterCompletion(RefreshFilesStatus);
+            return RunGit($"checkout {commit} -- {Utils.JoinFileNames(filePaths)}").AfterCompletion(RefreshFilesStatus);
         }
         public Task<CommandResult> Stash(string commitMessage, IEnumerable<string> files)
         {
-            return RunGit($"stash push -m {commitMessage.WrapUp()} -- {PackageShortcuts.JoinFileNames(files)}").AfterCompletion(RefreshFilesStatus, RefreshReferences);
+            return RunGit($"stash push -m {commitMessage.WrapUp()} -- {Utils.JoinFileNames(files)}").AfterCompletion(RefreshFilesStatus, RefreshReferences);
         }
         #endregion
 

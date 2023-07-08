@@ -15,7 +15,7 @@ public static class GitBameWindow
     public static async void Invoke()
     {
         var scrollPosition = Vector2.zero;
-        var assetInfo = Selection.assetGUIDs.Select(x => PackageShortcuts.GetAssetGitInfo(x)).FirstOrDefault();
+        var assetInfo = Selection.assetGUIDs.Select(x => Utils.GetAssetGitInfo(x)).FirstOrDefault();
         var module = assetInfo?.Module;
         if (module == null)
             return;
@@ -38,7 +38,7 @@ public static class GitBameWindow
         var multiColumnHeader = new MultiColumnHeader(multiColumnHeaderState);
         var treeView = new LazyTreeView<BlameLine>(statuses => GenerateBlameItems(statuses), treeViewLogState, false, multiColumnHeader, DrawCell);
 
-        _ = GUIShortcuts.ShowModalWindow("Blame", new Vector2Int(800, 700), (window) => {
+        _ = GUIUtils.ShowModalWindow("Blame", new Vector2Int(800, 700), (window) => {
             treeView.Draw(window.position.size, blame,
                 contextMenuCallback: (id) => {
                     var menu = new GenericMenu();

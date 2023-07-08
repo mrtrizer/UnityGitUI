@@ -25,7 +25,7 @@ namespace Abuksigun.MRGitUI
             var modules = GetSelectedGitPackages();
             foreach (var module in modules)
             {
-                var list = PackageShortcuts.ListLocalPackageDirectories();
+                var list = Utils.ListLocalPackageDirectories();
                 var packageDir = list.FirstOrDefault(x => x.Name == module.Name);
                 if (packageDir == null)
                     packagesToClone.Add(module.PackageInfo);
@@ -37,7 +37,7 @@ namespace Abuksigun.MRGitUI
                 await ShowCloneWindow(packagesToClone);
             }
             foreach (var module in modules)
-                PackageShortcuts.ResetModule(module);
+                Utils.ResetModule(module);
             UnityEditor.PackageManager.Client.Resolve();
         }
 
@@ -50,26 +50,26 @@ namespace Abuksigun.MRGitUI
             foreach (var module in GetSelectedSymLinkPackages())
             {
                 DeleteLocalLink(module);
-                PackageShortcuts.ResetModule(module);
+                Utils.ResetModule(module);
             }
             UnityEditor.PackageManager.Client.Resolve();
         }
 
         static IEnumerable<Module> GetSelectedGitPackages()
         {
-            return PackageShortcuts.GetSelectedModules().Where(x => x?.PackageInfo?.source == UnityEditor.PackageManager.PackageSource.Git);
+            return Utils.GetSelectedModules().Where(x => x?.PackageInfo?.source == UnityEditor.PackageManager.PackageSource.Git);
         }
 
         static IEnumerable<Module> GetSelectedSymLinkPackages()
         {
-            return PackageShortcuts.GetSelectedModules().Where(x => File.GetAttributes(x.PhysicalPath).HasFlag(FileAttributes.ReparsePoint));
+            return Utils.GetSelectedModules().Where(x => File.GetAttributes(x.PhysicalPath).HasFlag(FileAttributes.ReparsePoint));
         }
         
         static Task ShowCloneWindow(List<PackageInfo> packagesToClone)
         {
             Vector2 scrollPosition = default;
             var packageStatus = new Dictionary<string, (string url, string clonePath, string branch, Task<CommandResult> task, List<IOData> log, bool linked)>();
-            return GUIShortcuts.ShowModalWindow("Clone Local Repo", new Vector2Int(700, 600), (window) => {
+            return GUIUtils.ShowModalWindow("Clone Local Repo", new Vector2Int(700, 600), (window) => {
                 using (new GUILayout.ScrollViewScope(scrollPosition, GUILayout.Width(window.position.width), GUILayout.Height(window.position.height - 20)))
                 {
                     EditorGUILayout.LabelField("Packages below can't be found in search directories and need to be cloned!");
@@ -81,7 +81,7 @@ namespace Abuksigun.MRGitUI
                         var match = Regex.Match(package.packageId, @"@(.*?)(\?.*#|\?.*|#|$)(.*)?");
                         string url = match.Groups[1].Value;
                         string branch = match.Groups[3].Success && !string.IsNullOrEmpty(match.Groups[3].Value) ? match.Groups[3].Value : "master";
-                        string searchDirectory = PackageShortcuts.GetPackageSearchDirectories().FirstOrDefault() ?? "../";
+                        string searchDirectory = Utils.GetPackageSearchDirectories().FirstOrDefault() ?? "../";
                         string clonePath = Path.GetFullPath(Path.Combine(searchDirectory, package.displayName));
                         var status = packageStatus.GetValueOrDefault(package.name, (url, clonePath, branch, null, new(128), false));
                         EditorGUILayout.LabelField($"<b>{package.name}</b>", Style.RichTextLabel.Value);
@@ -96,7 +96,7 @@ namespace Abuksigun.MRGitUI
                                 : status.task.IsCompleted && status.task.Result.ExitCode != 0 ? $"<b><color=red>Errored Code {status.task.Result.ExitCode}</color></b>"
                                 : "<b><color=yellow>Cloning...</color></b>", Style.RichTextLabel.Value);
                             lock (status.log)
-                                GUIShortcuts.DrawProcessLog(package.packageId, new Vector2(window.position.width, 100), status.log);
+                                GUIUtils.DrawProcessLog(package.packageId, new Vector2(window.position.width, 100), status.log);
                             if (status.task.IsCompleted && status.task.Result.ExitCode == 0 && !status.linked)
                             {
                                 status.linked = true;
@@ -113,7 +113,7 @@ namespace Abuksigun.MRGitUI
                         var status = packageStatus[packageName];
                         string url = status.url.StartsWith("git+") ? status.url[4..] : status.url;
                         string args = $"clone -b {status.branch} {url.WrapUp()} {status.clonePath.WrapUp()}";
-                        status.task = PackageShortcuts.RunCommand(Directory.GetCurrentDirectory(), "git", args, (_, data) => HandleCloneOutput(data, status.log)).task;
+                        status.task = Utils.RunCommand(Directory.GetCurrentDirectory(), "git", args, (_, data) => HandleCloneOutput(data, status.log)).task;
                         status.log.Add(new IOData { Data = $">> git {args}" });
                         packageStatus[packageName] = status;
                     }

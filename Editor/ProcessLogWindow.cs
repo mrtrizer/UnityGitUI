@@ -11,10 +11,10 @@ namespace Abuksigun.MRGitUI
 
         protected override void OnGUI()
         {
-            var modules = PackageShortcuts.GetSelectedModules().ToList();
+            var modules = Utils.GetSelectedModules().ToList();
             if (!modules.Any())
                 return;
-            GUIShortcuts.DrawProcessLogs(modules, ref guid, position.size);
+            GUIUtils.DrawProcessLogs(modules, ref guid, position.size);
             base.OnGUI();
         }
     }

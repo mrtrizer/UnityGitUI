@@ -13,7 +13,7 @@ namespace Abuksigun.MRGitUI
     public static class GitStaging
     {
         [MenuItem("Assets/Git Staging", true)]
-        public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
+        public static bool Check() => Utils.GetSelectedGitModules().Any();
         [MenuItem("Window/Git GUI/Staging")]
         [MenuItem("Assets/Git/Staging", priority = 100)]
         public static void Invoke()
@@ -44,10 +44,10 @@ namespace Abuksigun.MRGitUI
 
         protected override void OnGUI()
         {
-            treeViewUnstaged ??= new(statuses => GUIShortcuts.GenerateFileItems(statuses, false), treeViewStateUnstaged, true);
-            treeViewStaged ??= new(statuses => GUIShortcuts.GenerateFileItems(statuses, true), treeViewStateStaged, true);
+            treeViewUnstaged ??= new(statuses => GUIUtils.GenerateFileItems(statuses, false), treeViewStateUnstaged, true);
+            treeViewStaged ??= new(statuses => GUIUtils.GenerateFileItems(statuses, true), treeViewStateStaged, true);
 
-            var modules = PackageShortcuts.GetSelectedGitModules().ToList();
+            var modules = Utils.GetSelectedGitModules().ToList();
 
             var author = modules.Select(x => $"{x.GitConfigValue("user.name").GetResultOrDefault()} {x.GitConfigValue("user.email").GetResultOrDefault()}");
             GUILayout.Label($"Commit message:       ({author.Distinct().Join(", ")})");
@@ -102,7 +102,7 @@ namespace Abuksigun.MRGitUI
                 }
                 if (modulesInCherryPickState.Any() && GUILayout.Button($"Continue cherry-pick in {modulesInCherryPickState.Count()}/{modules.Count}", GUILayout.Width(200)))
                 {
-                    tasksInProgress.Add(GUIShortcuts.RunGitAndErrorCheck(modules, module => module.ContinueCherryPick()));
+                    tasksInProgress.Add(GUIUtils.RunGitAndErrorCheck(modules, module => module.ContinueCherryPick()));
                 }
                 if (modulesInCherryPickState.Any() && GUILayout.Button($"Abort cherry-pick in {modulesInCherryPickState.Count()}/{modules.Count}", GUILayout.Width(200))
                     && EditorUtility.DisplayDialog($"Are you sure you want ABORT cherry-pick?", modulesInCherryPickState.Select(x => x.DisplayName).Join(", "), "Yes", "No"))
@@ -120,9 +120,9 @@ namespace Abuksigun.MRGitUI
             var stagedSelection = statuses.SelectMany(x => x.Files)
                 .Where(x => treeViewStaged.HasFocus() && treeViewStateStaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
             if (unstagedSelection.Any())
-                PackageShortcuts.SetSelectedFiles(unstagedSelection, false);
+                Utils.SetSelectedFiles(unstagedSelection, false);
             if (stagedSelection.Any())
-                PackageShortcuts.SetSelectedFiles(stagedSelection, true);
+                Utils.SetSelectedFiles(stagedSelection, true);
 
             using (new EditorGUI.DisabledGroupScope(tasksInProgress.Any()))
             using (new GUILayout.HorizontalScope())
@@ -135,12 +135,12 @@ namespace Abuksigun.MRGitUI
                     GUILayout.Space(50);
                     if (GUILayout.Button(EditorGUIUtility.IconContent("tab_next@2x"), GUILayout.Width(MiddlePanelWidth)))
                     {
-                        GUIShortcuts.Stage(modules.Select(module => (module, unstagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray())));
+                        GUIUtils.Stage(modules.Select(module => (module, unstagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray())));
                         treeViewStateUnstaged.selectedIDs.Clear();
                     }
                     if (GUILayout.Button(EditorGUIUtility.IconContent("tab_prev@2x"), GUILayout.Width(MiddlePanelWidth)))
                     {
-                        GUIShortcuts.Unstage(modules.Select(module => (module, stagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray())));
+                        GUIUtils.Unstage(modules.Select(module => (module, stagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray())));
                         treeViewStateStaged.selectedIDs.Clear();
                     }
                 }
@@ -152,11 +152,11 @@ namespace Abuksigun.MRGitUI
 
         static void SelectAsset(int id)
         {
-            var statuses = PackageShortcuts.GetSelectedGitModules().Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
+            var statuses = Utils.GetSelectedGitModules().Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
             var selectedAsset = statuses.SelectMany(x => x.Files).FirstOrDefault(x => x.FullPath.GetHashCode() == id);
             if (selectedAsset != null)
             {
-                string logicalPath = PackageShortcuts.GetUnityLogicalPath(selectedAsset.FullProjectPath);
+                string logicalPath = Utils.GetUnityLogicalPath(selectedAsset.FullProjectPath);
                 Selection.objects = new[] { AssetDatabase.LoadAssetAtPath<Object>(logicalPath) };
             }
         }
@@ -170,8 +170,8 @@ namespace Abuksigun.MRGitUI
             var indexedSelectionPerModule = modules.Select(module => 
                 (module, files: files.Where(x => x.IsInIndex && x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray()));
 
-            menu.AddItem(new GUIContent("Open"), false, () => GUIShortcuts.OpenFiles(files.Select(x => x.FullProjectPath)));
-            menu.AddItem(new GUIContent("Browse"), false, () => GUIShortcuts.BrowseFiles(files.Select(x => x.FullProjectPath)));
+            menu.AddItem(new GUIContent("Open"), false, () => GUIUtils.OpenFiles(files.Select(x => x.FullProjectPath)));
+            menu.AddItem(new GUIContent("Browse"), false, () => GUIUtils.BrowseFiles(files.Select(x => x.FullProjectPath)));
             menu.AddSeparator("");
             
             if (files.Any(x => x.IsInIndex))
@@ -181,7 +181,7 @@ namespace Abuksigun.MRGitUI
                 });
                 menu.AddItem(new GUIContent("Blame"), false, () => {
                     foreach (var file in files)
-                        _ = GitBameWindow.ShowBlame(PackageShortcuts.GetModule(file.ModuleGuid), file.FullPath);
+                        _ = GitBameWindow.ShowBlame(Utils.GetModule(file.ModuleGuid), file.FullPath);
                 });
                 menu.AddItem(new GUIContent("Log"), false, async () => {
                     foreach ((var module, var files) in indexedSelectionPerModule)
@@ -189,17 +189,17 @@ namespace Abuksigun.MRGitUI
                         var window = ScriptableObject.CreateInstance<GitLogWindow>();
                         window.titleContent = new GUIContent("Log Files");
                         window.LogFiles = files.ToList();
-                        await GUIShortcuts.ShowModalWindow(window, new Vector2Int(800, 700));
+                        await GUIUtils.ShowModalWindow(window, new Vector2Int(800, 700));
                     }
                 });
                 menu.AddSeparator("");
                 if (files.Any(x => x.IsUnstaged))
                 {
-                    menu.AddItem(new GUIContent("Discrad"), false, () => GUIShortcuts.DiscardFiles(indexedSelectionPerModule));
-                    menu.AddItem(new GUIContent("Stage"), false, () => GUIShortcuts.Stage(indexedSelectionPerModule));
+                    menu.AddItem(new GUIContent("Discrad"), false, () => GUIUtils.DiscardFiles(indexedSelectionPerModule));
+                    menu.AddItem(new GUIContent("Stage"), false, () => GUIUtils.Stage(indexedSelectionPerModule));
                 }
                 if (files.Any(x => x.IsStaged))
-                    menu.AddItem(new GUIContent("Unstage"), false, () => GUIShortcuts.Unstage(indexedSelectionPerModule));
+                    menu.AddItem(new GUIContent("Unstage"), false, () => GUIUtils.Unstage(indexedSelectionPerModule));
             }
 
             if (files.Any(x => x.IsUnresolved))
@@ -233,7 +233,7 @@ namespace Abuksigun.MRGitUI
                     foreach (var file in files)
                     {
                         File.Delete(file.FullPath);
-                        PackageShortcuts.GetModule(file.ModuleGuid).RefreshFilesStatus();
+                        Utils.GetModule(file.ModuleGuid).RefreshFilesStatus();
                         AssetDatabase.Refresh();
                     }
                 }

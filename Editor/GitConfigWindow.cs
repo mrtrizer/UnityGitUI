@@ -13,19 +13,19 @@ public class GitConfigWindow : MonoBehaviour
     static Setting[] settingsList = { new ("user.name"), new("user.email") };
 
     [MenuItem("Assets/Git/Config", true)]
-    public static bool Check() => PackageShortcuts.GetSelectedGitModules().Count() == 1;
+    public static bool Check() => Utils.GetSelectedGitModules().Count() == 1;
 
     [MenuItem("Assets/Git/Config", priority = 100)]
     public static async void Invoke()
     {
-        var module = PackageShortcuts.GetSelectedGitModules().FirstOrDefault();
+        var module = Utils.GetSelectedGitModules().FirstOrDefault();
         if (module == null)
             return;
         var columnWidth = GUILayout.Width(200);
         var valueWidth = GUILayout.Width(160);
         var buttonWidth = GUILayout.Width(20);
 
-        await GUIShortcuts.ShowModalWindow("Git Config", new Vector2Int(1000, 700), async window => {
+        await GUIUtils.ShowModalWindow("Git Config", new Vector2Int(1000, 700), async window => {
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -61,7 +61,7 @@ public class GitConfigWindow : MonoBehaviour
     static async Task ShowChangeSettingWindow(Module module, Setting setting, ConfigScope scope)
     {
         string newValue = await module.GitConfigValue(setting.name, scope);
-        await GUIShortcuts.ShowModalWindow("Set Value", new Vector2Int(300, 180), window => {
+        await GUIUtils.ShowModalWindow("Set Value", new Vector2Int(300, 180), window => {
             newValue = GUILayout.TextField(newValue);
             using (new GUILayout.HorizontalScope())
             {
