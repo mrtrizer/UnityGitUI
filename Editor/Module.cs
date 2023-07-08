@@ -466,7 +466,7 @@ namespace Abuksigun.MRGitUI
         public Task CreateTag(string tagName, string message, string hash) => RunGit($"tag \"{tagName}\" {message} {hash}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> DeleteTag(string tagName) => RunGit($"tag -d {tagName}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> ApplyStash(string stashName) => RunGit($"stash apply {stashName}").AfterCompletion(RefreshFilesStatus, RefreshReferences);
-        public Task<CommandResult> DeleteStash(string stashName)  => RunGit($"stash -d {stashName}").AfterCompletion(RefreshReferences);
+        public Task<CommandResult> DeleteStash(string stashName)  => RunGit($"stash drop {stashName}").AfterCompletion(RefreshReferences);
         #endregion
 
         #region Staging
