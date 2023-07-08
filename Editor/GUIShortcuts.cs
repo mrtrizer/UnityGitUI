@@ -86,12 +86,26 @@ namespace Abuksigun.MRGitUI
         }
         protected override void RowGUI(RowGUIArgs args)
         {
-            if (multiColumnHeader != null)
+            if (Event.current.rawType != EventType.Repaint)
+                return;
+            if (drawRowCallback != null)
             {
                 for (int i = 0; i < args.GetNumVisibleColumns(); ++i)
                     drawRowCallback?.Invoke(args.item, args.GetColumn(i), args.GetCellRect(i));
             }
-            base.RowGUI(args);
+            else
+            {
+                var rect = args.rowRect;
+                rect.xMin += GetContentIndent(args.item) + extraSpaceBeforeIconAndLabel;
+
+                if (args.item.icon != null)
+                {
+                    const float iconWidth = 16;
+                    GUI.DrawTexture(rect.Resize(iconWidth, iconWidth), args.item.icon, ScaleMode.ScaleToFit);
+                    rect.xMin += iconWidth + extraSpaceBeforeIconAndLabel;
+                }
+                Style.RichTextLabel.Value.Draw(rect, args.label, isHover: false, isActive: false, args.selected, args.focused);
+            }
         }
     }
 

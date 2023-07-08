@@ -249,7 +249,7 @@ namespace Abuksigun.MRGitUI
                 string itemText = 
                     $"{branch.QualifiedName[(lastSlashIndex + 1)..]} " +
                     $"{reposHaveBranchStr.When(reposHaveBranch != modules.Count())} " +
-                    $"{reposOnBranch.WrapUp("[", "]").When(reposOnBranch != "")}";
+                    $"{reposOnBranch.WrapUp("<color=red><b>[", "]</b></color>").When(reposOnBranch != "")}";
                 var item = new TreeViewItem(referenceComparer.GetHashCode(branch), rootDepth + depth, itemText);
                 items.Add(item);
             }
