@@ -358,7 +358,6 @@ namespace Abuksigun.MRGitUI
                         if (EditorUtility.DisplayDialog("Are you sure you want RESET to COMMIT", reference.QualifiedName, "Yes", "No"))
                             _ = module.Reset(reference.QualifiedName, false);
                     });
-                    menu.AddItem(new GUIContent($"New Tag"), false, () => GUIShortcuts.MakeTag(selectedCommit));
                 }
             }
             if (!LogFiles.Any())
@@ -379,6 +378,7 @@ namespace Abuksigun.MRGitUI
                         _ = GUIShortcuts.RunGitAndErrorCheck(new[] { module }, x => x.CherryPick(selectedCommits));
                 });
             }
+            menu.AddItem(new GUIContent($"New Tag"), false, () => GUIShortcuts.MakeTag(selectedCommit));
             menu.ShowAsContext();
         }
         static void ShowFileContextMenu(Module module, IEnumerable<FileStatus> files, string selectedCommit)

@@ -12,13 +12,13 @@ namespace Abuksigun.MRGitUI
 {
     public static class GitSettings
     {
-        [MenuItem("Assets/Git/Settings", true)]
+        [MenuItem("Assets/Git/Remote Settings", true)]
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
-        [MenuItem("Assets/Git/Settings", priority = 100)]
+        [MenuItem("Assets/Git/Remote Settings", priority = 100)]
         public static async void Invoke()
         {
             var window = EditorWindow.CreateInstance<GitSettingsWindow>();
-            window.titleContent = new GUIContent("Git Settings");
+            window.titleContent = new GUIContent("Git Remote Settings");
             await GUIShortcuts.ShowModalWindow(window, new Vector2Int(500, 300));
         }
     }

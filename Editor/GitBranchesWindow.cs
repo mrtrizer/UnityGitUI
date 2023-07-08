@@ -108,23 +108,6 @@ namespace Abuksigun.MRGitUI
 
             base.OnGUI();
         }
-        List<TreeViewItem> GenerateItems(IEnumerable<Reference[]> branchesPerRepo)
-        {
-            var modules = PackageShortcuts.GetSelectedGitModules();
-            IEnumerable<Reference> references = branchesPerRepo.Count() == 1 ? branchesPerRepo.First()
-                : showAllBranches ? branchesPerRepo.SelectMany(x => x).Distinct(referenceComparer)
-                : branchesPerRepo.Skip(1).Aggregate(branchesPerRepo.First().AsEnumerable(), (result, nextArray) => result.Intersect(nextArray, referenceComparer));
-            var items = new List<TreeViewItem>();
-            items.Add(new TreeViewItem(0, 0, "Branches") { icon = EditorGUIUtility.IconContent("UnityEditor.VersionControl").image as Texture2D });
-            BranchesToItems(modules, references, x => x is LocalBranch, 1, items);
-            items.Add(new TreeViewItem(1, 0, "Remotes") { icon = EditorGUIUtility.IconContent("CloudConnect@2x").image as Texture2D });
-            BranchesToItems(modules, references, x => x is RemoteBranch, 1, items);
-            items.Add(new TreeViewItem(2, 0, "Tags") { icon = EditorGUIUtility.IconContent("FilterByLabel@2x").image as Texture2D });
-            BranchesToItems(modules, references, x => x is Tag, 1, items);
-            items.Add(new TreeViewItem(3, 0, "Stashes") { icon = EditorGUIUtility.IconContent("Package Manager@2x").image as Texture2D });
-            BranchesToItems(modules, references, x => x is Stash, 1, items);
-            return items;
-        }
         static async void CreateOrRenameBranch(string oldName = null)
         {
             string newName = oldName;
@@ -218,6 +201,23 @@ namespace Abuksigun.MRGitUI
             menu.AddItem(new GUIContent($"New Branch"), false, () => CreateOrRenameBranch());
             menu.AddItem(new GUIContent($"New Tag"), false, () =>  GUIShortcuts.MakeTag());
             menu.ShowAsContext();
+        }
+        List<TreeViewItem> GenerateItems(IEnumerable<Reference[]> branchesPerRepo)
+        {
+            var modules = PackageShortcuts.GetSelectedGitModules();
+            IEnumerable<Reference> references = branchesPerRepo.Count() == 1 ? branchesPerRepo.First()
+                : showAllBranches ? branchesPerRepo.SelectMany(x => x).Distinct(referenceComparer)
+                : branchesPerRepo.Skip(1).Aggregate(branchesPerRepo.First().AsEnumerable(), (result, nextArray) => result.Intersect(nextArray, referenceComparer));
+            var items = new List<TreeViewItem>();
+            items.Add(new TreeViewItem(0, 0, "Branches") { icon = EditorGUIUtility.IconContent("UnityEditor.VersionControl").image as Texture2D });
+            BranchesToItems(modules, references, x => x is LocalBranch, 1, items);
+            items.Add(new TreeViewItem(1, 0, "Remotes") { icon = EditorGUIUtility.IconContent("CloudConnect@2x").image as Texture2D });
+            BranchesToItems(modules, references, x => x is RemoteBranch, 1, items);
+            items.Add(new TreeViewItem(2, 0, "Tags") { icon = EditorGUIUtility.IconContent("FilterByLabel@2x").image as Texture2D });
+            BranchesToItems(modules, references, x => x is Tag, 1, items);
+            items.Add(new TreeViewItem(3, 0, "Stashes") { icon = EditorGUIUtility.IconContent("Package Manager@2x").image as Texture2D });
+            BranchesToItems(modules, references, x => x is Stash, 1, items);
+            return items;
         }
         List<TreeViewItem> BranchesToItems(IEnumerable<Module> modules, IEnumerable<Reference> branches, Func<Reference, bool> filter, int rootDepth, List<TreeViewItem> items)
         {
