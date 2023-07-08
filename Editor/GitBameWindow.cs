@@ -1,11 +1,10 @@
 using Abuksigun.MRGitUI;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
-
 
 public static class GitBameWindow
 {
@@ -20,7 +19,11 @@ public static class GitBameWindow
         var module = assetInfo?.Module;
         if (module == null)
             return;
-        var blame = await module.BlameFile(assetInfo.FullPath);
+        await ShowBlame(module, assetInfo.FullPath);
+    }
+    public static async Task ShowBlame(Module module, string fullPath)
+    {
+        var blame = await module.BlameFile(fullPath);
         if (blame == null)
             return;
 

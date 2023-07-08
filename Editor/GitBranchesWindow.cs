@@ -1,9 +1,9 @@
+using Mono.Cecil;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
-using UnityEditor.Graphs;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
@@ -62,24 +62,29 @@ namespace Abuksigun.MRGitUI
                 PackageShortcuts.LockModules(GUILayout.Toggle(lockedModules, lockBranchesContent, EditorStyles.toolbarButton, GUILayout.Width(32)) ? modules.ToList() : null);
             }
 
-            var branchesPerRepo = modules.Select(module => module.References.GetResultOrDefault());
+            var referencesPerRepo = modules.Select(module => module.References.GetResultOrDefault());
             var currentBranchPerRepo = modules.ToDictionary(module => module, module => module.CurrentBranch.GetResultOrDefault());
-            if (!branchesPerRepo.Any() || branchesPerRepo.Any(x => x == null))
+            if (!referencesPerRepo.Any() || referencesPerRepo.Any(x => x == null))
                 return;
 
-            IEnumerable<Reference> references = branchesPerRepo.SelectMany(x => x).Distinct(referenceComparer);
+            IEnumerable<Reference> references = referencesPerRepo.SelectMany(x => x).Distinct(referenceComparer);
             simpleTreeView ??= new (GenerateItems, treeViewState ??= new (), false);
 
             simpleTreeView.Draw(
                 new Vector2(position.width, position.height - TopPanelHeight - BottomPanelHeight),
-                branchesPerRepo,
+                referencesPerRepo,
                 contextMenuCallback: id => {
                     if (task == null || task.IsCompleted)
                         ShowContextMenu(modules, references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id));
                 },
                 doubleClickCallback: id => {
                     if (references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id) is { }  reference)
-                        GitLogWindow.SelectHash(null, reference.Hash);
+                    {
+                        if (modules.Any() && reference is Stash stash)
+                            _ = GitStash.ShowStash(modules.First(), reference.Hash);
+                        else
+                            GitLogWindow.SelectHash(null, reference.Hash);
+                    }
                 });
 
             using (new EditorGUILayout.HorizontalScope())

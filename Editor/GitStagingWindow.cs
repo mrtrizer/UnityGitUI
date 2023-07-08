@@ -16,7 +16,7 @@ namespace Abuksigun.MRGitUI
         public static bool Check() => PackageShortcuts.GetSelectedGitModules().Any();
         [MenuItem("Window/Git GUI/Staging")]
         [MenuItem("Assets/Git/Staging", priority = 100)]
-        public static async void Invoke()
+        public static void Invoke()
         {
             if (EditorWindow.GetWindow<GitStagingWindow>() is { } window && window)
             {
@@ -177,8 +177,11 @@ namespace Abuksigun.MRGitUI
             if (files.Any(x => x.IsInIndex))
             {
                 menu.AddItem(new GUIContent("Diff"), false, () => {
-                    foreach (var module in modules)
-                        GitDiff.ShowDiff();
+                    GitDiff.ShowDiff();
+                });
+                menu.AddItem(new GUIContent("Blame"), false, () => {
+                    foreach (var file in files)
+                        _ = GitBameWindow.ShowBlame(PackageShortcuts.GetModule(file.ModuleGuid), file.FullPath);
                 });
                 menu.AddItem(new GUIContent("Log"), false, async () => {
                     foreach ((var module, var files) in indexedSelectionPerModule)

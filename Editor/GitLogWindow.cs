@@ -1,10 +1,7 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
@@ -44,20 +41,15 @@ namespace Abuksigun.MRGitUI
         }
     }
 
-    public class CommitTreeViewItem : TreeViewItem
+    record LogLine(string Raw, string Hash, string Comment, string Author, string Date, string[] Branches, string[] Tags);
+
+    class CommitTreeViewItem : TreeViewItem
     {
-        public CommitTreeViewItem(int id, int depth, string logLine) : base(id, depth)
+        public CommitTreeViewItem(int id, int depth, LogLine logLine) : base(id, depth)
         {
-            var match = Regex.Match(logLine, @"([0-9a-f]+).*?- (.*?) \((.*?)\) (.*)");
-            Hash = match.Groups[1].Value;
-            Author = match.Groups[2].Value;
-            Date = match.Groups[3].Value;
-            Message = match.Groups[4].Value;
+            LogLine = logLine;
         }
-        public string Hash { get; set; }
-        public string Author { get; set; }
-        public string Date { get; set; }
-        public string Message { get; set; }
+        public LogLine LogLine { get; set; }
     }
 
     public class GitLogWindow : DefaultWindow
@@ -66,8 +58,8 @@ namespace Abuksigun.MRGitUI
 
         const float TableHeaderHeight = 27;
         const float Space = 16;
-        const float FilesPanelHeight = 200;
-        const float InfoPanelWidth = 300;
+        const float DefaultFilesPanelHeight = 200;
+        const float DefaultInfoPanelWidth = 300;
 
         [SerializeField]
         string guid = "";
@@ -84,28 +76,20 @@ namespace Abuksigun.MRGitUI
 
         LogGraphCell[,] cells;
         string[] lastLog;
-        List<string> lines;
-        readonly Regex commitHashRegex = new Regex(@"([0-9a-f]+)");
+        List<LogLine> lines;
 
         public bool ShowStash { get; set; }
         public List<string> LogFiles { get; set; } = null;
         public List<Module> LockedModules { get; set; } = null;
+        [field:NonSerialized] public string LockedHash { get; set; } = null;
         bool HideGraph => ShowStash || HideFilesPanel;
         bool HideFilesPanel => (LogFiles != null && LogFiles.Count > 0);
-        string GetSelectedCommitHash(int id)
-        {
-            string commitLine = lines?.FirstOrDefault(x => x.GetHashCode() == id);
-            return commitLine != null ? commitHashRegex.Match(commitLine)?.Groups[1].Value : null;
-        }
-        IEnumerable<string> GetSelectedCommitHashes(IEnumerable<int> ids)
-        {
-            return lines.Where(x => ids.Contains(x.GetHashCode())).Select(x => commitHashRegex.Match(x)?.Groups[1].Value);
-        }
+        bool HideLog => LockedHash != null;
+        float FilesPanelHeight => HideLog ? position.height : DefaultFilesPanelHeight;
+        float InfoPanelWidth => HideLog ? 0 : DefaultInfoPanelWidth;
 
-        [SerializeField]
-        TreeViewState treeViewLogState = new();
-        [SerializeField]
-        MultiColumnHeaderState multiColumnHeaderState = new(new MultiColumnHeaderState.Column[] {
+        [SerializeField] TreeViewState treeViewLogState = new();
+        [SerializeField] MultiColumnHeaderState multiColumnHeaderState = new(new MultiColumnHeaderState.Column[] {
             new () { headerContent = new GUIContent("Graph") },
             new () { headerContent = new GUIContent("Hash"), width = 80 },
             new () { headerContent = new GUIContent("Author"), width = 100 },
@@ -118,8 +102,33 @@ namespace Abuksigun.MRGitUI
         [SerializeField]
         TreeViewState treeViewStateFiles = new();
         LazyTreeView<GitStatus> treeViewFiles;
-        string lastSelectedCommitHash;
+        int lastSelectedCommitHash;
 
+        string GetSelectedCommitHash(int id)
+        {
+            if (LockedHash != null)
+                return LockedHash;
+            return lines?.FirstOrDefault(x => x.GetHashCode() == id)?.Hash ?? null;
+        }
+        IEnumerable<string> GetSelectedCommitHashes(IEnumerable<int> ids)
+        {
+            if (LockedHash != null)
+                return new [] { LockedHash };
+            return lines.Where(x => ids.Contains(x.GetHashCode())).Select(x => x.Hash).Reverse();
+        }
+        List<LogLine> ParseGitLogLines(IEnumerable<string> rawLines)
+        {
+            var logLines = new List<LogLine>();
+            foreach (var rawLine in rawLines.Where(x => x.Contains('*')))
+            {
+                var groups = Regex.Match(rawLine, @"#([0-9a-f]+).*?- (.*?) \((.*?)\) <b>\s?\(?(.*?)\)?</b> (.*)")?.Groups;
+                var references = groups[4].Value.Split(',', StringSplitOptions.RemoveEmptyEntries).Where(x => x != "refs/stash");
+                var branches = references.Where(x => !x.StartsWith("tag:")).ToArray();
+                var tags = references.Where(x => x.StartsWith("tag:")).Select(x => x[5..^1]).ToArray();
+                logLines.Add(new LogLine(rawLine, Hash: groups[1].Value, Comment: groups[5].Value, Author: groups[2].Value, Date: groups[3].Value, branches, tags));
+            }
+            return logLines;
+        }
         public static void SelectHash(Module module, string hash)
         {
             if (module != null)
@@ -129,11 +138,11 @@ namespace Abuksigun.MRGitUI
             {
                 if (instance.LogFiles == null || instance.LogFiles.Count == 0)
                     instance.Focus();
-                if (PackageShortcuts.GetModule(instance.guid).Log?.GetResultOrDefault() is { } log)
+                if (instance.lines is { } lines)
                 {
-                    string shortHash = $"#{hash.Substring(0, 7)}";
-                    int index = log.Where(x => x.Contains('#')).ToList().FindIndex(x => x.Contains(shortHash));
-                    instance.treeViewLog.SetSelection(log.Where(x => x.Contains(shortHash)).Select(x => x.GetHashCode()).ToList());
+                    string shortHash = hash.Substring(0, 7);
+                    int index = lines.ToList().FindIndex(x => x.Hash.Contains(shortHash));
+                    instance.treeViewLog.SetSelection(lines.Where(x => x.Hash.Contains(shortHash)).Select(x => x.GetHashCode()).ToList());
                     instance.treeViewLogState.scrollPos = Vector2.up * (index - 10) * instance.treeViewLog.RowHeight;
                 }
             }
@@ -150,29 +159,34 @@ namespace Abuksigun.MRGitUI
             if (log != lastLog)
             {
                 lastLog = log;
-                lines = log.Where(x => x.Contains('*')).ToList();
+                lines = ParseGitLogLines(log);
                 cells = ParseGraph(lines);
                 treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, true, multiColumnHeader ??= new(multiColumnHeaderState), DrawCell);
                 treeViewFiles = new(statuses => GUIShortcuts.GenerateFileItems(statuses, true), treeViewStateFiles, true);
             }
             multiColumnHeaderState.visibleColumns = Enumerable.Range(HideGraph ? 1 : 0, multiColumnHeaderState.columns.Length - (HideGraph ? 1 : 0)).ToArray();
 
-            string selectedCommitHash = GetSelectedCommitHash(treeViewLogState.selectedIDs.First());
+            var selectedCommitHashes = GetSelectedCommitHashes(treeViewLogState.selectedIDs);
+            var selectedCommitHash = selectedCommitHashes.FirstOrDefault();
 
-            DrawLog(module, selectedCommitHash);
+            if (!HideLog)
+                DrawLog(module, selectedCommitHashes.Any());
 
-            if (selectedCommitHash != null && !HideFilesPanel)
-                DrawFilesPanel(module, selectedCommitHash);
-            else if (HideFilesPanel && selectedCommitHash != lastSelectedCommitHash)
-                PackageShortcuts.SetSelectedFiles(guid, LogFiles, null, $"{selectedCommitHash}~1", selectedCommitHash);
-            lastSelectedCommitHash = selectedCommitHash;
+            bool selectionChanged = selectedCommitHashes.GetCombinedHashCode() != lastSelectedCommitHash;
+            lastSelectedCommitHash = selectedCommitHashes.GetCombinedHashCode();
+
+            if (selectedCommitHashes.Any() && !HideFilesPanel)
+                DrawFilesPanel(module, selectedCommitHashes);
+            else if (HideFilesPanel && selectionChanged)
+                PackageShortcuts.SetSelectedFiles(guid, LogFiles, null, $"{selectedCommitHashes.First()}~1", selectedCommitHashes.Last());
+            
             base.OnGUI();
         }
-        private void DrawLog(Module module, string selectedCommitHash)
+        private void DrawLog(Module module, bool showFilesPanel)
         {
             int itemNum = (int)(position.size.y / Space);
 
-            float currentFilesPanelHeight = selectedCommitHash != null && HideFilesPanel ? 0 : FilesPanelHeight;
+            float currentFilesPanelHeight = showFilesPanel && HideFilesPanel ? 0 : FilesPanelHeight;
 
             treeViewLog.Draw(new Vector2(position.width, position.height - currentFilesPanelHeight), new[] { lastLog }, 
                 id => ShowCommitContextMenu(module, GetSelectedCommitHash(id), GetSelectedCommitHashes(treeViewLogState.selectedIDs)),
@@ -202,10 +216,10 @@ namespace Abuksigun.MRGitUI
                 GUI.EndClip();
             }
         }
-        private void DrawFilesPanel(Module module, string selectedCommitHash)
+        private void DrawFilesPanel(Module module, IEnumerable<string> selectedCommitHashes)
         {
-            string firstCommit = $"{selectedCommitHash}~1";
-            string lastCommit = selectedCommitHash;
+            string firstCommit = $"{selectedCommitHashes.First()}~1";
+            string lastCommit = selectedCommitHashes.Last();
 
             var diffFiles = module.DiffFiles(firstCommit, lastCommit).GetResultOrDefault();
             var selectedFiles = diffFiles?.Files.Where(x => treeViewStateFiles.selectedIDs.Contains(x.FullPath.GetHashCode()));
@@ -213,12 +227,12 @@ namespace Abuksigun.MRGitUI
             if (selectedFiles != null && treeViewFiles.HasFocus())
                 PackageShortcuts.SetSelectedFiles(selectedFiles, null, firstCommit, lastCommit);
 
-            using (new EditorGUILayout.HorizontalScope(GUILayout.Height(selectedCommitHash != null ? FilesPanelHeight : 0)))
+            using (new EditorGUILayout.HorizontalScope(GUILayout.Height(selectedCommitHashes.Any() ? FilesPanelHeight : 0)))
             {
                 if (selectedFiles != null)
                 {
                     var panelSize = new Vector2(position.width - InfoPanelWidth, FilesPanelHeight);
-                    treeViewFiles.Draw(panelSize, new[] { diffFiles }, (_) => ShowFileContextMenu(module, selectedFiles, selectedCommitHash));
+                    treeViewFiles.Draw(panelSize, new[] { diffFiles }, (_) => ShowFileContextMenu(module, selectedFiles, selectedCommitHashes.First()));
                 }
                 else
                 {
@@ -226,25 +240,33 @@ namespace Abuksigun.MRGitUI
                 }
                 using (new EditorGUILayout.VerticalScope(GUILayout.Height(FilesPanelHeight)))
                 {
-                    EditorGUILayout.SelectableLabel(selectedCommitHash);
-                    string commitLine = lines?.FirstOrDefault(x => x.GetHashCode() == treeViewLogState.lastClickedID);
-                    EditorGUILayout.SelectableLabel(commitLine.AfterFirst('-'), CommitInfoStyle.Value, GUILayout.Height(FilesPanelHeight - 50));
+                    string lastHash = selectedCommitHashes.Count() > 1 ? selectedCommitHashes.Last() : null ;
+                    EditorGUILayout.SelectableLabel($"{selectedCommitHashes.First()} {lastHash?.WrapUp("- ", "")}");
+                    foreach (var selectedCommitHash in selectedCommitHashes)
+                    {
+                        LogLine commitLine = lines?.FirstOrDefault(x => x.Hash == selectedCommitHash);
+                        if (commitLine != null)
+                            EditorGUILayout.TextField(commitLine.Raw.AfterFirst('-'), CommitInfoStyle.Value, GUILayout.Height(60));
+                    }
                 }
             }
         }
-        List<TreeViewItem> GenerateLogItems(List<string> lines)
+        List<TreeViewItem> GenerateLogItems(List<LogLine> lines)
         {
-            return lines.ConvertAll(x => new CommitTreeViewItem(x.GetHashCode(), 0, x.AfterFirst('#')) as TreeViewItem);
+            return lines.ConvertAll(x => new CommitTreeViewItem(x.GetHashCode(), 0, x) as TreeViewItem);
         }
         void DrawCell(TreeViewItem item, int columnIndex, Rect rect)
         {
             if (item is CommitTreeViewItem { } commit)
             {
+                bool head = commit.LogLine.Branches.Any(x => x.StartsWith("HEAD ->"));
+                string defaultColor = EditorGUIUtility.isProSkin ? "white" : "black";
+                string color = head ? "red" : defaultColor;
                 EditorGUI.LabelField(rect, columnIndex switch {
-                    1 => commit.Hash,
-                    2 => commit.Author,
-                    3 => commit.Date,
-                    4 => commit.Message,
+                    1 => commit.LogLine.Hash,
+                    2 => commit.LogLine.Author,
+                    3 => commit.LogLine.Date,
+                    4 => $"<b><color={color}>{commit.LogLine.Branches.Join(", ")}</color><color=brown>{commit.LogLine.Tags.Join(", ")}</color></b> {commit.LogLine.Comment}",
                     _ => "",
                 }, Style.RichTextLabel.Value);
             }
@@ -287,19 +309,19 @@ namespace Abuksigun.MRGitUI
                     Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, last);
             }
         }
-        LogGraphCell[,] ParseGraph(List<string> lines)
+        LogGraphCell[,] ParseGraph(List<LogLine> lines)
         {
             var cells = new LogGraphCell[lines.Count, 20];
             int currentBranchIndex = 0;
             for (int y = 0; y < cells.GetLength(0); y++)
             {
-                string line = lines[y];
-                var match = Regex.Match(line, @"#([0-9a-f]+) ?([0-9a-f]+)?\s?([0-9a-f]+)?\s-");
+                string rawLine = lines[y].Raw;
+                var match = Regex.Match(rawLine, @"#([0-9a-f]+) ?([0-9a-f]+)?\s?([0-9a-f]+)?\s-");
                 if (match.Success && match.Groups is { } parts)
                 {
-                    for (int x = 0; line[x * 2] != '#'; x++)
+                    for (int x = 0; rawLine[x * 2] != '#'; x++)
                     {
-                        bool commitMark = line[x * 2] == '*';
+                        bool commitMark = rawLine[x * 2] == '*';
                         LogGraphCell prevCell = y > 0 ? cells[y - 1, x] : default;
                         string hash = commitMark ? parts[1].Value : prevCell.parent;
                         cells[y, x] = new LogGraphCell {

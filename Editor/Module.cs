@@ -1,12 +1,10 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
@@ -157,7 +155,7 @@ namespace Abuksigun.MRGitUI
         public Task<GitStatus> DiffFiles(string firstCommit, string lastCommit)
         {
             diffCache ??= new();
-            int diffId = firstCommit?.GetHashCode() ?? 0 ^ lastCommit?.GetHashCode() ?? 0;
+            int diffId = (firstCommit?.GetHashCode() ?? 0) ^ (lastCommit?.GetHashCode() ?? 0);
             return diffCache.TryGetValue(diffId, out var diff) ? diff : diffCache[diffId] = GetDiffFiles(firstCommit, lastCommit);
         }
         public Task<string[]> LogFiles(IEnumerable<string> files)
@@ -238,7 +236,7 @@ namespace Abuksigun.MRGitUI
         async Task<BlameLine[]> GetBlame(string filePath)
         {
             var blameLineRegex = new Regex(@"^([a-f0-9]+) .*?\(([^)]+) (\d+) ([+-]\d{4})\s+\d+\) (.*)$", RegexOptions.Multiline);
-            var result = await RunGit($"blame --date=raw -- {filePath}");
+            var result = await RunGit($"blame --date=raw -- {filePath.WrapUp()}");
             return result.Output.SplitLines().Select((x, i) => {
                 var match = blameLineRegex.Match(x);
                 var dateTime = DateTimeOffset.FromUnixTimeSeconds(long.Parse(match.Groups[3].Value)).DateTime;
@@ -247,7 +245,7 @@ namespace Abuksigun.MRGitUI
         }
         async Task<string[]> GetStashes()
         {
-            string log = (await RunGit($"log -g --format=format:\"* #%h %p - %an (%ar) %d %s\" refs/stash")).Output;
+            string log = (await RunGit($"log -g --format=format:\"* #%h %p - %an (%ar) <b>%d</b> %s\" refs/stash")).Output;
             return log.SplitLines();
         }
         async Task<string> GetCurrentBranch()
@@ -333,6 +331,11 @@ namespace Abuksigun.MRGitUI
                 }).ToArray();
 
             return files;
+        }
+        public async Task<string[]> GetLfsTrackedPatterns()
+        {
+            var result = await RunGit("lfs track");
+            return result.ExitCode == 0 ? result.Output.SplitLines() : Array.Empty<string>();
         }
         async Task<SubmoduleInfo[]> GetGitSubmodules()
         {
@@ -510,6 +513,25 @@ namespace Abuksigun.MRGitUI
         {
             return RunGit($"cherry-pick --abort").AfterCompletion(RefreshFilesStatus);
         }
+        #endregion
+
+        #region LFS
+        public async Task<CommandResult> TrackPathWithLfs(string filePath)
+        {
+            if (await RunGit($"lfs track \"{filePath}\"").AfterCompletion(RefreshFilesStatus) is { ExitCode: not 0 } trackResult)
+                return trackResult;
+            return await RunGit($"add \"{filePath}\"").AfterCompletion(RefreshFilesStatus);
+        }
+        public async Task<CommandResult> UntrackPathWithLfs(string filePath)
+        {
+            if (await RunGit($"lfs untrack \"{filePath}\"").AfterCompletion(RefreshFilesStatus) is { ExitCode: not 0 } untrackResult)
+                return untrackResult;
+            if (await RunGit($"rm --cached \"{filePath}\"").AfterCompletion(RefreshFilesStatus) is { ExitCode: not 0 } rmResult)
+                return rmResult;
+            return await RunGit($"add \"{filePath}\"").AfterCompletion(RefreshFilesStatus);
+        }
+        public Task<CommandResult> FetchLfsObjects() => RunGit("lfs fetch").AfterCompletion(RefreshFilesStatus);
+        public Task<CommandResult> PruneLfsObjects() => RunGit("lfs prune").AfterCompletion(RefreshFilesStatus);
         #endregion
 
         #region History
