@@ -545,7 +545,7 @@ namespace Abuksigun.MRGitUI
         #endregion
 
         #region LFS
-        public Task<CommandResult> InstallLfs() => RunGit("lfs install").AfterCompletion(RefreshFilesStatus);
+        public Task<CommandResult> InstallLfs() => RunGit("lfs install --local").AfterCompletion(RefreshFilesStatus);
         public Task<CommandResult> UninstallLfs() => RunGit("lfs uninstall").AfterCompletion(RefreshFilesStatus);
         public Task<CommandResult> FetchLfsObjects() => RunGit("lfs fetch").AfterCompletion(RefreshFilesStatus);
         public Task<CommandResult> PruneLfsObjects() => RunGit("lfs prune").AfterCompletion(RefreshFilesStatus);
