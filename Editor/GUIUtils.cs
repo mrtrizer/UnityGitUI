@@ -26,7 +26,6 @@ namespace Abuksigun.MRGitUI
     public static class GUIUtils
     {
         static Dictionary<string, Vector2> logScrollPositions = new();
-
         static int reloadAssembliesStack = 0;
 
         static void PushReloadAssembliesLock()
@@ -157,7 +156,7 @@ namespace Abuksigun.MRGitUI
             tab = modules.Count() > 1 ? GUILayout.Toolbar(tab, modules.Select(x => x.DisplayName).ToArray()) : 0;
             return modules[tab];
         }
-        
+
         public static void DrawProcessLogs(IReadOnlyList<Module> modules, ref string guid, Vector2 size, Dictionary<string, int> localProcessIds = null)
         {
             if (modules.Count == 0)

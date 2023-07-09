@@ -42,6 +42,7 @@ namespace Abuksigun.MRGitUI
             this.doubleClickCallback = doubleClickCallback;
             OnGUI(GUILayoutUtility.GetRect(size.x, size.y));
         }
+
         protected override TreeViewItem BuildRoot()
         {
             var root = new TreeViewItem { id = 0, depth = -1, displayName = "Root" };
@@ -49,24 +50,29 @@ namespace Abuksigun.MRGitUI
             SetupParentsAndChildrenFromDepths(root, generatedItems);
             return root;
         }
+
         protected override bool CanMultiSelect(TreeViewItem item)
         {
             return multiSelection;
         }
+
         protected override void SelectionChanged(IList<int> selectedIds)
         {
             base.SelectionChanged(selectedIds);
         }
+
         protected override void ContextClickedItem(int id)
         {
             contextMenuCallback?.Invoke(id);
             base.ContextClickedItem(id);
         }
+
         protected override void DoubleClickedItem(int id)
         {
             doubleClickCallback?.Invoke(id);
             base.DoubleClickedItem(id);
         }
+
         protected override void RowGUI(RowGUIArgs args)
         {
             if (Event.current.rawType != EventType.Repaint)

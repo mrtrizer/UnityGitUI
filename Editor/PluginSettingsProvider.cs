@@ -1,5 +1,4 @@
 using System.IO;
-using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -10,12 +9,6 @@ namespace Abuksigun.MRGitUI
     {
         static Vector2 scrollPosition = default;
         public static readonly string LocalRepoPathsKey = "LocalRepoPaths";
-
-        private static string userName = null;
-        private static string userEmail = null;
-
-        private static Task<string> userNameTask;
-        private static Task<string> userEmailTask;
 
         public static string LocalRepoPaths => PlayerPrefs.GetString(LocalRepoPathsKey, "../");
 

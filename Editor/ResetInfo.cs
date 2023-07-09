@@ -9,9 +9,6 @@ namespace Abuksigun.MRGitUI
         public static bool Check() => Utils.GetSelectedModules().Any();
 
         [MenuItem("Assets/Git Refresh", priority = 100)]
-        public static void Invoke()
-        {
-            Utils.ResetModules(Utils.GetSelectedModules());
-        }
+        public static void Invoke() => Utils.ResetModules(Utils.GetSelectedModules());
     }
 }

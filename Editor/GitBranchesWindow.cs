@@ -1,4 +1,3 @@
-using Mono.Cecil;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,8 +40,7 @@ namespace Abuksigun.MRGitUI
         bool showAllBranches = false;
         Task task = null;
         LazyTreeView<Reference[]> simpleTreeView;
-        [SerializeField]
-        TreeViewState treeViewState;
+        [SerializeField] TreeViewState treeViewState;
 
         protected override void OnGUI()
         {
@@ -108,6 +106,7 @@ namespace Abuksigun.MRGitUI
 
             base.OnGUI();
         }
+
         static async void CreateOrRenameBranch(string oldName = null)
         {
             string newName = oldName;
@@ -129,6 +128,7 @@ namespace Abuksigun.MRGitUI
                 }
             });
         }
+
         void ShowContextMenu(IEnumerable<Module> modules, Reference selectedReference)
         {
             var menu = new GenericMenu();
@@ -202,6 +202,7 @@ namespace Abuksigun.MRGitUI
             menu.AddItem(new GUIContent($"New Tag"), false, () =>  GUIUtils.MakeTag());
             menu.ShowAsContext();
         }
+
         List<TreeViewItem> GenerateItems(IEnumerable<Reference[]> branchesPerRepo)
         {
             var modules = Utils.GetSelectedGitModules();
@@ -219,6 +220,7 @@ namespace Abuksigun.MRGitUI
             BranchesToItems(modules, references, x => x is Stash, 1, items);
             return items;
         }
+
         List<TreeViewItem> BranchesToItems(IEnumerable<Module> modules, IEnumerable<Reference> branches, Func<Reference, bool> filter, int rootDepth, List<TreeViewItem> items)
         {
             string currentPath = "";

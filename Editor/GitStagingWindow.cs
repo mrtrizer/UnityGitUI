@@ -4,9 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
-using UnityEditor.PackageManager.UI;
 using UnityEngine;
-using static UnityEngine.ParticleSystem;
 
 namespace Abuksigun.MRGitUI
 {
@@ -38,7 +36,6 @@ namespace Abuksigun.MRGitUI
         TreeViewState treeViewStateStaged = new();
         LazyTreeView<GitStatus> treeViewStaged;
         string commitMessage = "";
-        string guid = null;
         List<Task> tasksInProgress = new ();
         Dictionary<Module, FilesSelection> selectionPerModule = new ();
 

@@ -12,8 +12,8 @@ namespace Abuksigun.MRGitUI
     {
         [MenuItem("Assets/Git/Log", true)]
         public static bool Check() => Utils.GetSelectedGitModules().Any();
-        [MenuItem("Window/Git GUI/Log")]
-        [MenuItem("Assets/Git/Log", priority = 100)]
+
+        [MenuItem("Assets/Git/Log", priority = 100), MenuItem("Window/Git GUI/Log")]
         public static void Invoke()
         {
             if (EditorWindow.GetWindow<GitLogWindow>() is { } window && window)
@@ -45,10 +45,7 @@ namespace Abuksigun.MRGitUI
 
     class CommitTreeViewItem : TreeViewItem
     {
-        public CommitTreeViewItem(int id, int depth, LogLine logLine) : base(id, depth)
-        {
-            LogLine = logLine;
-        }
+        public CommitTreeViewItem(int id, int depth, LogLine logLine) : base(id, depth) => LogLine = logLine;
         public LogLine LogLine { get; set; }
     }
 
@@ -61,8 +58,7 @@ namespace Abuksigun.MRGitUI
         const float DefaultFilesPanelHeight = 200;
         const float DefaultInfoPanelWidth = 300;
 
-        [SerializeField]
-        string guid = "";
+        [SerializeField] string guid = "";
 
         struct LogGraphCell
         {
@@ -99,8 +95,7 @@ namespace Abuksigun.MRGitUI
         MultiColumnHeader multiColumnHeader;
         LazyTreeView<string[]> treeViewLog;
 
-        [SerializeField]
-        TreeViewState treeViewStateFiles = new();
+        [SerializeField] TreeViewState treeViewStateFiles = new();
         LazyTreeView<GitStatus> treeViewFiles;
         int lastSelectedCommitHash;
 
@@ -110,12 +105,14 @@ namespace Abuksigun.MRGitUI
                 return LockedHash;
             return lines?.FirstOrDefault(x => x.GetHashCode() == id)?.Hash ?? null;
         }
+
         IEnumerable<string> GetSelectedCommitHashes(IEnumerable<int> ids)
         {
             if (LockedHash != null)
                 return new [] { LockedHash };
             return lines.Where(x => ids.Contains(x.GetHashCode())).Select(x => x.Hash).Reverse();
         }
+
         List<LogLine> ParseGitLogLines(IEnumerable<string> rawLines)
         {
             var logLines = new List<LogLine>();
@@ -129,6 +126,7 @@ namespace Abuksigun.MRGitUI
             }
             return logLines;
         }
+
         public static void SelectHash(Module module, string hash)
         {
             if (module != null)
@@ -147,6 +145,7 @@ namespace Abuksigun.MRGitUI
                 }
             }
         }
+
         protected override void OnGUI()
         {
             var module = GUIUtils.ModuleGuidToolbar(LockedModules ?? Utils.GetSelectedGitModules().ToList(), guid);
@@ -182,6 +181,7 @@ namespace Abuksigun.MRGitUI
             
             base.OnGUI();
         }
+
         private void DrawLog(Module module, bool showFilesPanel)
         {
             int itemNum = (int)(position.size.y / Space);
@@ -216,6 +216,7 @@ namespace Abuksigun.MRGitUI
                 GUI.EndClip();
             }
         }
+
         private void DrawFilesPanel(Module module, IEnumerable<string> selectedCommitHashes)
         {
             string firstCommit = $"{selectedCommitHashes.First()}~1";
@@ -251,10 +252,12 @@ namespace Abuksigun.MRGitUI
                 }
             }
         }
+
         List<TreeViewItem> GenerateLogItems(List<LogLine> lines)
         {
             return lines.ConvertAll(x => new CommitTreeViewItem(x.GetHashCode(), 0, x) as TreeViewItem);
         }
+
         void DrawCell(TreeViewItem item, int columnIndex, Rect rect)
         {
             if (item is CommitTreeViewItem { } commit)
@@ -271,6 +274,7 @@ namespace Abuksigun.MRGitUI
                 }, Style.RichTextLabel.Value);
             }
         }
+
         IEnumerable<Vector2Int> FindCells(int fromY, params string[] hashes)
         {
             foreach (string hash in hashes)
@@ -291,6 +295,7 @@ namespace Abuksigun.MRGitUI
                 }
             }
         }
+
         void DrawConnection(LogGraphCell cell, Vector3 offset, int x, int y)
         {
             if (cell.parent == null)
@@ -309,6 +314,7 @@ namespace Abuksigun.MRGitUI
                     Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, last);
             }
         }
+
         LogGraphCell[,] ParseGraph(List<LogLine> lines)
         {
             var cells = new LogGraphCell[lines.Count, 20];
@@ -337,6 +343,7 @@ namespace Abuksigun.MRGitUI
             }
             return cells;
         }
+
         async void ShowCommitContextMenu(Module module, string selectedCommit, IEnumerable<string> selectedCommits)
         {
             var menu = new GenericMenu();
@@ -381,6 +388,7 @@ namespace Abuksigun.MRGitUI
             menu.AddItem(new GUIContent($"New Tag"), false, () => GUIUtils.MakeTag(selectedCommit));
             menu.ShowAsContext();
         }
+
         static void ShowFileContextMenu(Module module, IEnumerable<FileStatus> files, string selectedCommit)
         {
             if (!files.Any())

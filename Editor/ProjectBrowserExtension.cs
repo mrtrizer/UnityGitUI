@@ -121,7 +121,6 @@ namespace Abuksigun.MRGitUI
                     GUI.Label(rect.Move(0, 7), "<color=brown>F</color>", LFSLabelStyle.Value);
                 }
             }
-
             if (module == null && assetInfo != null && !assetInfo.NestedFileModified && drawRect.height < 20)
             {
                 var rect = drawRect;

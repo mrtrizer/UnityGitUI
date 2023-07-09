@@ -1,12 +1,8 @@
-using NUnit.Framework;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
-using UnityEngine.tvOS;
-using static UnityEditor.ShaderData;
 
 namespace Abuksigun.MRGitUI
 {
@@ -14,6 +10,7 @@ namespace Abuksigun.MRGitUI
     {
         [MenuItem("Assets/Git/Remote Settings", true)]
         public static bool Check() => Utils.GetSelectedGitModules().Any();
+
         [MenuItem("Assets/Git/Remote Settings", priority = 100)]
         public static async void Invoke()
         {
@@ -26,14 +23,11 @@ namespace Abuksigun.MRGitUI
     [System.Serializable]
     class EditableRecord
     {
-        public EditableRecord() { NewlyAdded = true; }
-        public EditableRecord(string Alias, string Url) { (this.Alias, this.Url, this.NewlyAdded) = (Alias, Url, false); }
-        [field: SerializeField]
-        public string Alias { get; set; } = "";
-        [field: SerializeField]
-        public string Url { get; set; } = "";
-        [field: SerializeField]
-        public bool NewlyAdded { get; set; }
+        public EditableRecord() => NewlyAdded = true;
+        public EditableRecord(string Alias, string Url) => (this.Alias, this.Url, this.NewlyAdded) = (Alias, Url, false);
+        [field: SerializeField] public string Alias { get; set; } = "";
+        [field: SerializeField] public string Url { get; set; } = "";
+        [field: SerializeField] public bool NewlyAdded { get; set; }
     };
 
     class GitSettingsWindow : DefaultWindow
@@ -41,8 +35,7 @@ namespace Abuksigun.MRGitUI
         int lastHash = 0;
         ReorderableList list = null;
         string guid = null;
-        [SerializeField]
-        List<EditableRecord> editableRemotes;
+        [SerializeField] List<EditableRecord> editableRemotes;
 
         protected override void OnGUI()
         {

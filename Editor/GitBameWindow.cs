@@ -8,10 +8,15 @@ using UnityEngine;
 
 public static class GitBameWindow
 {
-    [MenuItem("Assets/Git Blame", true)]
+    class BlameLineItem : TreeViewItem
+    {
+        public BlameLine BlameLine { get; set; }
+    }
+
+    [MenuItem("Assets/Git File Blame", true)]
     public static bool Check() => true;
 
-    [MenuItem("Assets/Git Blame", priority = 200)]
+    [MenuItem("Assets/Git File Blame", priority = 200)]
     public static async void Invoke()
     {
         var scrollPosition = Vector2.zero;
@@ -21,6 +26,7 @@ public static class GitBameWindow
             return;
         await ShowBlame(module, assetInfo.FullPath);
     }
+
     public static async Task ShowBlame(Module module, string fullPath)
     {
         var blame = await module.BlameFile(fullPath);
@@ -50,6 +56,7 @@ public static class GitBameWindow
                 });
         });
     }
+
     static void DrawCell(TreeViewItem item, int columnIndex, Rect rect)
     {
         if (item is BlameLineItem { } blameLineItem)
@@ -63,10 +70,7 @@ public static class GitBameWindow
             }, Style.RichTextLabel.Value);
         }
     }
-    class BlameLineItem : TreeViewItem
-    {
-        public BlameLine BlameLine { get; set; }
-    }
+
     static List<TreeViewItem> GenerateBlameItems(IEnumerable<BlameLine> blameLines)
     {
         return blameLines.Select(x => new BlameLineItem { BlameLine = x, id = x.GetHashCode() } as TreeViewItem).ToList();

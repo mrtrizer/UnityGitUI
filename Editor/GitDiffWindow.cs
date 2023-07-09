@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -14,12 +13,13 @@ namespace Abuksigun.MRGitUI
     {
         [MenuItem("Assets/Git File Diff", true)]
         public static bool Check() => Selection.assetGUIDs.Any(x => Utils.GetAssetGitInfo(x) != null);
-        [MenuItem("Window/Git GUI/Diff")]
-        [MenuItem("Assets/Git File Diff", priority = 200)]
+
+        [MenuItem("Assets/Git File Diff", priority = 200), MenuItem("Window/Git GUI/Diff")]
         public static void Invoke()
         {
             ShowDiff();
         }
+
         public static void ShowDiff()
         {
             if (EditorWindow.GetWindow<GitDiffWindow>() is { } window && window)
@@ -38,8 +38,7 @@ namespace Abuksigun.MRGitUI
         const int maxChangesDisplay = 1000;
 
         static Regex hunkStartRegex = new Regex(@"@@ -(\d+),?(\d+)?.*?\+(\d+),?(\d+)?.*?@@");
-        [SerializeField]
-        bool staged;
+        [SerializeField] bool staged;
         Vector2 scrollPosition;
         GUIContent[] toolbarContent;
         string[] diffLines;
@@ -138,6 +137,7 @@ namespace Abuksigun.MRGitUI
 
             base.OnGUI();
         }
+
         public void DrawGitDiff(Vector2 size, HunkAction stageHunk, HunkAction unstageHunk, HunkAction discardHunk, bool staged, bool showButtons, ref Vector2 scrollPosition)
         {
             diffUnchanged ??= new() {
@@ -236,6 +236,7 @@ namespace Abuksigun.MRGitUI
             GUILayoutUtility.GetRect(width, currentOffset);
             scrollPosition = scroll.scrollPosition;
         }
+
         void HandleSelection(bool previouslySelected, int index)
         {
             if (Event.current.control)
@@ -260,23 +261,17 @@ namespace Abuksigun.MRGitUI
             }
             lastSelectedLine = index;
         }
+
         void CopySelected()
         {
             var selectedText = string.Join("\n", selectedLines.Select(x => diffLines[x][1..]));
             EditorGUIUtility.systemCopyBuffer = selectedText;
         }
-        async void DiscardHunk(FileStatus file, int id)
-        {
-            await GitPatch("checkout -q --patch", file, id);
-        }
-        async void StageHunk(FileStatus file, int id)
-        {
-            await GitPatch("add --patch", file, id);
-        }
-        async void UnstageHunk(FileStatus file, int id)
-        {
-            await GitPatch("reset -q --patch", file, id);
-        }
+
+        async void DiscardHunk(FileStatus file, int id) => await GitPatch("checkout -q --patch", file, id);
+        async void StageHunk(FileStatus file, int id) => await GitPatch("add --patch", file, id);
+        async void UnstageHunk(FileStatus file, int id) => await GitPatch("reset -q --patch", file, id);
+
         async Task GitPatch(string args, FileStatus file, int id)
         {
             bool inputApplied = false;
@@ -294,6 +289,7 @@ namespace Abuksigun.MRGitUI
             });
             UpdateSelection(module);
         }
+
         void UpdateSelection(params Module[] modules)
         {
             foreach (var module in modules)

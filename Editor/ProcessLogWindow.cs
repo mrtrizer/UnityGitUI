@@ -6,8 +6,7 @@ namespace Abuksigun.MRGitUI
 {
     class ProcessLogWindow : DefaultWindow
     {
-        [SerializeField]
-        string guid;
+        [SerializeField] string guid;
 
         protected override void OnGUI()
         {

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace Abuksigun.MRGitUI
 {
@@ -20,6 +19,7 @@ namespace Abuksigun.MRGitUI
 
         [MenuItem("Assets/Git Pull", priority = 100)]
         public static void PullInvoke() => ShowRemotesSyncWindow(Mode.Pull);
+
         [MenuItem("Assets/Git Push", true)]
         public static bool PushCheck() => Utils.GetSelectedGitModules().Any();
 
@@ -53,6 +53,14 @@ namespace Abuksigun.MRGitUI
                     {
                         if (GUILayout.Button(new GUIContent($"Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image), GUILayout.Width(150)))
                             tasks = modules.ToDictionary(x => x.Guid, module => (Utils.GetNextRunCommandProcessId(), module.Pull(remotes[module])));
+                        bool lfsInstalled = modules.Any(x => x.IsLfsInstalled.GetResultOrDefault());
+                        if (lfsInstalled && GUILayout.Button(new GUIContent($"Fast LFS Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image), GUILayout.Width(190)))
+                        {
+                            tasks = modules.ToDictionary(x => x.Guid, module => {
+                                var pullResult = module.IsLfsInstalled.GetResultOrDefault() ? module.LfsPull(remotes[module]) : module.Pull(remotes[module]);
+                                return (Utils.GetNextRunCommandProcessId(), pullResult);
+                            });
+                        }
                     }
                     if (mode == Mode.Push)
                     {

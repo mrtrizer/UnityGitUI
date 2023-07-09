@@ -64,7 +64,7 @@ namespace Abuksigun.MRGitUI
         {
             return Utils.GetSelectedModules().Where(x => File.GetAttributes(x.PhysicalPath).HasFlag(FileAttributes.ReparsePoint));
         }
-        
+
         static Task ShowCloneWindow(List<PackageInfo> packagesToClone)
         {
             Vector2 scrollPosition = default;
@@ -121,7 +121,7 @@ namespace Abuksigun.MRGitUI
             });
         }
 
-        private static bool HandleCloneOutput(IOData data, List<IOData> log)
+        static bool HandleCloneOutput(IOData data, List<IOData> log)
         {
             lock (log)
                 log.Add(data);

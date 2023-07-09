@@ -21,7 +21,10 @@ namespace Abuksigun.MRGitUI
             new(0.42f, 0.48f, 0.91f)
         };
 
-        public static Lazy<GUIStyle> RichTextLabel => new(() => new(GUI.skin.label) { richText = true });
+        public static Lazy<GUIStyle> RichTextLabel => new(() => new(GUI.skin.label) { 
+            richText = true 
+        });
+
         public static Lazy<GUIStyle> FileName => new(() => new() {
             fontStyle = FontStyle.Bold,
             normal = new() {
@@ -29,6 +32,7 @@ namespace Abuksigun.MRGitUI
                 textColor = Color.black
             }
         });
+
         public static Lazy<GUIStyle> ProcessLog => new(() => new() {
             normal = new() {
                 textColor = Color.white,
