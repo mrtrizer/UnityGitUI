@@ -55,6 +55,19 @@ namespace Abuksigun.MRGitUI
             UnityEditor.PackageManager.Client.Resolve();
         }
 
+        [MenuItem("Assets/Git/Add Local Repo")]
+        public static void AddLocalRepo()
+        {
+            string path = EditorUtility.OpenFilePanel("Select package.json", "", "json");
+            if (!string.IsNullOrEmpty(path) && Path.GetFileName(path) == "package.json")
+            {
+                string dir = Path.GetDirectoryName(path);
+                string oldDirName = Path.GetFileName(dir);
+                SwitchToLocal(oldDirName, dir);
+                UnityEditor.PackageManager.Client.Resolve();
+            }
+        }
+
         static IEnumerable<Module> GetSelectedGitPackages()
         {
             return Utils.GetSelectedModules().Where(x => x?.PackageInfo?.source == UnityEditor.PackageManager.PackageSource.Git);

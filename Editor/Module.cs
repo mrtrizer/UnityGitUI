@@ -345,7 +345,7 @@ namespace Abuksigun.MRGitUI
                 .Where(line => !string.IsNullOrWhiteSpace(line))
                 .Select(line => {
                     var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                    return new LfsFileInfo(Path.Combine(gitRepoPath, parts[2..].Join(' ')).NormalizeSlashes(), parts[0], parts[1]);
+                    return new LfsFileInfo(GetLinkRelativePath(Path.Combine(gitRepoPath, parts[2..].Join(' ')).NormalizeSlashes()), parts[0], parts[1]);
                 }).ToArray();
 
             return files;
