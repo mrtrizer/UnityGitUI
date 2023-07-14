@@ -44,7 +44,7 @@ namespace Abuksigun.MRGitUI
 
         public static Texture2D GetColorTexture(Color color)
         {
-            if (colorTextures.TryGetValue(color, out var tex))
+            if (colorTextures.TryGetValue(color, out var tex) && tex)
                 return tex;
             var texture = new Texture2D(1, 1);
             texture.SetPixel(0, 0, color);

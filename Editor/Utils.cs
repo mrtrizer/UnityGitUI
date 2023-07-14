@@ -35,16 +35,11 @@ namespace Abuksigun.MRGitUI
     {
         public GitFileReference(string moduleGuid, string fullPath, bool? staged) => (ModuleGuid, FullPath, Staged) = (moduleGuid, fullPath, staged);
         public Module Module => Utils.GetModule(ModuleGuid);
-        [field: SerializeField]
-        public string ModuleGuid { get; set; }
-        [field: SerializeField]
-        public string FullPath { get; set; }
-        [field: SerializeField]
-        public bool? Staged { get; set; } = null;
-        [field: SerializeField]
-        public string FirstCommit { get; set; } = null;
-        [field: SerializeField]
-        public string LastCommit { get; set; } = null;
+        [field: SerializeField] public string ModuleGuid { get; set; }
+        [field: SerializeField] public string FullPath { get; set; }
+        [field: SerializeField] public bool? Staged { get; set; } = null;
+        [field: SerializeField] public string FirstCommit { get; set; } = null;
+        [field: SerializeField] public string LastCommit { get; set; } = null;
         public override int GetHashCode() => HashCode.Combine(ModuleGuid, Module.RefreshTimestamp, FullPath, Staged, FirstCommit, LastCommit);
     }
 

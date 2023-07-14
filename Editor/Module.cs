@@ -150,9 +150,9 @@ namespace Abuksigun.MRGitUI
             return processLog;
         }
 
-        string GetLinkRelativePath(string fullPath)
+        string GetSymLinkReferencedPath(string fullPath)
         {
-            // This method makes unreferenced path (that git returns) relative to symbolic link
+            // This method converts original unreferenced path (that git returns) to a symbolic link path
             return IsLinkedPackage ? fullPath.NormalizeSlashes().Replace(UnreferencedPath, PhysicalPath) : fullPath;
         }
 
@@ -345,7 +345,7 @@ namespace Abuksigun.MRGitUI
                 .Where(line => !string.IsNullOrWhiteSpace(line))
                 .Select(line => {
                     var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                    return new LfsFileInfo(GetLinkRelativePath(Path.Combine(gitRepoPath, parts[2..].Join(' ')).NormalizeSlashes()), parts[0], parts[1]);
+                    return new LfsFileInfo(GetSymLinkReferencedPath(Path.Combine(gitRepoPath, parts[2..].Join(' ')).NormalizeSlashes()), parts[0], parts[1]);
                 }).ToArray();
 
             return files;
@@ -407,7 +407,7 @@ namespace Abuksigun.MRGitUI
                 string path = paths[paths.Length - 1].Trim();
                 string oldPath = paths.Length > 1 ? paths[paths.Length - 2].Trim() : null;
                 string fullPath = Path.Join(gitRepoPath, path.Trim('"')).NormalizeSlashes();
-                string fullProjectPath = GetLinkRelativePath(fullPath);
+                string fullProjectPath = GetSymLinkReferencedPath(fullPath);
                 return new FileStatus(Guid, fullProjectPath, fullPath, oldPath, X: line[0], Y: line[1], numStatUnstaged.GetValueOrDefault(path), numStatStaged.GetValueOrDefault(path));
             }).ToArray();
         }
