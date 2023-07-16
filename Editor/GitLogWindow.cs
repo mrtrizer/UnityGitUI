@@ -51,7 +51,7 @@ namespace Abuksigun.MRGitUI
 
     public class GitLogWindow : DefaultWindow
     {
-        public static Lazy<GUIStyle> CommitInfoStyle => new(() => new(Style.RichTextLabel.Value) { richText = true, wordWrap = true });
+        public static LazyStyle CommitInfoStyle = new(() => new(Style.RichTextLabel.Value) { richText = true, wordWrap = true });
 
         const float TableHeaderHeight = 27;
         const float Space = 16;

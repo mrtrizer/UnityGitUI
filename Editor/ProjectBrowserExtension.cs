@@ -12,9 +12,9 @@ namespace Abuksigun.MRGitUI
     [InitializeOnLoad]
     public static class ProjectBrowserExtension
     {
-        static Lazy<GUIStyle> LFSLabelStyle = new(() => new GUIStyle(EditorStyles.label) { fontSize = 7, fontStyle = FontStyle.Bold, richText = true });
-        static Lazy<GUIStyle> LabelStyle = new(() => new GUIStyle(EditorStyles.label) { fontSize = 8, richText = true });
-        static Lazy<GUIStyle> FileMarkStyle = new(() => new GUIStyle(LabelStyle.Value) { fontStyle = FontStyle.Bold, fontSize = 10, richText = true });
+        static LazyStyle LFSLabelStyle = new(() => new GUIStyle(EditorStyles.label) { fontSize = 7, fontStyle = FontStyle.Bold, richText = true });
+        static LazyStyle LabelStyle = new(() => new GUIStyle(EditorStyles.label) { fontSize = 8, richText = true });
+        static LazyStyle FileMarkStyle = new(() => new GUIStyle(LabelStyle.Value) { fontStyle = FontStyle.Bold, fontSize = 10, richText = true });
         static int spinCounter;
 
         static ProjectBrowserExtension()
@@ -93,6 +93,15 @@ namespace Abuksigun.MRGitUI
                     rect.height = 15;
                     rect.x = rect.x + rect.width - 70;
                     GUI.Label(rect, EditorGUIUtility.IconContent($"WaitSpin{(spinCounter++ % 1100) / 100:00}"), LabelStyle.Value);
+                }
+
+                if (module.GitParentRepoPath.GetResultOrDefault() != null)
+                {
+                    offset += 20;
+                    var rect = drawRect;
+                    rect.x = rect.x + rect.width - offset;
+                    rect.y += 1.5f;
+                    GUI.Label(rect, "<color=green>sub</color>", FileMarkStyle.Value);
                 }
             }
             var assetInfo = GetAssetGitInfo(guid);

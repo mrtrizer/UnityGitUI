@@ -26,7 +26,7 @@ namespace Abuksigun.MRGitUI
     public record Remote(string Alias, string Url);
     public record RemoteStatus(string Remote, int Ahead, int Behind);
     public record LfsFileInfo(string FileName, string ObjectId, string DownloadStatus);
-    public record SubmoduleInfo(string Path, string CurrentCommit);
+    public record SubmoduleInfo(string Path, string FullPath, string CurrentCommit);
 
     public struct NumStat
     {
@@ -42,7 +42,7 @@ namespace Abuksigun.MRGitUI
         public bool IsUnresolved => Y is 'U' || X is 'U' || (X == Y && X == 'D') || (X == Y && X == 'A');
     }
 
-    public record GitStatus(FileStatus[] Files, string ModuleGuid)
+    public record GitStatus(FileStatus[] Files, string parentRepoPath, string ModuleGuid)
     {
         public IEnumerable<FileStatus> Staged => Files.Where(file => file.IsStaged);
         public IEnumerable<FileStatus> Unstaged => Files.Where(file => file.IsUnstaged);
@@ -54,6 +54,7 @@ namespace Abuksigun.MRGitUI
     {
         Task<bool> isGitRepo;
         Task<string> gitRepoPath;
+        Task<string> gitParentRepoPath;
         Task<Reference[]> references;
         Task<string[]> stashes;
         Task<string> currentBranch;
@@ -89,6 +90,7 @@ namespace Abuksigun.MRGitUI
         public PackageInfo PackageInfo { get; }
         public Task<bool> IsGitRepo => isGitRepo ??= GetIsGitRepo();
         public Task<string> GitRepoPath => gitRepoPath ??= GetRepoPath();
+        public Task<string> GitParentRepoPath => gitParentRepoPath ??= GetParentRepoPath();
         public Task<Reference[]> References => references ??= GetReferences();
         public Task<string[]> Log => LogFiles(null);
         public Task<string[]> Stashes => stashes ??= GetStashes();
@@ -142,20 +144,6 @@ namespace Abuksigun.MRGitUI
             return result.task;
         }
 
-        IReadOnlyList<IOData> GetProcessLog()
-        {
-            if (processLogConcurent.Count != processLog.Count)
-                lock (processLogConcurent)
-                    processLog = processLogConcurent.ToList();
-            return processLog;
-        }
-
-        string GetSymLinkReferencedPath(string fullPath)
-        {
-            // This method converts original unreferenced path (that git returns) to a symbolic link path
-            return IsLinkedPackage ? fullPath.NormalizeSlashes().Replace(UnreferencedPath, PhysicalPath) : fullPath;
-        }
-
         public Task<string> FileDiff(GitFileReference logFileReference)
         {
             fileDiffCache ??= new();
@@ -183,14 +171,72 @@ namespace Abuksigun.MRGitUI
             return fileBlameCache.TryGetValue(filePath, out var blame) ? blame : fileBlameCache[filePath] = GetBlame(filePath);
         }
 
-        public Task<string> GitConfigValue(string key, ConfigScope scope = ConfigScope.None)
+        public Task<string> ConfigValue(string key, ConfigScope scope = ConfigScope.None)
         {
             configCache ??= new();
             var configRef = new ConfigRef(key, scope);
-            return configCache.TryGetValue(configRef, out var blame) ? blame : configCache[configRef] = GetGitConfigValue(key, scope);
+            return configCache.TryGetValue(configRef, out var blame) ? blame : configCache[configRef] = GetConfigValue(key, scope);
         }
 
-        async Task<string> GetGitConfigValue(string key, ConfigScope scope)
+        #region Refresh
+        public void RefreshReferences()
+        {
+            references = null;
+            stashes = null;
+            currentBranch = null;
+            currentCommit = null;
+            fileLogCache = null;
+            fileBlameCache = null;
+        }
+
+        public void RefreshRemoteStatus()
+        {
+            RefreshReferences();
+            remotes = null;
+            defaultRemote = null;
+            remoteStatus = null;
+            RefreshTimestamp = DateTime.Now;
+        }
+
+        public void RefreshFilesStatus()
+        {
+            isMergeInProgress = null;
+            isCherryPickInProgress = null;
+            gitStatus = null;
+            fileDiffCache = null;
+            diffCache = null;
+            configCache = null;
+            lfsFiles = null;
+            lfsTrackedPaths = null;
+            submodules = null;
+            AssetDatabase.Refresh();
+        }
+        #endregion
+
+        #region Git Status
+        IReadOnlyList<IOData> GetProcessLog()
+        {
+            if (processLogConcurent.Count != processLog.Count)
+                lock (processLogConcurent)
+                    processLog = processLogConcurent.ToList();
+            return processLog;
+        }
+
+        string GetSymLinkReferencedPath(string fullPath)
+        {
+            // This method converts original unreferenced path (that git returns) to a symbolic link path
+            return IsLinkedPackage ? fullPath.NormalizeSlashes().Replace(UnreferencedPath, PhysicalPath) : fullPath;
+        }
+
+        async Task<string> GetParentRepoPath()
+        {
+            string gitFile = Path.Combine(PhysicalPath, ".git");
+            string gitFileContent = File.Exists(gitFile) ? await File.ReadAllTextAsync(gitFile) : null;
+            int modulesPathOffset = gitFileContent?.IndexOf(".git/modules") ?? -1;
+            return modulesPathOffset != -1 ? Path.GetFullPath(Path.Combine(PhysicalPath, gitFileContent[8..modulesPathOffset])).NormalizeSlashes() : null;
+        }
+
+        async Task<string> GetConfigValue(string key, ConfigScope scope)
         {
             var result = await RunGit($"config {ScopeToString(scope)} --get {key}");
             return result.Output.Trim();
@@ -214,8 +260,15 @@ namespace Abuksigun.MRGitUI
             return (await RunGit("rev-parse --short --verify HEAD")).Output.Trim();
         }
 
-        async Task<bool> GetIsMergeInProgress() => File.Exists(Path.Combine(await GitRepoPath, ".git", "MERGE_HEAD"));
-        async Task<bool> GetIsCherryPickInProgress() => File.Exists(Path.Combine(await GitRepoPath, ".git", "CHERRY_PICK_HEAD"));
+        async Task<bool> GetIsMergeInProgress()
+        {
+            return File.Exists(Path.Combine(await GitRepoPath, ".git", "MERGE_HEAD"));
+        }
+
+        async Task<bool> GetIsCherryPickInProgress()
+        {
+            return File.Exists(Path.Combine(await GitRepoPath, ".git", "CHERRY_PICK_HEAD"));
+        }
 
         async Task<Reference[]> GetReferences()
         {
@@ -278,9 +331,9 @@ namespace Abuksigun.MRGitUI
             return remoteLines
                 .Where(line => line.EndsWith("(push)"))
                 .Select(line => {
-                string[] parts = line.Split(new [] { '\t', ' ' }, RemoveEmptyEntries);
-                return new Remote(parts[0], parts[1]);
-            }).Distinct().ToArray();
+                    string[] parts = line.Split(new[] { '\t', ' ' }, RemoveEmptyEntries);
+                    return new Remote(parts[0], parts[1]);
+                }).Distinct().ToArray();
         }
 
         async Task<Remote> GetDefaultRemote()
@@ -290,7 +343,7 @@ namespace Abuksigun.MRGitUI
             var references = await References;
             var currentBranch = references.FirstOrDefault(x => x is LocalBranch && x.Name == currentBranchName);
             var remote = (await GetRemotes()).FirstOrDefault();
-            if (currentBranch is LocalBranch { TrackingBranch : not null } localBranch)
+            if (currentBranch is LocalBranch { TrackingBranch: not null } localBranch)
                 remote = remotes.FirstOrDefault(x => localBranch.TrackingBranch.StartsWith($"refs/remotes/{x.Alias}")) ?? remote;
             return remote;
         }
@@ -329,13 +382,13 @@ namespace Abuksigun.MRGitUI
 
             var numStatUnstaged = ParseNumStat(numStatUnstagedTask.Result.Output);
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
-            return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged), Guid);
+            return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged), await GitParentRepoPath, Guid);
         }
 
         async Task<bool> GetIsLfsAvailable() => (await RunProcess("git", "lfs version")).ExitCode == 0;
         async Task<bool> GetIsLfsInstalled() => (await RunGit("lfs ls-files")).ExitCode == 0;
 
-        public async Task<LfsFileInfo[]> GitLfsLsFiles()
+        async Task<LfsFileInfo[]> GitLfsLsFiles()
         {
             var result = await RunGit("lfs ls-files");
             if (result.ExitCode != 0)
@@ -351,7 +404,7 @@ namespace Abuksigun.MRGitUI
             return files;
         }
 
-        public async Task<string[]> GetLfsTrackedPatterns()
+        async Task<string[]> GetLfsTrackedPatterns()
         {
             var result = await RunGit("lfs track");
             if (result.ExitCode != 0)
@@ -367,7 +420,7 @@ namespace Abuksigun.MRGitUI
                 .Where(line => !string.IsNullOrWhiteSpace(line))
                 .Select(line => {
                     var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                    return new SubmoduleInfo(parts[0], parts[1]);
+                    return new SubmoduleInfo(parts[1], Path.GetFullPath(Path.Combine(PhysicalPath, parts[1])).NormalizeSlashes(), parts[0]);
                 }).ToArray();
 
             return submodules;
@@ -397,7 +450,7 @@ namespace Abuksigun.MRGitUI
             await Task.WhenAll(gitRepoPathTask, statusTask, numStatTask);
             var numStat = ParseNumStat(numStatTask.Result.Output);
 
-            return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStat, numStat), Guid);
+            return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStat, numStat), await GitParentRepoPath, Guid);
         }
 
         FileStatus[] ParseStatus(string statusOutput, string gitRepoPath, Dictionary<string, NumStat> numStatUnstaged, Dictionary<string, NumStat> numStatStaged)
@@ -420,41 +473,10 @@ namespace Abuksigun.MRGitUI
                 .Where(parts => !parts[0].Contains('-') && !parts[1].Contains('-'));
             var dict = new Dictionary<string, NumStat>();
             foreach (var parts in partsPerLine)
-                dict[parts[2]] = new NumStat { Added = int.Parse(parts[0]), Removed = int.Parse(parts[1])};
+                dict[parts[2]] = new NumStat { Added = int.Parse(parts[0]), Removed = int.Parse(parts[1]) };
             return dict;
         }
-
-        public void RefreshReferences()
-        {
-            references = null;
-            stashes = null;
-            currentBranch = null;
-            currentCommit = null;
-            fileLogCache = null;
-            fileBlameCache = null;
-        }
-
-        public void RefreshRemoteStatus()
-        {
-            RefreshReferences();
-            remotes = null;
-            defaultRemote = null;
-            remoteStatus = null;
-            RefreshTimestamp = DateTime.Now;
-        }
-
-        public void RefreshFilesStatus()
-        {
-            isMergeInProgress = null;
-            isCherryPickInProgress = null;
-            gitStatus = null;
-            fileDiffCache = null;
-            diffCache = null;
-            configCache = null;
-            lfsFiles = null;
-            lfsTrackedPaths = null;
-            AssetDatabase.Refresh();
-        }
+        #endregion
 
         #region Remotes Managment
         public Task<CommandResult> RemoveRemote(string alias) => RunGit($"remote remove {alias}").AfterCompletion(RefreshRemoteStatus);

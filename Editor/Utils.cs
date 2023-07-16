@@ -78,6 +78,11 @@ namespace Abuksigun.MRGitUI
             Debug.Log($"Initialized modules: {modules.Values.Select(x => x.Name).Join('\n')}");
         }
 
+        public static Module GetModuleByPath(string path)
+        {
+            return modules.Values.FirstOrDefault(x => x?.GitRepoPath.GetResultOrDefault() == path);
+        }
+
         public static Module GetModule(string guid)
         {
             return modules.GetValueOrDefault(guid) ?? (modules[guid] = IsModule(guid) ? new Module(guid) : null);
@@ -101,6 +106,11 @@ namespace Abuksigun.MRGitUI
                 return false;
             var packageInfo = PackageInfo.FindForAssetPath(path);
             return (packageInfo != null && packageInfo.assetPath == path) || path == "Assets";
+        }
+
+        public static Module GetParentRepo(Module submodule)
+        {
+            return GetModuleByPath(submodule.GitParentRepoPath.GetResultOrDefault());
         }
 
         public static void SetSelectedModules(IEnumerable<Module> modules)
@@ -160,9 +170,15 @@ namespace Abuksigun.MRGitUI
             instance.lockeedModules = modules?.ToList();
         }
 
-        public static IEnumerable<Module> GetSelectedGitModules()
+        public static IEnumerable<Module> GetSelectedGitModules(bool withSubmodules = false)
         {
-            return GetSelectedModules().Where(x => x.IsGitRepo.GetResultOrDefault());
+            var selectedModules = GetSelectedModules().Where(x => x.IsGitRepo.GetResultOrDefault());
+            if (withSubmodules)
+            {
+                var submodules = selectedModules.Select(x => x.Submodules.GetResultOrDefault()).Where(x => x != null).SelectMany(x => x).Select(x => GetModuleByPath(x.FullPath));
+                selectedModules = selectedModules.Concat(submodules.Where(x => x != null)).Distinct();
+            }
+            return selectedModules;
         }
 
         public static Module FindModuleContainingPath(string path)

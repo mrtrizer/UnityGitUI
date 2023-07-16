@@ -40,7 +40,7 @@ public class GitConfigWindow : MonoBehaviour
                     EditorGUILayout.SelectableLabel(setting.name, columnWidth);
                     foreach (var scope in Enum.GetValues(typeof(ConfigScope)).Cast<ConfigScope>())
                     {
-                        var config = module.GitConfigValue(setting.name, scope).GetResultOrDefault();
+                        var config = module.ConfigValue(setting.name, scope).GetResultOrDefault();
 
                         if (scope != ConfigScope.None)
                         {
@@ -59,7 +59,7 @@ public class GitConfigWindow : MonoBehaviour
 
     static async Task ShowChangeSettingWindow(Module module, Setting setting, ConfigScope scope)
     {
-        string newValue = await module.GitConfigValue(setting.name, scope);
+        string newValue = await module.ConfigValue(setting.name, scope);
         await GUIUtils.ShowModalWindow("Set Value", new Vector2Int(300, 180), window => {
             newValue = GUILayout.TextField(newValue);
             using (new GUILayout.HorizontalScope())

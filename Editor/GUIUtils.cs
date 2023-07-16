@@ -67,22 +67,24 @@ namespace Abuksigun.MRGitUI
 
         public static List<TreeViewItem> GenerateFileItems(IEnumerable<GitStatus> statuses, bool staged)
         {
+            const string submoduleMarker = "<b><color=green>submodule</color></b>";
             var items = new List<TreeViewItem>();
-            var validStatuses = statuses.Where(x => x != null);
+            var validStatuses = statuses.Where(x => x != null && x.Files.Length > 0);
             foreach (var status in validStatuses)
             {
                 var module = Utils.GetModule(status.ModuleGuid);
                 var visibleFiles = status.Files.Where(x => x.IsUnstaged && !staged || x.IsStaged && staged);
                 if (validStatuses.Count() > 1 && visibleFiles.Any())
-                    items.Add(new TreeViewItem(module.Guid.GetHashCode(), 0, module.DisplayName));
+                    items.Add(new TreeViewItem(module.Guid.GetHashCode(), 0, $"{module.DisplayName} {submoduleMarker.When(module.GitParentRepoPath.GetResultOrDefault() != null)}"));
                 foreach (var file in visibleFiles)
                 {
                     var icon = AssetDatabase.GetCachedIcon(Utils.GetUnityLogicalPath(file.FullProjectPath));
                     if (!icon)
                         icon = EditorGUIUtility.IconContent("DefaultAsset Icon").image;
-                    string relativePath = Path.GetRelativePath(module.PhysicalPath, file.FullProjectPath);
+                    string relativePath = Path.GetRelativePath(module.PhysicalPath, file.FullProjectPath).NormalizeSlashes();
                     var numStat = staged ? file.StagedNumStat : file.UnstagedNumStat;
-                    var content = $"{(staged ? file.X : file.Y)} {relativePath}{file.OldName?.WrapUp(" (", ")")} +{numStat.Added} -{numStat.Removed} ";
+                    bool isSubmodule = Utils.GetModuleByPath(file.FullPath) != null;
+                    var content = $"{(staged ? file.X : file.Y)} {relativePath}{file.OldName?.WrapUp(" (", ")")} +{numStat.Added} -{numStat.Removed} {submoduleMarker.When(isSubmodule)}";
                     items.Add(new TreeViewItem(file.FullPath.GetHashCode(), validStatuses.Count() > 1 ? 1 : 0, content) { icon = icon as Texture2D });
                 }
             }

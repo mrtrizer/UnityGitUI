@@ -23,13 +23,15 @@ namespace Abuksigun.MRGitUI
             }
         }
     }
-    
+
     public class GitStagingWindow : DefaultWindow
     {
         const int TopPanelHeight = 130;
         const int MiddlePanelWidth = 40;
 
         record FilesSelection(ListState Unstaged, ListState Staged);
+
+        [SerializeField] bool manageSubmodules = true;
 
         TreeViewState treeViewStateUnstaged = new();
         LazyTreeView<GitStatus> treeViewUnstaged;
@@ -44,10 +46,14 @@ namespace Abuksigun.MRGitUI
             treeViewUnstaged ??= new(statuses => GUIUtils.GenerateFileItems(statuses, false), treeViewStateUnstaged, true);
             treeViewStaged ??= new(statuses => GUIUtils.GenerateFileItems(statuses, true), treeViewStateStaged, true);
 
-            var modules = Utils.GetSelectedGitModules().ToList();
+            var modules = Utils.GetSelectedGitModules(manageSubmodules).ToList();
 
-            var author = modules.Select(x => $"{x.GitConfigValue("user.name").GetResultOrDefault()} {x.GitConfigValue("user.email").GetResultOrDefault()}");
-            GUILayout.Label($"Commit message:       ({author.Distinct().Join(", ")})");
+            var author = modules.Select(x => $"{x.ConfigValue("user.name").GetResultOrDefault()} {x.ConfigValue("user.email").GetResultOrDefault()}");
+            using (new GUILayout.HorizontalScope())
+            {
+                GUILayout.Label($"Commit message:       ({author.Distinct().Join(", ")})");
+                manageSubmodules = GUILayout.Toggle(manageSubmodules, "Manage submodules");
+            }
             commitMessage = GUILayout.TextArea(commitMessage, GUILayout.Height(40));
 
             tasksInProgress.RemoveAll(x => x.IsCompleted);
@@ -125,7 +131,7 @@ namespace Abuksigun.MRGitUI
             using (new GUILayout.HorizontalScope())
             {
                 var size = new Vector2((position.width - MiddlePanelWidth) / 2, position.height - TopPanelHeight);
-                
+
                 treeViewUnstaged.Draw(size, statuses, (int id) => ShowContextMenu(modules, unstagedSelection.ToList()), SelectAsset);
                 using (new GUILayout.VerticalScope())
                 {
@@ -149,7 +155,7 @@ namespace Abuksigun.MRGitUI
 
         static void SelectAsset(int id)
         {
-            var statuses = Utils.GetSelectedGitModules().Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
+            var statuses = Utils.GetGitModules().Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
             var selectedAsset = statuses.SelectMany(x => x.Files).FirstOrDefault(x => x.FullPath.GetHashCode() == id);
             if (selectedAsset != null)
             {
@@ -170,7 +176,7 @@ namespace Abuksigun.MRGitUI
             menu.AddItem(new GUIContent("Open"), false, () => GUIUtils.OpenFiles(files.Select(x => x.FullProjectPath)));
             menu.AddItem(new GUIContent("Browse"), false, () => GUIUtils.BrowseFiles(files.Select(x => x.FullProjectPath)));
             menu.AddSeparator("");
-            
+
             if (files.Any(x => x.IsInIndex))
             {
                 menu.AddItem(new GUIContent("Diff"), false, () => {
