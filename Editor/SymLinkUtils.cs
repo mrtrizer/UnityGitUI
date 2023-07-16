@@ -34,9 +34,6 @@ public static class SymLinkUtils
         static extern int CreateDirectory(string lpPathName, IntPtr lpSecurityAttributes);
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        static extern bool CreateSymbolicLink(string lpSymlinkFileName, string lpTargetFileName, int dwFlags);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
         static extern bool DeviceIoControl(IntPtr hDevice, uint dwIoControlCode, IntPtr lpInBuffer, uint nInBufferSize, IntPtr lpOutBuffer, uint nOutBufferSize, out uint lpBytesReturned, IntPtr lpOverlapped);
 
         [DllImport("kernel32.dll", SetLastError = true)]
@@ -55,7 +52,7 @@ public static class SymLinkUtils
 
         const string NonInterpretedPathPrefix = @"\??\";
         byte[] targetDirBytes = Encoding.Unicode.GetBytes(NonInterpretedPathPrefix + targetPath);
-        ReparseDataBuffer buffer = new ReparseDataBuffer {
+        ReparseDataBuffer buffer = new() {
             ReparseTag = IO_REPARSE_TAG_MOUNT_POINT,
             ReparseDataLength = (ushort)(targetDirBytes.Length + 12),
             SubstituteNameLength = (ushort)targetDirBytes.Length,
@@ -148,8 +145,8 @@ public static class SymLinkUtils
         IntPtr reparseDataBufferPtr = Marshal.AllocHGlobal(bufferSize);
         try
         {
-            ReparseDataBuffer reparseDataBuffer = new ReparseDataBuffer();
-            
+            var reparseDataBuffer = new ReparseDataBuffer();
+
             if (!DeviceIoControl(fileHandle, FSCTL_GET_REPARSE_POINT, IntPtr.Zero, 0, reparseDataBufferPtr, (uint)bufferSize, out uint bytesReturned, IntPtr.Zero))
             {
                 Marshal.FreeHGlobal(reparseDataBufferPtr);
@@ -159,7 +156,7 @@ public static class SymLinkUtils
 
             reparseDataBuffer = (ReparseDataBuffer)Marshal.PtrToStructure(reparseDataBufferPtr, typeof(ReparseDataBuffer));
             string targetPath = Encoding.Unicode.GetString(reparseDataBuffer.PathBuffer, reparseDataBuffer.SubstituteNameOffset, reparseDataBuffer.SubstituteNameLength);
-            
+
             if (targetPath.StartsWith(@"\??\") || targetPath.StartsWith(@"\\?\"))
                 targetPath = targetPath.Substring(4);
 

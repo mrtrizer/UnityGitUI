@@ -75,7 +75,7 @@ namespace Abuksigun.MRGitUI
                 if (guid != null)
                     modules.Add(guid, new Module(guid));
             }
-            Debug.Log($"Initialized modules: {modules.Values.Select(x => x.Name).Join('\n')}");
+            Debug.Log($"{nameof(MRGitUI)} has found modules: {modules.Values.Select(x => x.Name).Join('\n')}");
         }
 
         public static Module GetModuleByPath(string path)
@@ -238,7 +238,7 @@ namespace Abuksigun.MRGitUI
         public static IEnumerable<string> BatchFiles(IEnumerable<string> files)
         {
             int batchCapacity = 20;
-            List<string> batch = new List<string>(batchCapacity);
+            var batch = new List<string>(batchCapacity);
             foreach (var file in files)
             {
                 if (batch.Count < batchCapacity)

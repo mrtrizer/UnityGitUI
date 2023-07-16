@@ -178,7 +178,7 @@ namespace Abuksigun.MRGitUI
                 DrawFilesPanel(module, selectedCommitHashes);
             else if (HideFilesPanel && selectionChanged)
                 Utils.SetSelectedFiles(guid, LogFiles, null, $"{selectedCommitHashes.First()}~1", selectedCommitHashes.Last());
-            
+
             base.OnGUI();
         }
 
@@ -188,7 +188,7 @@ namespace Abuksigun.MRGitUI
 
             float currentFilesPanelHeight = showFilesPanel && HideFilesPanel ? 0 : FilesPanelHeight;
 
-            treeViewLog.Draw(new Vector2(position.width, position.height - currentFilesPanelHeight), new[] { lastLog }, 
+            treeViewLog.Draw(new Vector2(position.width, position.height - currentFilesPanelHeight), new[] { lastLog },
                 id => ShowCommitContextMenu(module, GetSelectedCommitHash(id), GetSelectedCommitHashes(treeViewLogState.selectedIDs)),
                 id => SelectHash(module, GetSelectedCommitHash(id)));
 

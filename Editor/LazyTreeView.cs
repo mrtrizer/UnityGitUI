@@ -11,7 +11,7 @@ namespace Abuksigun.MRGitUI
         public delegate List<TreeViewItem> GenerateItemsCallback(IEnumerable<T> data);
         public delegate void DrawRowCallback(TreeViewItem item, int columnIndex, Rect rect);
 
-        public event Action selectionChangedEvent;
+        public event Action SelectionChangedEvent;
 
         DrawRowCallback drawRowCallback;
         Action<int> contextMenuCallback;
@@ -54,11 +54,6 @@ namespace Abuksigun.MRGitUI
         protected override bool CanMultiSelect(TreeViewItem item)
         {
             return multiSelection;
-        }
-
-        protected override void SelectionChanged(IList<int> selectedIds)
-        {
-            base.SelectionChanged(selectedIds);
         }
 
         protected override void ContextClickedItem(int id)

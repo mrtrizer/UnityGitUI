@@ -31,7 +31,7 @@ namespace Abuksigun.MRGitUI
             bool pushTags = false;
             bool forcePush = false;
             bool prune = false;
-            
+
             var scrollPosition = Vector2.zero;
             var tasks = new Dictionary<string, (int localProcessId, Task<CommandResult> task)>();
             var remotes = new Dictionary<Module, Remote>();
@@ -83,7 +83,7 @@ namespace Abuksigun.MRGitUI
                             var selectedRemote = remotes.GetValueOrDefault(module) ?? (remotes[module] = module.DefaultRemote.GetResultOrDefault());
                             if (selectedRemote != null && EditorGUILayout.DropdownButton(new (selectedRemote.Alias), FocusType.Keyboard, EditorStyles.toolbarDropDown, GUILayout.Width(100)))
                             {
-                                GenericMenu menu = new GenericMenu();
+                                var menu = new GenericMenu();
                                 foreach (var remote in module.Remotes.GetResultOrDefault(Array.Empty<Remote>()))
                                     menu.AddItem(new GUIContent(remote.Alias), selectedRemote == remote, _ => remotes[module] = remote, remote);
                                 menu.DropDown(GUILayoutUtility.GetLastRect().Resize(0, 20));

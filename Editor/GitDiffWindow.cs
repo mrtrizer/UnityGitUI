@@ -8,8 +8,8 @@ using UnityEngine;
 namespace Abuksigun.MRGitUI
 {
     using static Const;
-    
-    public class GitDiff
+
+    public static class GitDiff
     {
         [MenuItem("Assets/Git File Diff", true)]
         public static bool Check() => Selection.assetGUIDs.Any(x => Utils.GetAssetGitInfo(x) != null);
@@ -35,17 +35,19 @@ namespace Abuksigun.MRGitUI
         public delegate void HunkAction(FileStatus filePath, int hunkIndex);
 
         const int TopPanelHeight = 20;
-        const int maxChangesDisplay = 1000;
+        const int MaxChangesDisplay = 1000;
+        const int CodeLineHeight = 12;
 
-        static Regex hunkStartRegex = new Regex(@"@@ -(\d+),?(\d+)?.*?\+(\d+),?(\d+)?.*?@@");
-        [SerializeField] bool staged;
+        static Regex hunkStartRegex = new(@"@@ -(\d+),?(\d+)?.*?\+(\d+),?(\d+)?.*?@@");
+
         Vector2 scrollPosition;
         GUIContent[] toolbarContent;
         string[] diffLines;
         HashSet<int> selectedLines;
         int lastSelectedLine = -1;
-
         int lastHashCode = 0;
+
+        [SerializeField] bool staged;
 
         public static LazyStyle diffUnchanged = new(() => new() {
             normal = new GUIStyleState { background = Style.GetColorTexture(Color.white) },
@@ -150,9 +152,9 @@ namespace Abuksigun.MRGitUI
         {
             if (diffLines == null || diffLines.Length == 0)
                 return;
-            if (diffLines.Length > maxChangesDisplay)
+            if (diffLines.Length > MaxChangesDisplay)
             {
-                EditorGUI.LabelField(new Rect(Vector2.zero, size), $"Can't display without performance drop. More then {maxChangesDisplay} in the selected files.");
+                EditorGUI.LabelField(new Rect(Vector2.zero, size), $"Can't display without performance drop. More then {MaxChangesDisplay} in the selected files.");
                 return;
             }
             int longestLine = diffLines.Max(x => x.Length);
@@ -161,7 +163,6 @@ namespace Abuksigun.MRGitUI
 
             using var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
             float headerHeight = EditorStyles.toolbarButton.fixedHeight;
-            int codeLineHeight = 12;
             Module module = null;
 
             float currentOffset = 0;
@@ -219,11 +220,11 @@ namespace Abuksigun.MRGitUI
                     var style = selected ? diffSelected : diffLines[i][0] switch { '+' => diffAdded, '-' => diffRemoved, _ => diffUnchanged };
                     if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
                     {
-                        var rect = new Rect(0, currentOffset, width, codeLineHeight);
+                        var rect = new Rect(0, currentOffset, width, CodeLineHeight);
                         if (GUI.Toggle(rect, selected, $"{diffLines[i][0]} {currentLine++,4} {diffLines[i][1..]}", style.Value) != selected)
                             HandleSelection(selected, i);
                     }
-                    currentOffset += codeLineHeight;
+                    currentOffset += CodeLineHeight;
                 }
             }
             GUILayoutUtility.GetRect(width, currentOffset);

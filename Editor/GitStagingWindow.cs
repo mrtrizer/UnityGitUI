@@ -68,26 +68,32 @@ namespace Abuksigun.MRGitUI
             using (new GUILayout.HorizontalScope())
             {
                 using (new EditorGUI.DisabledGroupScope(!commitAvailable))
-                if (GUILayout.Button($"Commit {modulesWithStagedFiles}/{modules.Count}", GUILayout.Width(150)))
                 {
-                    tasksInProgress.AddRange(moduleNotInMergeState.Select(module => module.Commit(commitMessage)));
-                    commitMessage = "";
+                    if (GUILayout.Button($"Commit {modulesWithStagedFiles}/{modules.Count}", GUILayout.Width(150)))
+                    {
+                        tasksInProgress.AddRange(moduleNotInMergeState.Select(module => module.Commit(commitMessage)));
+                        commitMessage = "";
+                    }
                 }
                 GUILayout.Space(20);
                 using (new EditorGUI.DisabledGroupScope(!amendAvailable))
-                if (GUILayout.Button($"Amend {modulesWithStagedFiles}/{modules.Count}", GUILayout.Width(150)))
                 {
-                    tasksInProgress.AddRange(moduleNotInMergeState.Select(module => module.Commit(commitMessage.Length == 0 ? null : commitMessage, true)));
-                    commitMessage = "";
+                    if (GUILayout.Button($"Amend {modulesWithStagedFiles}/{modules.Count}", GUILayout.Width(150)))
+                    {
+                        tasksInProgress.AddRange(moduleNotInMergeState.Select(module => module.Commit(commitMessage.Length == 0 ? null : commitMessage, true)));
+                        commitMessage = "";
+                    }
                 }
                 using (new EditorGUI.DisabledGroupScope(!commitAvailable))
-                if (GUILayout.Button($"Stash {modulesWithStagedFiles}/{modules.Count}", GUILayout.Width(150)))
                 {
-                    tasksInProgress.AddRange(moduleNotInMergeState.Select(module => {
-                        var files = module.GitStatus.GetResultOrDefault().Files.Where(x => x.IsStaged).Select(x => x.FullPath);
-                        return module.Stash(commitMessage, files);
-                    }));
-                    commitMessage = "";
+                    if (GUILayout.Button($"Stash {modulesWithStagedFiles}/{modules.Count}", GUILayout.Width(150)))
+                    {
+                        tasksInProgress.AddRange(moduleNotInMergeState.Select(module => {
+                            var files = module.GitStatus.GetResultOrDefault().Files.Where(x => x.IsStaged).Select(x => x.FullPath);
+                            return module.Stash(commitMessage, files);
+                        }));
+                        commitMessage = "";
+                    }
                 }
             }
             using (new GUILayout.HorizontalScope())
@@ -122,6 +128,7 @@ namespace Abuksigun.MRGitUI
                 .Where(x => treeViewUnstaged.HasFocus() && treeViewStateUnstaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
             var stagedSelection = statuses.SelectMany(x => x.Files)
                 .Where(x => treeViewStaged.HasFocus() && treeViewStateStaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
+
             if (unstagedSelection.Any())
                 Utils.SetSelectedFiles(unstagedSelection, false);
             if (stagedSelection.Any())
@@ -170,7 +177,7 @@ namespace Abuksigun.MRGitUI
                 return;
 
             var menu = new GenericMenu();
-            var indexedSelectionPerModule = modules.Select(module => 
+            var indexedSelectionPerModule = modules.Select(module =>
                 (module, files: files.Where(x => x.IsInIndex && x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray()));
 
             menu.AddItem(new GUIContent("Open"), false, () => GUIUtils.OpenFiles(files.Select(x => x.FullProjectPath)));
@@ -210,6 +217,7 @@ namespace Abuksigun.MRGitUI
                 Dictionary<Module, IEnumerable<string>> conflictedFilesList = modules.ToDictionary(
                     module => module,
                     module => files.Where(x => x.IsUnresolved && x.ModuleGuid == module.Guid).Select(x => x.FullPath));
+
                 string message = conflictedFilesList.SelectMany(x => x.Value).Join('\n');
                 menu.AddSeparator("");
                 menu.AddItem(new GUIContent("Take Ours"), false, () => {

@@ -15,7 +15,7 @@ namespace Abuksigun.MRGitUI
     public enum GitLfsMigrateMode { Import, Export }
     public enum ConfigScope { Global, Local, None }
 
-    public record ConfigRef(string key, ConfigScope scope);
+    public record ConfigRef(string Key, ConfigScope Scope);
     public record BlameLine(string Hash, string Author, DateTime Date, string Text, int Line);
     public record Reference(string Name, string QualifiedName, string Hash);
     public record Tag(string Name, string Hash) : Reference(Name, Name, Hash);
@@ -42,7 +42,7 @@ namespace Abuksigun.MRGitUI
         public bool IsUnresolved => Y is 'U' || X is 'U' || (X == Y && X == 'D') || (X == Y && X == 'A');
     }
 
-    public record GitStatus(FileStatus[] Files, string parentRepoPath, string ModuleGuid)
+    public record GitStatus(FileStatus[] Files, string ParentRepoPath, string ModuleGuid)
     {
         public IEnumerable<FileStatus> Staged => Files.Where(file => file.IsStaged);
         public IEnumerable<FileStatus> Unstaged => Files.Where(file => file.IsUnstaged);
@@ -217,8 +217,10 @@ namespace Abuksigun.MRGitUI
         IReadOnlyList<IOData> GetProcessLog()
         {
             if (processLogConcurent.Count != processLog.Count)
+            {
                 lock (processLogConcurent)
                     processLog = processLogConcurent.ToList();
+            }
             return processLog;
         }
 
@@ -522,8 +524,7 @@ namespace Abuksigun.MRGitUI
         #region Staging
         public Task<CommandResult> Commit(string commitMessage = null, bool amend = false)
         {
-            string args = amend ? "--amend" : "" 
-                + commitMessage == null ? "--no-edit" : commitMessage?.WrapUp("-m \"", "\"");
+            string args = amend ? "--amend" : "" + commitMessage == null ? "--no-edit" : commitMessage?.WrapUp("-m \"", "\"");
             return RunGit($"commit {args}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         }
 

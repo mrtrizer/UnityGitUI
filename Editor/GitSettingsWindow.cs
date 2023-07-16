@@ -67,14 +67,16 @@ namespace Abuksigun.MRGitUI
                 if (GUILayout.Button("Save"))
                 {
                     foreach (var remote in module.Remotes.GetResultOrDefault())
+                    {
                         if (!editableRemotes.Any(x => x.Alias == remote.Alias))
-                            module.RemoveRemote(remote.Alias);
+                            _ = module.RemoveRemote(remote.Alias);
+                    }
                     foreach (var remote in editableRemotes)
                     {
                         if (remote.NewlyAdded)
-                            module.AddRemote(remote.Alias, remote.Url);
+                            _ = module.AddRemote(remote.Alias, remote.Url);
                         else
-                            module.SetRemoteUrl(remote.Alias, remote.Url);
+                            _ = module.SetRemoteUrl(remote.Alias, remote.Url);
                     }
                 }
             }
