@@ -25,7 +25,7 @@ This tool is useful even if you have a single repository and use another GitUI a
 
 ### Features for multiple repos ###
 - **Manage branches, tags, and stash**
-- **Stage and Commit**
+- **Stage and Commit** (additionally supports Amend)
 - **Merge** (choose theirs/mine)
 - View **Diff**
 - **Hunk Stage/Unstage/Discard**
@@ -34,16 +34,19 @@ This tool is useful even if you have a single repository and use another GitUI a
 - Project Browser extension
     - Display current status of repositories, current branch, and remote status
     - Show file statuses and highlight directories containing modified files
-- (WIP) Link Package as local repo. Allows cloning the Git package and creating symbolic links to it. It uses junctions on Windows (works only with NTFS)
+    - Show LFS and submodule (only for packages) indicators
+- Link Package as a local repo (without manifest modification). Allows cloning the Git package and creating symbolic links to it. It uses junctions on Windows (works only with NTFS)
 
 ### Features working only for selected repo ###
 - (WIP) **View visual git log**
 - Configure **Remote settings**
 - View **Process Log**, showing the exact git commands executed and their output
+- **Stash**
+- (WIP) **Git Config**
+- **Remote Settings** and multiple remotes support
 
 ### Not implemented yet ###
 - **Extentions support**
 - **Adding new commands without coding**
-- **Git LFS features**
-- **Submidules automation**
-- **Support for repositories inside Assets directory**
+- **Support for nested submodules**
+- **Support for LFS locks**
