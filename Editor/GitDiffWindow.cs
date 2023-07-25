@@ -258,7 +258,7 @@ namespace Abuksigun.MRGitUI
 
         void CopySelected()
         {
-            var selectedText = string.Join("\n", selectedLines.Select(x => diffLines[x][1..]));
+            var selectedText = GUIUtils.UnescapeAngleBrackets(string.Join("\n", selectedLines.Select(x => diffLines[x][1..])));
             EditorGUIUtility.systemCopyBuffer = selectedText;
         }
 

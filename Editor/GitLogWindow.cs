@@ -77,10 +77,10 @@ namespace Abuksigun.MRGitUI
         public bool ShowStash { get; set; }
         public List<string> LogFiles { get; set; } = null;
         public List<Module> LockedModules { get; set; } = null;
-        [field:NonSerialized] public string LockedHash { get; set; } = null;
+        public string LockedHash { get; set; } = null;
         bool HideGraph => ShowStash || HideFilesPanel;
         bool HideFilesPanel => (LogFiles != null && LogFiles.Count > 0);
-        bool HideLog => LockedHash != null;
+        bool HideLog => !string.IsNullOrEmpty(LockedHash);
         float FilesPanelHeight => HideLog ? position.height : DefaultFilesPanelHeight;
         float InfoPanelWidth => HideLog ? 0 : DefaultInfoPanelWidth;
 
@@ -101,14 +101,14 @@ namespace Abuksigun.MRGitUI
 
         string GetSelectedCommitHash(int id)
         {
-            if (LockedHash != null)
+            if (!string.IsNullOrEmpty(LockedHash))
                 return LockedHash;
             return lines?.FirstOrDefault(x => x.GetHashCode() == id)?.Hash ?? null;
         }
 
         IEnumerable<string> GetSelectedCommitHashes(IEnumerable<int> ids)
         {
-            if (LockedHash != null)
+            if (!string.IsNullOrEmpty(LockedHash))
                 return new [] { LockedHash };
             return lines.Where(x => ids.Contains(x.GetHashCode())).Select(x => x.Hash).Reverse();
         }

@@ -148,6 +148,11 @@ namespace Abuksigun.MRGitUI
             return str.Replace("<", "<\u200B");
         }
 
+        public static string UnescapeAngleBrackets(string str)
+        {
+            return str.Replace("<\u200B", "<");
+        }
+
         public static Module ModuleGuidToolbar(IReadOnlyList<Module> modules, string guid)
         {
             if (modules.Count == 0)
