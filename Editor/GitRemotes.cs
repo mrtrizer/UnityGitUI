@@ -55,12 +55,7 @@ namespace Abuksigun.MRGitUI
                             tasks = modules.ToDictionary(x => x.Guid, module => (Utils.GetNextRunCommandProcessId(), module.Pull(remotes[module])));
                         bool lfsInstalled = modules.Any(x => x.IsLfsInstalled.GetResultOrDefault());
                         if (lfsInstalled && GUILayout.Button(new GUIContent($"Fast LFS Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image), GUILayout.Width(190)))
-                        {
-                            tasks = modules.ToDictionary(x => x.Guid, module => {
-                                var pullResult = module.IsLfsInstalled.GetResultOrDefault() ? module.LfsPull(remotes[module]) : module.Pull(remotes[module]);
-                                return (Utils.GetNextRunCommandProcessId(), pullResult);
-                            });
-                        }
+                            tasks = modules.ToDictionary(x => x.Guid, module => (Utils.GetNextRunCommandProcessId(), module.LfsPull(remotes[module])));
                     }
                     if (mode == Mode.Push)
                     {
@@ -102,7 +97,8 @@ namespace Abuksigun.MRGitUI
                     }
                     scrollPosition = scroll.scrollPosition;
                 }
-                GUIUtils.DrawProcessLogs(modules, ref currentLogGuid, new Vector2(window.position.width, LogHeight), tasks?.ToDictionary(x => x.Key, x => x.Value.localProcessId));
+                var processIds = tasks?.ToDictionary(x => x.Key, x => x.Value.localProcessId);
+                GUIUtils.DrawProcessLogs(modules, ref currentLogGuid, new Vector2(window.position.width, LogHeight), processIds, tasks.All(x => x.Value.task.IsCompleted));
             });
 
             await Task.WhenAll(tasks.Select(x => x.Value.task).Where(x => x != null));

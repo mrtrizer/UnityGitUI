@@ -182,10 +182,14 @@ namespace Abuksigun.MRGitUI
 
             if (selectedReference is Branch)
             {
-                menu.AddSeparator("");
-
                 string affectedModules = modules.Select(x => $"{x.DisplayName}: {selectedReference.Name} into {x.CurrentBranch.GetResultOrDefault()}").Join('\n');
 
+                menu.AddSeparator("");
+                menu.AddItem(new GUIContent($"Reset HARD [{branchName}]"), false, () => {
+                    if (EditorUtility.DisplayDialog($"Are you sure you want RESET HARD to BRANCH/TAG {branchName}", affectedModules, "Yes", "No"))
+                        task = GUIUtils.RunGitAndErrorCheck(modules, x => x.Reset(selectedReference.QualifiedName, true));
+                });
+                menu.AddSeparator("");
                 menu.AddItem(new GUIContent($"Merge [{branchName}]"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want MERGE branch", affectedModules, "Yes", "No"))
                         task = GUIUtils.RunGitAndErrorCheck(modules, x => x.Merge(selectedReference.QualifiedName));

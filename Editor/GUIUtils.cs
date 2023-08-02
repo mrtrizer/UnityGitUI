@@ -164,7 +164,7 @@ namespace Abuksigun.MRGitUI
             return modules[tab];
         }
 
-        public static void DrawProcessLogs(IReadOnlyList<Module> modules, ref string guid, Vector2 size, Dictionary<string, int> localProcessIds = null)
+        public static void DrawProcessLogs(IReadOnlyList<Module> modules, ref string guid, Vector2 size, Dictionary<string, int> localProcessIds = null, bool letFocus = true)
         {
             if (modules.Count == 0)
                 return;
@@ -178,10 +178,10 @@ namespace Abuksigun.MRGitUI
                 localProcessIds.TryGetValue(guid, out localProcessId);
 
             var filteredProcessLog = localProcessId == -1 ? module.ProcessLog : module.ProcessLog.Where(x => x.LocalProcessId == localProcessId);
-            DrawProcessLog(guid, size, filteredProcessLog);
+            DrawProcessLog(guid, size, filteredProcessLog, letFocus);
         }
 
-        public static void DrawProcessLog(string guid, Vector2 size, IEnumerable<IOData> filteredProcessLog)
+        public static void DrawProcessLog(string guid, Vector2 size, IEnumerable<IOData> filteredProcessLog, bool letFocus = true)
         {
             if (!filteredProcessLog.Any())
                 return;
@@ -200,7 +200,7 @@ namespace Abuksigun.MRGitUI
                 string allData = allLines.Join('\n');
                 EditorGUILayout.TextArea(allData, Style.ProcessLog.Value, GUILayout.Height(linesVisible * lineHeight), GUILayout.Width(maxWidth));
                 GUILayout.Space((filteredProcessLog.Count() - linesVisible) * lineHeight - scroll.scrollPosition.y);
-                if (scroll.scrollPosition != logScrollPositions.GetValueOrDefault(guid))
+                if (scroll.scrollPosition != logScrollPositions.GetValueOrDefault(guid) || !letFocus)
                     GUI.FocusControl("");
                 logScrollPositions[guid] = scroll.scrollPosition;
             }
