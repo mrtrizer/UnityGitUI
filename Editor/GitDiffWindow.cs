@@ -78,8 +78,8 @@ namespace Abuksigun.MRGitUI
             var diffs = selectedFiles.Select(x => (module: x.Module, fullPath: x.FullPath, diff: x.Module.FileDiff(x), x.Staged));
             var loadedDiffs = diffs.Select(x => (x.module, x.fullPath, diff: x.diff.GetResultOrDefault(), x.Staged)).Where(x => x.diff != null);
 
-            var stagedDiffs = loadedDiffs.Where(x => x.Staged.GetValueOrDefault() == true).ToList();
-            var unstagedDiffs = loadedDiffs.Where(x => x.Staged.GetValueOrDefault() == false).ToList();
+            var stagedDiffs = loadedDiffs.Where(x => x.Staged.GetValueOrDefault()).ToList();
+            var unstagedDiffs = loadedDiffs.Where(x => !x.Staged.GetValueOrDefault()).ToList();
 
             using (new GUILayout.HorizontalScope())
             {

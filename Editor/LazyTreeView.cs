@@ -11,8 +11,6 @@ namespace Abuksigun.MRGitUI
         public delegate List<TreeViewItem> GenerateItemsCallback(IEnumerable<T> data);
         public delegate void DrawRowCallback(TreeViewItem item, int columnIndex, Rect rect);
 
-        public event Action SelectionChangedEvent;
-
         DrawRowCallback drawRowCallback;
         Action<int> contextMenuCallback;
         Action<int> doubleClickCallback;

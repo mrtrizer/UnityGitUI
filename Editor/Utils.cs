@@ -172,7 +172,7 @@ namespace Abuksigun.MRGitUI
 
         public static IEnumerable<Module> GetSelectedGitModules(bool withSubmodules = false)
         {
-            var selectedModules = GetSelectedModules().Where(x => x.IsGitRepo.GetResultOrDefault());
+            var selectedModules = GetSelectedModules().Where(x => x != null && x.IsGitRepo.GetResultOrDefault());
             if (withSubmodules)
             {
                 var submodules = selectedModules.Select(x => x.Submodules.GetResultOrDefault()).Where(x => x != null).SelectMany(x => x).Select(x => GetModuleByPath(x.FullPath));

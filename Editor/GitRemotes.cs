@@ -28,6 +28,8 @@ namespace Abuksigun.MRGitUI
 
         public static async void ShowRemotesSyncWindow(Mode mode)
         {
+            bool forcePull = false;
+            bool rebasePull = false;
             bool pushTags = false;
             bool forcePush = false;
             bool prune = false;
@@ -52,10 +54,12 @@ namespace Abuksigun.MRGitUI
                     if (mode == Mode.Pull)
                     {
                         if (GUILayout.Button(new GUIContent($"Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image), GUILayout.Width(150)))
-                            tasks = modules.ToDictionary(x => x.Guid, module => (Utils.GetNextRunCommandProcessId(), module.Pull(remotes[module])));
+                            tasks = modules.ToDictionary(x => x.Guid, module => (Utils.GetNextRunCommandProcessId(), module.Pull(remotes[module], forcePull, rebasePull)));
                         bool lfsInstalled = modules.Any(x => x.IsLfsInstalled.GetResultOrDefault());
                         if (lfsInstalled && GUILayout.Button(new GUIContent($"Fast LFS Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image), GUILayout.Width(190)))
-                            tasks = modules.ToDictionary(x => x.Guid, module => (Utils.GetNextRunCommandProcessId(), module.LfsPull(remotes[module])));
+                            tasks = modules.ToDictionary(x => x.Guid, module => (Utils.GetNextRunCommandProcessId(), module.LfsPull(remotes[module], forcePull, rebasePull)));
+                        forcePull = GUILayout.Toggle(forcePull, "Force pull");
+                        rebasePull = GUILayout.Toggle(rebasePull, "Rebase pull");
                     }
                     if (mode == Mode.Push)
                     {

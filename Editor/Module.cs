@@ -77,7 +77,7 @@ namespace Abuksigun.MRGitUI
         Dictionary<ConfigRef, Task<string>> configCache;
 
         List<IOData> processLog = new();
-        List<IOData> processLogConcurent = new();
+        readonly List<IOData> processLogConcurent = new();
         bool IsLinkedPackage { get; }
 
         public string Guid { get; }
@@ -487,18 +487,18 @@ namespace Abuksigun.MRGitUI
         #endregion
 
         #region RepoSync
-        public async Task<CommandResult> Pull(Remote remote = null)
+        public async Task<CommandResult> Pull(Remote remote = null, bool force = false, bool rebase = false)
         {
-            return await RunGit($"pull {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+            return await RunGit($"pull {"--force".When(force)} {"--rebase".When(rebase)} {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         }
         public async Task<CommandResult> Fetch(bool prune, Remote remote = null)
         {
             return await RunGit($"fetch {remote?.Alias} {"--prune".When(prune)}").AfterCompletion(RefreshRemoteStatus);
         }
-        public async Task<CommandResult> Push(bool pushTags, bool forcePush, Remote remote = null)
+        public async Task<CommandResult> Push(bool pushTags, bool force, Remote remote = null)
         {
             string branch = await CurrentBranch;
-            return await RunGit($"push {"--tags".When(pushTags)} {"--force".When(forcePush)} -u {remote?.Alias} {branch}:{branch}").AfterCompletion(RefreshRemoteStatus);
+            return await RunGit($"push {"--tags".When(pushTags)} {"--force".When(force)} -u {remote?.Alias} {branch}:{branch}").AfterCompletion(RefreshRemoteStatus);
         }
         #endregion
 
@@ -572,7 +572,10 @@ namespace Abuksigun.MRGitUI
         public Task<CommandResult> UninstallLfs() => RunGit("lfs uninstall").AfterCompletion(RefreshFilesStatus);
         public Task<CommandResult> FetchLfsObjects() => RunGit("lfs fetch").AfterCompletion(RefreshFilesStatus);
         public Task<CommandResult> PruneLfsObjects() => RunGit("lfs prune").AfterCompletion(RefreshFilesStatus);
-        public Task<CommandResult> LfsPull(Remote remote = null) => RunGit($"lfs pull {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+        public Task<CommandResult> LfsPull(Remote remote = null, bool force = false, bool rebase = false)
+        {
+            return RunGit($"lfs pull {"--force".When(force)} {"--rebase".When(rebase)} {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+        }
 
         public async Task<CommandResult> TrackPathsWithLfs(IEnumerable<string> filePaths)
         {

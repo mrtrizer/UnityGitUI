@@ -16,7 +16,7 @@ namespace Abuksigun.MRGitUI
         public static bool Check() => Utils.GetSelectedGitModules().Count() == 1;
 
         [MenuItem("Assets/Git/Config", priority = 100)]
-        public static async void Invoke()
+        public static async Task Invoke()
         {
             var module = Utils.GetSelectedGitModules().FirstOrDefault();
             if (module == null)
@@ -25,7 +25,7 @@ namespace Abuksigun.MRGitUI
             var valueWidth = GUILayout.Width(160);
             var buttonWidth = GUILayout.Width(20);
 
-            await GUIUtils.ShowModalWindow("Git Config", new Vector2Int(1000, 700), (Action<EditorWindow>)(window => {
+            await GUIUtils.ShowModalWindow("Git Config", new Vector2Int(1000, 700), window => {
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
@@ -38,15 +38,15 @@ namespace Abuksigun.MRGitUI
                 {
                     using (new EditorGUILayout.HorizontalScope())
                     {
-                        EditorGUILayout.SelectableLabel((string)setting.Name, columnWidth);
+                        EditorGUILayout.SelectableLabel(setting.Name, columnWidth);
                         foreach (var scope in Enum.GetValues(typeof(ConfigScope)).Cast<ConfigScope>())
                         {
-                            var config = module.ConfigValue((string)setting.Name, scope).GetResultOrDefault();
+                            var config = module.ConfigValue(setting.Name, scope).GetResultOrDefault();
 
                             if (scope != ConfigScope.None)
                             {
                                 if (!string.IsNullOrEmpty(config) && GUILayout.Button("X", buttonWidth))
-                                    _ = module.UnsetConfig((string)setting.Name, scope);
+                                    _ = module.UnsetConfig(setting.Name, scope);
                                 if (string.IsNullOrEmpty(config) ? GUILayout.Button("Set value", columnWidth) : GUILayout.Button("E", buttonWidth))
                                     _ = ShowChangeSettingWindow(module, setting, scope);
                             }
@@ -55,13 +55,13 @@ namespace Abuksigun.MRGitUI
                         }
                     }
                 }
-            }));
+            });
         }
 
         static async Task ShowChangeSettingWindow(Module module, Setting setting, ConfigScope scope)
         {
             string newValue = await module.ConfigValue(setting.Name, scope);
-            await GUIUtils.ShowModalWindow("Set Value", new Vector2Int(300, 180), (Action<EditorWindow>)(window => {
+            await GUIUtils.ShowModalWindow("Set Value", new Vector2Int(300, 180), window => {
                 newValue = GUILayout.TextField(newValue);
                 using (new GUILayout.HorizontalScope())
                 {
@@ -71,11 +71,11 @@ namespace Abuksigun.MRGitUI
                     }
                     if (GUILayout.Button("Apply"))
                     {
-                        _ = module.SetConfig((string)setting.Name, scope, newValue);
+                        _ = module.SetConfig(setting.Name, scope, newValue);
                         window.Close();
                     }
                 }
-            }));
+            });
         }
     }
 }

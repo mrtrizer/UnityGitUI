@@ -27,7 +27,7 @@ namespace Abuksigun.MRGitUI
     public class ReferenceComparer : EqualityComparer<Reference>
     {
         public override bool Equals(Reference x, Reference y) => x.GetType() == y.GetType() && x.QualifiedName == y.QualifiedName;
-        public override int GetHashCode(Reference obj) => obj.QualifiedName.GetHashCode() ^ obj.GetType().GetHashCode();
+        public override int GetHashCode(Reference obj) => obj.Hash.GetHashCode() ^ obj.QualifiedName.GetHashCode() ^ obj.GetType().GetHashCode();
     }
 
     class GitBranchesWindow : DefaultWindow
