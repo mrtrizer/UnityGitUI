@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.tvOS;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 namespace Abuksigun.MRGitUI
@@ -356,7 +357,7 @@ namespace Abuksigun.MRGitUI
             if (remotes.Length == 0)
                 return null;
             string currentBranch = await CurrentBranch;
-            await RunGit("fetch");
+            await RunGit($"fetch --prune");
             string remoteAlias = (await DefaultRemote).Alias;
             var branches = await References;
             if (!branches.Any(x => x is RemoteBranch remoteBranch && remoteBranch.RemoteAlias == remoteAlias && remoteBranch.Name == currentBranch))

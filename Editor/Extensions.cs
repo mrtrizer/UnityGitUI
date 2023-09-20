@@ -34,7 +34,7 @@ namespace Abuksigun.MRGitUI
         {
             int hash = 0;
             foreach (var value in values)
-                hash ^= value.GetHashCode();
+                hash ^= value?.GetHashCode() ?? 0;
             return hash;
         }
 

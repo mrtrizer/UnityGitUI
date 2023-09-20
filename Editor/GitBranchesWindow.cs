@@ -26,8 +26,10 @@ namespace Abuksigun.MRGitUI
 
     public class ReferenceComparer : EqualityComparer<Reference>
     {
+        public bool Simplified { get; }
+        public ReferenceComparer(bool simplified = false) => Simplified = simplified;
         public override bool Equals(Reference x, Reference y) => x.GetType() == y.GetType() && x.QualifiedName == y.QualifiedName;
-        public override int GetHashCode(Reference obj) => obj.Hash.GetHashCode() ^ obj.QualifiedName.GetHashCode() ^ obj.GetType().GetHashCode();
+        public override int GetHashCode(Reference obj) => (Simplified ? 0 : obj.Hash.GetHashCode()) ^ obj.QualifiedName.GetHashCode() ^ obj.GetType().GetHashCode();
     }
 
     class GitBranchesWindow : DefaultWindow
@@ -209,26 +211,27 @@ namespace Abuksigun.MRGitUI
 
         List<TreeViewItem> GenerateItems(IEnumerable<Reference[]> branchesPerRepo)
         {
+            ReferenceComparer listingReferenceComparer = new(true);
             var modules = Utils.GetSelectedGitModules();
-            IEnumerable<Reference> references = branchesPerRepo.Count() == 1 ? branchesPerRepo.First()
-                : showAllBranches ? branchesPerRepo.SelectMany(x => x).Distinct(referenceComparer)
-                : branchesPerRepo.Skip(1).Aggregate(branchesPerRepo.First().AsEnumerable(), (result, nextArray) => result.Intersect(nextArray, referenceComparer));
+            Reference[] references = branchesPerRepo.Count() == 1 ? branchesPerRepo.First()
+                : showAllBranches ? branchesPerRepo.SelectMany(x => x).Distinct(listingReferenceComparer).ToArray()
+                : branchesPerRepo.Skip(1).Aggregate(branchesPerRepo.First().AsEnumerable(), (result, nextArray) => result.Intersect(nextArray, listingReferenceComparer)).ToArray();
             var items = new List<TreeViewItem>();
             items.Add(new TreeViewItem(0, 0, "Branches") { icon = EditorGUIUtility.IconContent("UnityEditor.VersionControl").image as Texture2D });
-            BranchesToItems(modules, references, x => x is LocalBranch, 1, items);
+            BranchesToItems(modules, references.Where(x => x is LocalBranch), 1, items);
             items.Add(new TreeViewItem(1, 0, "Remotes") { icon = EditorGUIUtility.IconContent("CloudConnect@2x").image as Texture2D });
-            BranchesToItems(modules, references, x => x is RemoteBranch, 1, items);
+            BranchesToItems(modules, references.Where(x => x is RemoteBranch), 1, items);
             items.Add(new TreeViewItem(2, 0, "Tags") { icon = EditorGUIUtility.IconContent("FilterByLabel@2x").image as Texture2D });
-            BranchesToItems(modules, references, x => x is Tag, 1, items);
+            BranchesToItems(modules, references.Where(x => x is Tag), 1, items);
             items.Add(new TreeViewItem(3, 0, "Stashes") { icon = EditorGUIUtility.IconContent("Package Manager@2x").image as Texture2D });
-            BranchesToItems(modules, references, x => x is Stash, 1, items);
+            BranchesToItems(modules, references.Where(x => x is Stash), 1, items);
             return items;
         }
 
-        List<TreeViewItem> BranchesToItems(IEnumerable<Module> modules, IEnumerable<Reference> branches, Func<Reference, bool> filter, int rootDepth, List<TreeViewItem> items)
+        List<TreeViewItem> BranchesToItems(IEnumerable<Module> modules, IEnumerable<Reference> references, int rootDepth, List<TreeViewItem> items)
         {
             string currentPath = "";
-            foreach (var branch in branches.Where(filter).OrderBy(x => x.QualifiedName))
+            foreach (var branch in references.OrderBy(x => x.QualifiedName))
             {
                 int lastSlashIndex = branch.QualifiedName.LastIndexOf('/');
                 if (lastSlashIndex != -1 && currentPath != branch.QualifiedName[..lastSlashIndex])
