@@ -26,10 +26,10 @@ namespace Abuksigun.MRGitUI
 
     public class ReferenceComparer : EqualityComparer<Reference>
     {
-        public bool Simplified { get; }
-        public ReferenceComparer(bool simplified = false) => Simplified = simplified;
+        public bool CheckHash { get; }
+        public ReferenceComparer(bool checkHash = false) => CheckHash = checkHash;
         public override bool Equals(Reference x, Reference y) => x.GetType() == y.GetType() && x.QualifiedName == y.QualifiedName;
-        public override int GetHashCode(Reference obj) => (Simplified ? 0 : obj.Hash.GetHashCode()) ^ obj.QualifiedName.GetHashCode() ^ obj.GetType().GetHashCode();
+        public override int GetHashCode(Reference obj) => (CheckHash ? 0 : obj.Hash.GetHashCode()) ^ obj.QualifiedName.GetHashCode() ^ obj.GetType().GetHashCode();
     }
 
     class GitBranchesWindow : DefaultWindow
