@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace Abuksigun.MRGitUI
 {
@@ -26,9 +27,10 @@ namespace Abuksigun.MRGitUI
 
         public static string[] SplitLines(this string self) => self.Split(new[] { '\n', '\r' }, RemoveEmptyEntries);
 
-        public static string Join(this IEnumerable<string> values) => string.Join(string.Empty, values);
-        public static string Join(this IEnumerable<string> values, char separator) => string.Join(separator, values);
-        public static string Join(this IEnumerable<string> values, string separator) => string.Join(separator, values);
+        public static string Join(this IEnumerable<string> values) => string.Join(string.Empty, values.Where(x => x != null));
+        public static string Join(this IEnumerable<string> values, char separator) => string.Join(separator, values.Where(x => x != null));
+        public static string Join(this IEnumerable<string> values, string separator) => string.Join(separator, values.Where(x => x != null));
+
 
         public static int GetCombinedHashCode(this IEnumerable<object> values)
         {
