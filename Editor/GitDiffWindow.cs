@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Unity.CodeEditor;
 using UnityEditor;
 using UnityEngine;
 
@@ -44,6 +46,9 @@ namespace Abuksigun.MRGitUI
         GUIContent[] toolbarContent;
         string[] diffLines;
         HashSet<int> selectedLines;
+        Module lastSelectedModule = null;
+        string lastSelectedFile = null;
+        int lastSelectedIndex = -1;
         int lastSelectedLine = -1;
         int lastHashCode = 0;
 
@@ -126,7 +131,7 @@ namespace Abuksigun.MRGitUI
                 var diffStrings = staged ? stagedDiffs.Select(x => $"#{x.module.Guid}\n{x.diff}") : unstagedDiffs.Select(x => $"#{x.module.Guid}\n{x.diff}");
                 diffLines = diffStrings.SelectMany(x => GUIUtils.EscapeAngleBrackets(x).Split('\n', RemoveEmptyEntries)).ToArray();
                 selectedLines = new();
-                lastSelectedLine = -1;
+                lastSelectedIndex = -1;
                 lastHashCode = hashCode;
             }
 
@@ -138,8 +143,18 @@ namespace Abuksigun.MRGitUI
                 {
                     var menu = new GenericMenu();
                     menu.AddItem(new GUIContent("Copy"), false, CopySelected);
+                    if (lastSelectedModule != null && lastSelectedFile != null)
+                        menu.AddItem(new GUIContent("Open Editor"), false, () => CodeEditor.Editor.CurrentCodeEditor.OpenProject(Path.Join(lastSelectedModule.LogicalPath, lastSelectedFile), lastSelectedLine));
                     menu.ShowAsContext();
                     Event.current.Use();
+                }
+                if (Event.current.type == EventType.MouseDown && Event.current.button == 0 && Event.current.clickCount > 1)
+                {
+                    if (lastSelectedModule != null && lastSelectedFile != null)
+                    {
+                        CodeEditor.Editor.CurrentCodeEditor.OpenProject(Path.Join(lastSelectedModule.LogicalPath, lastSelectedFile), lastSelectedLine);
+                        Event.current.Use();
+                    }
                 }
             }
 
@@ -222,7 +237,7 @@ namespace Abuksigun.MRGitUI
                     {
                         var rect = new Rect(0, currentOffset, width, CodeLineHeight);
                         if (GUI.Toggle(rect, selected, $"{diffLines[i][0]} {currentLine++,4} {diffLines[i][1..]}", style.Value) != selected)
-                            HandleSelection(selected, i);
+                            HandleSelection(selected, module, currentFile, i, currentLine);
                     }
                     currentOffset += CodeLineHeight;
                 }
@@ -231,7 +246,7 @@ namespace Abuksigun.MRGitUI
             scrollPosition = scroll.scrollPosition;
         }
 
-        void HandleSelection(bool previouslySelected, int index)
+        void HandleSelection(bool previouslySelected, Module module, string fileName, int index, int line)
         {
             if (Event.current.control)
             {
@@ -242,8 +257,8 @@ namespace Abuksigun.MRGitUI
             }
             if (Event.current.shift)
             {
-                int min = Mathf.Min(index, lastSelectedLine);
-                int max = Mathf.Max(index, lastSelectedLine);
+                int min = Mathf.Min(index, lastSelectedIndex);
+                int max = Mathf.Max(index, lastSelectedIndex);
                 for (int i = min; i <= max; i++)
                 {
                     selectedLines.Add(i);
@@ -253,7 +268,10 @@ namespace Abuksigun.MRGitUI
             {
                 selectedLines = new() { index };
             }
-            lastSelectedLine = index;
+            lastSelectedModule = module;
+            lastSelectedFile = fileName;
+            lastSelectedIndex = index;
+            lastSelectedLine = line;
         }
 
         void CopySelected()
