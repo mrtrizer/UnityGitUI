@@ -30,6 +30,7 @@ namespace Abuksigun.MRGitUI
         {
             bool forcePull = false;
             bool rebasePull = false;
+            bool cleanPull = false;
             bool pushTags = false;
             bool forcePush = false;
             bool prune = false;
@@ -39,7 +40,7 @@ namespace Abuksigun.MRGitUI
             var remotes = new Dictionary<Module, Remote>();
             string currentLogGuid = null;
 
-            await GUIUtils.ShowModalWindow("Remotes", new Vector2Int(500, 400), (window) => {
+            await GUIUtils.ShowModalWindow("Remotes", new Vector2Int(600, 400), (window) => {
                 var modules = Utils.GetSelectedGitModules().ToArray();
 
                 using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x.Value.task != null && !x.Value.task.IsCompleted)))
@@ -54,12 +55,14 @@ namespace Abuksigun.MRGitUI
                     if (mode == Mode.Pull)
                     {
                         if (GUILayout.Button(new GUIContent($"Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image), GUILayout.Width(150)))
-                            tasks = modules.ToDictionary(x => x.Guid, module => (Utils.GetNextRunCommandProcessId(), module.Pull(remotes[module], forcePull, rebasePull)));
-                        bool lfsInstalled = modules.Any(x => x.IsLfsInstalled.GetResultOrDefault());
-                        if (lfsInstalled && GUILayout.Button(new GUIContent($"Fast LFS Pull {modules.Length} modules", EditorGUIUtility.IconContent("Download-Available@2x").image), GUILayout.Width(190)))
-                            tasks = modules.ToDictionary(x => x.Guid, module => (Utils.GetNextRunCommandProcessId(), module.LfsPull(remotes[module], forcePull, rebasePull)));
+                        {
+                            if (cleanPull && !EditorUtility.DisplayDialog("DANGER!", "Clean flag is checked! This will remove new files and discard changes!\n(clean -fd)", "I want to remove changes!", "Cancel"))
+                                return;
+                            tasks = modules.ToDictionary(x => x.Guid, module => (Utils.GetNextRunCommandProcessId(), module.Pull(remotes[module], forcePull, rebasePull, cleanPull)));
+                        }
                         forcePull = GUILayout.Toggle(forcePull, "Force pull");
                         rebasePull = GUILayout.Toggle(rebasePull, "Rebase pull");
+                        cleanPull = GUILayout.Toggle(cleanPull, "Clean pull");
                     }
                     if (mode == Mode.Push)
                     {

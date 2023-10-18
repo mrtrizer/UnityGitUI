@@ -83,7 +83,7 @@ public static class SymLinkUtils
     public static void CreateDirectoryLink(string sourceDirPath, string linkDirPath)
     {
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
-        CreateJunction(linkDirPath, sourceDirPath);
+        CreateJunction(linkDirPath, sourceDirPath.Replace('/', '\\'));
 #else
         [DllImport("libc", SetLastError = true)]
         static extern int symlink(string path1, string path2);

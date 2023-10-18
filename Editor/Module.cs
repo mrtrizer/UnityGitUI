@@ -488,8 +488,10 @@ namespace Abuksigun.MRGitUI
         #endregion
 
         #region RepoSync
-        public async Task<CommandResult> Pull(Remote remote = null, bool force = false, bool rebase = false)
+        public async Task<CommandResult> Pull(Remote remote = null, bool force = false, bool rebase = false, bool clean = false)
         {
+            if (clean)
+                await RunGit($"clean -fd");
             return await RunGit($"pull {"--force".When(force)} {"--rebase".When(rebase)} {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         }
         public async Task<CommandResult> Fetch(bool prune, Remote remote = null)
@@ -573,10 +575,6 @@ namespace Abuksigun.MRGitUI
         public Task<CommandResult> UninstallLfs() => RunGit("lfs uninstall").AfterCompletion(RefreshFilesStatus);
         public Task<CommandResult> FetchLfsObjects() => RunGit("lfs fetch").AfterCompletion(RefreshFilesStatus);
         public Task<CommandResult> PruneLfsObjects() => RunGit("lfs prune").AfterCompletion(RefreshFilesStatus);
-        public Task<CommandResult> LfsPull(Remote remote = null, bool force = false, bool rebase = false)
-        {
-            return RunGit($"lfs pull {"--force".When(force)} {"--rebase".When(rebase)} {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
-        }
 
         public async Task<CommandResult> TrackPathsWithLfs(IEnumerable<string> filePaths)
         {
