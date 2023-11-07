@@ -253,7 +253,7 @@ namespace Abuksigun.MRGitUI
         async Task<bool> GetIsGitRepo()
         {
             var result = await RunGit("rev-parse --show-toplevel");
-            if (result.ExitCode != 0)
+            if (result.ExitCode != 0 || string.IsNullOrEmpty(result.Output))
                 return false;
             return Path.GetFullPath(result.Output.Trim()) != Directory.GetCurrentDirectory() || Path.GetFullPath(PhysicalPath) == Path.GetFullPath(Application.dataPath);
         }
