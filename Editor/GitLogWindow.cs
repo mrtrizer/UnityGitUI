@@ -353,7 +353,7 @@ namespace Abuksigun.MRGitUI
             {
                 var contextMenuname = reference.QualifiedName.Replace("/", "\u2215");
                 string filesLableString = LogFiles != null && LogFiles.Any() ? "Files" : "";
-                string filesList = LogFiles.Join();
+                string filesList = LogFiles?.Join();
                 menu.AddItem(new GUIContent($"Checkout {filesLableString}/{contextMenuname}"), false, () => {
                     if (EditorUtility.DisplayDialog($"Are you sure you want CHECKOUT {filesLableString} to COMMIT", $"{reference.QualifiedName}\n{filesList}", "Yes", "No"))
                         _ = GUIUtils.RunGitAndErrorCheck(new[] { module }, x => x.Checkout(reference.QualifiedName, LogFiles));
