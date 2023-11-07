@@ -372,6 +372,7 @@ namespace Abuksigun.MRGitUI
             {
                 Debug.LogException(new(DisplayName, e));
             }
+            RefreshReferences();
             return null;
         }
 
