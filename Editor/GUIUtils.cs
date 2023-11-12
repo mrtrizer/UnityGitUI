@@ -238,5 +238,11 @@ namespace Abuksigun.MRGitUI
             foreach (var pair in selectionPerModule)
                 _ = pair.module.Unstage(pair.files);
         }
+
+        public static void SelectAsset(string fullProjectPath)
+        {
+            string logicalPath = Utils.GetUnityLogicalPath(fullProjectPath);
+            Selection.objects = new[] { AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(logicalPath) };
+        }
     }
 }

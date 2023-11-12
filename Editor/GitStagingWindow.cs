@@ -39,7 +39,6 @@ namespace Abuksigun.MRGitUI
         LazyTreeView<GitStatus> treeViewStaged;
         string commitMessage = "";
         List<Task> tasksInProgress = new ();
-        Dictionary<Module, FilesSelection> selectionPerModule = new ();
 
         protected override void OnGUI()
         {
@@ -165,10 +164,7 @@ namespace Abuksigun.MRGitUI
             var statuses = Utils.GetGitModules().Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
             var selectedAsset = statuses.SelectMany(x => x.Files).FirstOrDefault(x => x.FullPath.GetHashCode() == id);
             if (selectedAsset != null)
-            {
-                string logicalPath = Utils.GetUnityLogicalPath(selectedAsset.FullProjectPath);
-                Selection.objects = new[] { AssetDatabase.LoadAssetAtPath<Object>(logicalPath) };
-            }
+                GUIUtils.SelectAsset(selectedAsset.FullProjectPath);
         }
 
         static void ShowContextMenu(IEnumerable<Module> modules, List<FileStatus> files)

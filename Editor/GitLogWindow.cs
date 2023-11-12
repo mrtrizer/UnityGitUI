@@ -233,7 +233,7 @@ namespace Abuksigun.MRGitUI
                 if (selectedFiles != null)
                 {
                     var panelSize = new Vector2(position.width - InfoPanelWidth, FilesPanelHeight);
-                    treeViewFiles.Draw(panelSize, new[] { diffFiles }, (_) => ShowFileContextMenu(module, selectedFiles, selectedCommitHashes.First()));
+                    treeViewFiles.Draw(panelSize, new[] { diffFiles }, (_) => ShowFileContextMenu(module, selectedFiles, selectedCommitHashes.First()), (id) => SelectAsset(id, diffFiles));
                 }
                 else
                 {
@@ -405,6 +405,13 @@ namespace Abuksigun.MRGitUI
                     _ = GUIUtils.RunGitAndErrorCheck(new[] { module }, x => x.RevertFiles($"{selectedCommit}~1", filePaths));
             });
             menu.ShowAsContext();
+        }
+
+        static void SelectAsset(int id, GitStatus diffFiles)
+        {
+            var selectedAsset = diffFiles.Files.FirstOrDefault(x => x.FullPath.GetHashCode() == id);
+            if (selectedAsset != null)
+                GUIUtils.SelectAsset(selectedAsset.FullProjectPath);
         }
     }
 }
