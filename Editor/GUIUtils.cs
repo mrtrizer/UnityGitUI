@@ -86,7 +86,7 @@ namespace Abuksigun.MRGitUI
                 var visibleFiles = status.Files.Where(x => x.IsUnstaged && !staged || x.IsStaged && staged);
                 if (validStatuses.Count() > 1 && visibleFiles.Any())
                     items.Add(new TreeViewItem(module.Guid.GetHashCode(), 0, $"{module.DisplayName} {submoduleMarker.When(module.GitParentRepoPath.GetResultOrDefault() != null)}"));
-                foreach (var file in visibleFiles)
+                foreach (var file in visibleFiles.OrderByDescending(x => staged ? x.X : x.Y))
                 {
                     var icon = AssetDatabase.GetCachedIcon(Utils.GetUnityLogicalPath(file.FullProjectPath));
                     if (!icon)
@@ -94,7 +94,7 @@ namespace Abuksigun.MRGitUI
                     string relativePath = Path.GetRelativePath(module.PhysicalPath, file.FullProjectPath).NormalizeSlashes();
                     var numStat = staged ? file.StagedNumStat : file.UnstagedNumStat;
                     bool isSubmodule = Utils.GetModuleByPath(file.FullPath) != null;
-                    var content = $"{(staged ? file.X : file.Y)} {relativePath}{file.OldName?.WrapUp(" (", ")")} +{numStat.Added} -{numStat.Removed} {submoduleMarker.When(isSubmodule)}";
+                    var content = $"<b>{MakePrintableStatus(staged ? file.X : file.Y)}</b> {relativePath}{file.OldName?.WrapUp(" (", ")")} +{numStat.Added} -{numStat.Removed} {submoduleMarker.When(isSubmodule)}";
                     items.Add(new TreeViewItem(file.FullPath.GetHashCode(), validStatuses.Count() > 1 ? 1 : 0, content) { icon = icon as Texture2D });
                 }
             }
@@ -177,7 +177,7 @@ namespace Abuksigun.MRGitUI
 
         public static string MakePrintableStatus(char status)
         {
-            return $"<color={status switch { 'U' => "red", '?' => "purple", 'M' or 'R' => "darkblue", _ => "black" }}>{status}</color>";
+            return $"<color={status switch { 'U' => Colors.Red, '?' => Colors.Purple, 'A' => Colors.Green, 'M' or 'R' => Colors.CyanBlue, _ => Colors.Black }}>{status}</color>";
         }
 
         public static string EscapeAngleBrackets(string str)

@@ -112,7 +112,7 @@ namespace Abuksigun.MRGitUI
                 rect.y += 2;
                 rect.x -= 8;
                 if (assetInfo.NestedFileModified)
-                    GUI.Label(rect, "     <color=blue>*</color>", FileMarkStyle.Value);
+                    GUI.Label(rect, "     <color=#0099ff>*</color>", FileMarkStyle.Value);
                 else if (assetInfo.FileStatuses.Any(x => x.IsUnstaged))
                     GUI.Label(rect, GUIUtils.MakePrintableStatus(assetInfo.FileStatuses.First().Y), FileMarkStyle.Value);
                 else if (assetInfo.FileStatuses.Any(x => x.IsStaged))

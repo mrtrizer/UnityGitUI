@@ -176,10 +176,15 @@ namespace Abuksigun.MRGitUI
             commitMessage = "";
         }
 
-        static void SelectAsset(int id)
+        static FileStatus GetStausById(int id)
         {
             var statuses = Utils.GetGitModules().Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
-            var selectedAsset = statuses.SelectMany(x => x.Files).FirstOrDefault(x => x.FullPath.GetHashCode() == id);
+            return statuses.SelectMany(x => x.Files).FirstOrDefault(x => x.FullPath.GetHashCode() == id);
+        }
+
+        static void SelectAsset(int id)
+        {
+            var selectedAsset = GetStausById(id);
             if (selectedAsset != null)
                 GUIUtils.SelectAsset(selectedAsset.FullProjectPath);
         }

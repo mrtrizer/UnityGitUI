@@ -16,6 +16,7 @@ namespace Abuksigun.MRGitUI
         Action<int> doubleClickCallback;
         GenerateItemsCallback generateItems;
         bool multiSelection;
+        bool multiColumnHeader;
         List<T> sourceObjects;
 
         public float RowHeight => rowHeight;
@@ -25,6 +26,7 @@ namespace Abuksigun.MRGitUI
         {
             this.generateItems = generateItems;
             this.multiSelection = multiSelection;
+            this.multiColumnHeader = multicolumnHeader != null;
             this.drawRowCallback = drawRowCallback;
             showBorder = true;
         }
@@ -72,8 +74,15 @@ namespace Abuksigun.MRGitUI
                 return;
             if (drawRowCallback != null)
             {
-                for (int i = 0; i < args.GetNumVisibleColumns(); ++i)
-                    drawRowCallback?.Invoke(args.item, args.GetColumn(i), args.GetCellRect(i));
+                if (multiColumnHeader)
+                {
+                    for (int i = 0; i < args.GetNumVisibleColumns(); ++i)
+                        drawRowCallback.Invoke(args.item, args.GetColumn(i), args.GetCellRect(i));
+                }
+                else
+                {
+                    drawRowCallback.Invoke(args.item, 0, args.rowRect);
+                }
             }
             else
             {
