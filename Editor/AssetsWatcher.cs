@@ -30,7 +30,10 @@ namespace Abuksigun.MRGitUI
             if (hasFocus)
             {
                 foreach (var module in Utils.GetGitModules())
+                {
                     module.RefreshFilesStatus();
+                    module.RefreshReferences();
+                }
             }
         }
 

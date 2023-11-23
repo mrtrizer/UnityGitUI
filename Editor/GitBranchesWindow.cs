@@ -63,7 +63,6 @@ namespace Abuksigun.MRGitUI
             }
 
             var referencesPerRepo = modules.Select(module => module.References.GetResultOrDefault());
-            var currentBranchPerRepo = modules.ToDictionary(module => module, module => module.CurrentBranch.GetResultOrDefault());
             if (!referencesPerRepo.Any() || referencesPerRepo.Any(x => x == null))
                 return;
 
