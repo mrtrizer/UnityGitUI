@@ -1,5 +1,5 @@
 {
-    "name": "MRGitUI.EditorTests",
+    "name": "Abuksigun.MRGitUI.EditorTests",
     "references": [
         "Abuksigun.MRGitUI",
         "UnityEngine.TestRunner",
