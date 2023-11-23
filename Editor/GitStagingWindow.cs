@@ -146,12 +146,14 @@ namespace Abuksigun.MRGitUI
                     GUILayout.Space(50);
                     if (GUILayout.Button(EditorGUIUtility.IconContent("tab_next@2x"), GUILayout.Width(MiddlePanelWidth)))
                     {
-                        GUIUtils.Stage(modules.Select(module => (module, unstagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray())));
+                        var selectionPerModule = modules.Select(module => (module, unstagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray()));
+                        tasksInProgress.Add(GUIUtils.Stage(selectionPerModule));
                         treeViewStateUnstaged.selectedIDs.Clear();
                     }
                     if (GUILayout.Button(EditorGUIUtility.IconContent("tab_prev@2x"), GUILayout.Width(MiddlePanelWidth)))
                     {
-                        GUIUtils.Unstage(modules.Select(module => (module, stagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray())));
+                        var selectionPerModule = modules.Select(module => (module, stagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray()));
+                        tasksInProgress.Add(GUIUtils.Unstage(selectionPerModule));
                         treeViewStateStaged.selectedIDs.Clear();
                     }
                 }
@@ -217,7 +219,7 @@ namespace Abuksigun.MRGitUI
             menu.ShowAsContext();
         }
 
-        static void ShowContextMenu(IEnumerable<Module> modules, List<FileStatus> files)
+        void ShowContextMenu(IEnumerable<Module> modules, List<FileStatus> files)
         {
             if (!files.Any())
                 return;
@@ -249,11 +251,11 @@ namespace Abuksigun.MRGitUI
                     }
                 });
                 menu.AddSeparator("");
-                menu.AddItem(new GUIContent("Discrad"), false, () => GUIUtils.DiscardFiles(indexedSelectionPerModule));
+                menu.AddItem(new GUIContent("Discrad"), false, () => tasksInProgress.Add(GUIUtils.DiscardFiles(indexedSelectionPerModule)));
                 if (files.Any(x => x.IsUnstaged))
-                    menu.AddItem(new GUIContent("Stage"), false, () => GUIUtils.Stage(indexedSelectionPerModule));
+                    menu.AddItem(new GUIContent("Stage"), false, () => tasksInProgress.Add(GUIUtils.Stage(indexedSelectionPerModule)));
                 if (files.Any(x => x.IsStaged))
-                    menu.AddItem(new GUIContent("Unstage"), false, () => GUIUtils.Unstage(indexedSelectionPerModule));
+                    menu.AddItem(new GUIContent("Unstage"), false, () => tasksInProgress.Add(GUIUtils.Unstage(indexedSelectionPerModule)));
             }
 
             if (files.Any(x => x.IsUnresolved))
@@ -268,7 +270,7 @@ namespace Abuksigun.MRGitUI
                     if (EditorUtility.DisplayDialog($"Do you want to take OURS changes (git checkout --ours --)", message, "Yes", "No"))
                     {
                         foreach (var module in modules)
-                            _ = module.TakeOurs(conflictedFilesList[module]);
+                            tasksInProgress.Add(module.TakeOurs(conflictedFilesList[module]));
                         AssetDatabase.Refresh();
                     }
                 });
@@ -276,13 +278,13 @@ namespace Abuksigun.MRGitUI
                     if (EditorUtility.DisplayDialog($"Do you want to take THEIRS changes (git checkout --theirs --)", message, "Yes", "No"))
                     {
                         foreach (var module in modules)
-                            _ = module.TakeTheirs(conflictedFilesList[module]);
+                            tasksInProgress.Add(module.TakeTheirs(conflictedFilesList[module]));
                         AssetDatabase.Refresh();
                     }
                 });
                 menu.AddItem(new GUIContent("Mark Resolved"), false, () => {
                     foreach (var module in modules)
-                        _ = module.Stage(conflictedFilesList[module]);
+                        tasksInProgress.Add(module.Stage(conflictedFilesList[module]));
                     AssetDatabase.Refresh();
                 });
             }

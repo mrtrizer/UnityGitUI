@@ -266,13 +266,12 @@ namespace Abuksigun.MRGitUI
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = dirPath, UseShellExecute = true });
         }
 
-        public static void DiscardFiles(IEnumerable<(Module module, string[] files)> selectionPerModule)
+        public static Task DiscardFiles(IEnumerable<(Module module, string[] files)> selectionPerModule)
         {
             var filesList = selectionPerModule.SelectMany(x => x.files).Join('\n');
             if (!EditorUtility.DisplayDialog($"Are you sure you want DISCARD these files", filesList, "Yes", "No"))
-                return;
-            foreach (var pair in selectionPerModule)
-                _ = pair.module.DiscardFiles(pair.files);
+                return Task.CompletedTask;
+            return Task.WhenAll(selectionPerModule.Select(x => x.module.DiscardFiles(x.files)));
         }
 
         public static async Task Stage(IEnumerable<(Module module, string[] files)> selectionPerModule)
@@ -284,14 +283,12 @@ namespace Abuksigun.MRGitUI
                 EditorUtility.DisplayDialog("You need to resolve conflicts first!", $"Affected files\n { string.Join('\n', unresolvedFiles)}", "Ok");
                 return;
             }
-            foreach (var pair in selectionPerModule)
-                await pair.module.Stage(pair.files);
+            await Task.WhenAll(selectionPerModule.Select(x => x.module.Stage(x.files)));
         }
 
-        public static void Unstage(IEnumerable<(Module module, string[] files)> selectionPerModule)
+        public static Task Unstage(IEnumerable<(Module module, string[] files)> selectionPerModule)
         {
-            foreach (var pair in selectionPerModule)
-                _ = pair.module.Unstage(pair.files);
+            return Task.WhenAll(selectionPerModule.Select(x => x.module.Unstage(x.files)));
         }
 
         public static void SelectAsset(string fullProjectPath)

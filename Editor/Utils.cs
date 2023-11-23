@@ -207,6 +207,14 @@ namespace Abuksigun.MRGitUI
             return logicalPath;
         }
 
+        public static async Task<CommandResult[]> RunSequence<T>(IEnumerable<T> values, Func<T, Task<CommandResult>> func)
+        {
+            var commandResults = new List<CommandResult>();
+            foreach (var value in values)
+                commandResults.Add(await func(value));
+            return commandResults.ToArray();
+        }
+
         public static AssetGitInfo GetFileGitInfo(string filePath)
         {
             var gitModules = GetGitModules();

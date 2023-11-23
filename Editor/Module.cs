@@ -553,10 +553,10 @@ namespace Abuksigun.MRGitUI
             var status = await GitStatus;
             var unstagedFiles = status.Staged.Where(file => files.Contains(file.FullProjectPath)).Select(x => x.FullPath);
             if (unstagedFiles.Any())
-                await Task.WhenAll(Utils.BatchFiles(unstagedFiles).ToList().Select(batch => RunGit($"reset -q -- {batch}")));
+                await Utils.RunSequence(Utils.BatchFiles(unstagedFiles), batch => RunGit($"reset -q -- {batch}"));
             status = await GetGitStatus();
             var indexedFiles = status.IndexedUnstaged.Where(file => files.Contains(file.FullProjectPath)).Select(x => x.FullPath);
-            return await Task.WhenAll(Utils.BatchFiles(indexedFiles).ToList().Select(batch => RunGit($"checkout -q -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+            return await Utils.RunSequence(Utils.BatchFiles(indexedFiles), batch => RunGit($"checkout -q -- {batch}")).AfterCompletion(RefreshFilesStatus);
         }
 
         public async Task<CommandResult[]> Stage(IEnumerable<string> files)
@@ -571,7 +571,7 @@ namespace Abuksigun.MRGitUI
 
         public Task<CommandResult[]> Unstage(IEnumerable<string> files)
         {
-            return Task.WhenAll(Utils.BatchFiles(files).ToList().Select(batch => RunGit($"reset -q -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+            return Utils.RunSequence(Utils.BatchFiles(files), batch => RunGit($"reset -q -- {batch}")).AfterCompletion(RefreshFilesStatus);
         }
 
         public Task<CommandResult> AbortMerge()
@@ -581,7 +581,7 @@ namespace Abuksigun.MRGitUI
 
         public async Task<CommandResult[]> TakeOurs(IEnumerable<string> files)
         {
-            var result = await Task.WhenAll(Utils.BatchFiles(files).ToList().Select(batch => RunGit($"checkout --ours  -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+            var result = await Utils.RunSequence(Utils.BatchFiles(files), batch => RunGit($"checkout --ours  -- {batch}")).AfterCompletion(RefreshFilesStatus);
             await Stage(files);
             RefreshFilesStatus();
             return result;
@@ -589,7 +589,7 @@ namespace Abuksigun.MRGitUI
 
         public async Task<CommandResult[]> TakeTheirs(IEnumerable<string> files)
         {
-            var result = await Task.WhenAll(Utils.BatchFiles(files).ToList().Select(batch => RunGit($"checkout --theirs  -- {batch}")));
+            var result = await Utils.RunSequence(Utils.BatchFiles(files), batch => RunGit($"checkout --theirs  -- {batch}"));
             await Stage(files);
             RefreshFilesStatus();
             return result;
