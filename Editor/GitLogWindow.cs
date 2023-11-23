@@ -55,7 +55,6 @@ namespace Abuksigun.MRGitUI
 
         const float TableHeaderHeight = 27;
         const float Space = 16;
-        const float DefaultFilesPanelHeight = 200;
         const float DefaultInfoPanelWidth = 300;
 
         [SerializeField] string guid = "";
@@ -81,7 +80,8 @@ namespace Abuksigun.MRGitUI
         bool HideGraph => ShowStash || HideFilesPanel;
         bool HideFilesPanel => (LogFiles != null && LogFiles.Count > 0);
         bool HideLog => !string.IsNullOrEmpty(LockedHash);
-        float FilesPanelHeight => HideLog ? position.height : DefaultFilesPanelHeight;
+        
+        float FilesPanelHeight => HideLog ? position.height : verticalSplitterState.RealSizes[1];
         float InfoPanelWidth => HideLog ? 0 : DefaultInfoPanelWidth;
 
         [SerializeField] TreeViewState treeViewLogState = new();
@@ -97,6 +97,7 @@ namespace Abuksigun.MRGitUI
         LazyTreeView<string[]> treeViewLog;
 
         [SerializeField] TreeViewState treeViewStateFiles = new();
+        [SerializeField] SplitterState verticalSplitterState = new SplitterState(new float[] { 0.8f, 0.2f });
         LazyTreeView<GitStatus> treeViewFiles;
         int lastSelectedCommitHash;
 
@@ -169,6 +170,8 @@ namespace Abuksigun.MRGitUI
             var selectedCommitHashes = GetSelectedCommitHashes(treeViewLogState.selectedIDs);
             var selectedCommitHash = selectedCommitHashes.FirstOrDefault();
 
+            if (!HideFilesPanel && selectedCommitHashes.Any())
+                SplitterGUILayout.BeginVerticalSplit(verticalSplitterState);
             if (!HideLog)
                 DrawLog(module, selectedCommitHashes.Any());
 
@@ -180,6 +183,8 @@ namespace Abuksigun.MRGitUI
             else if (HideFilesPanel && selectionChanged)
                 Utils.SetSelectedFiles(guid, LogFiles, null, $"{selectedCommitHashes.First()}~1", selectedCommitHashes.Last());
 
+            if (!HideFilesPanel && selectedCommitHashes.Any())
+                SplitterGUILayout.EndVerticalSplit();
             base.OnGUI();
         }
 
@@ -229,7 +234,7 @@ namespace Abuksigun.MRGitUI
             if (selectedFiles != null && treeViewFiles.HasFocus())
                 Utils.SetSelectedFiles(selectedFiles, null, firstCommit, lastCommit);
 
-            using (new EditorGUILayout.HorizontalScope(GUILayout.Height(selectedCommitHashes.Any() ? FilesPanelHeight : 0)))
+            using (new EditorGUILayout.HorizontalScope())
             {
                 if (selectedFiles != null)
                 {
@@ -240,9 +245,10 @@ namespace Abuksigun.MRGitUI
                 {
                     GUILayout.Space(position.width - InfoPanelWidth);
                 }
+                using (new EditorGUILayout.ScrollViewScope(Vector2.zero))
                 using (new EditorGUILayout.VerticalScope(GUILayout.Height(FilesPanelHeight)))
                 {
-                    string lastHash = selectedCommitHashes.Count() > 1 ? selectedCommitHashes.Last() : null ;
+                    string lastHash = selectedCommitHashes.Count() > 1 ? selectedCommitHashes.Last() : null;
                     EditorGUILayout.SelectableLabel($"{selectedCommitHashes.First()} {lastHash?.WrapUp("- ", "")}");
                     foreach (var selectedCommitHash in selectedCommitHashes)
                     {

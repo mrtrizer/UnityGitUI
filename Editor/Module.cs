@@ -646,7 +646,7 @@ namespace Abuksigun.MRGitUI
 
         public Task<CommandResult> Stash(string commitMessage, bool untracked = false)
         {
-            return RunGit($"stash push -m {commitMessage.WrapUp()} {"-u".When(untracked)}");
+            return RunGit($"stash push -m {commitMessage.WrapUp()} {"-u".When(untracked)}").AfterCompletion(RefreshFilesStatus, RefreshReferences);
         }
 
         public Task<CommandResult[]> StashFiles(string commitMessage, IEnumerable<string> files)
