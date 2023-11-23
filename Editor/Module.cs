@@ -548,9 +548,15 @@ namespace Abuksigun.MRGitUI
             return RunGit($"commit {args}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         }
 
-        public Task<CommandResult[]> DiscardFiles(IEnumerable<string> files)
+        public async Task<CommandResult[]> DiscardFiles(IEnumerable<string> files)
         {
-            return Task.WhenAll(Utils.BatchFiles(files).ToList().Select(batch => RunGit($"checkout -q -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+            var status = await GitStatus;
+            var unstagedFiles = status.Staged.Where(file => files.Contains(file.FullProjectPath)).Select(x => x.FullPath);
+            if (unstagedFiles.Any())
+                await Task.WhenAll(Utils.BatchFiles(unstagedFiles).ToList().Select(batch => RunGit($"reset -q -- {batch}")));
+            status = await GetGitStatus();
+            var indexedFiles = status.IndexedUnstaged.Where(file => files.Contains(file.FullProjectPath)).Select(x => x.FullPath);
+            return await Task.WhenAll(Utils.BatchFiles(indexedFiles).ToList().Select(batch => RunGit($"checkout -q -- {batch}"))).AfterCompletion(RefreshFilesStatus);
         }
 
         public async Task<CommandResult[]> Stage(IEnumerable<string> files)

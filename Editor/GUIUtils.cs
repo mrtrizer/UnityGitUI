@@ -277,9 +277,8 @@ namespace Abuksigun.MRGitUI
 
         public static async Task Stage(IEnumerable<(Module module, string[] files)> selectionPerModule)
         {
-            await Task.WhenAll(selectionPerModule.Select(x => x.module.GitStatus));
-            var fileInfos = selectionPerModule.SelectMany(x => x.files).Select(x => Utils.GetFileGitInfo(x));
-            var unresolvedFiles = fileInfos.Where(x => x.FileStatuses?.Any(y => y.IsUnresolved) ?? false).Select(x => x.FullPath);
+            var fileStatuses = selectionPerModule.SelectMany(x => x.files).Select(x => Utils.GetFileGitInfo(x).FileStatuses).Where(x => x != null).SelectMany(x => x).ToList();
+            var unresolvedFiles = fileStatuses.Where(x => x.IsUnresolved).Select(x => x.FullPath).ToList();
             if (unresolvedFiles.Any())
             {
                 EditorUtility.DisplayDialog("You need to resolve conflicts first!", $"Affected files\n { string.Join('\n', unresolvedFiles)}", "Ok");
