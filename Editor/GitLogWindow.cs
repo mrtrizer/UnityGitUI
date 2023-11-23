@@ -41,7 +41,7 @@ namespace Abuksigun.MRGitUI
         }
     }
 
-    record LogLine(string Raw, string Hash, string Comment, string Author, string Date, string[] Branches, string[] Tags);
+    record LogLine(string Raw, string Hash, string Comment, string Author, string Email, string Date, string[] Branches, string[] Tags);
 
     class CommitTreeViewItem : TreeViewItem
     {
@@ -89,7 +89,8 @@ namespace Abuksigun.MRGitUI
             new () { headerContent = new GUIContent("Graph") },
             new () { headerContent = new GUIContent("Hash"), width = 80 },
             new () { headerContent = new GUIContent("Author"), width = 100 },
-            new () { headerContent = new GUIContent("Date"), width = 100 },
+            new () { headerContent = new GUIContent("Email"), width = 50 },
+            new () { headerContent = new GUIContent("Date"), width = 50 },
             new () { headerContent = new GUIContent("Message"), width = 400 },
         });
         MultiColumnHeader multiColumnHeader;
@@ -118,11 +119,11 @@ namespace Abuksigun.MRGitUI
             var logLines = new List<LogLine>();
             foreach (var rawLine in rawLines.Where(x => x.Contains('*')))
             {
-                var groups = Regex.Match(rawLine, @"#([0-9a-f]+).*?- (.*?) \((.*?)\) <b>\s?\(?(.*?)\)?</b> (.*)")?.Groups;
-                var references = groups[4].Value.Split(',', StringSplitOptions.RemoveEmptyEntries).Where(x => x != "refs/stash");
+                var groups = Regex.Match(rawLine, @"#([0-9a-f]+).*?- (.*?) \((.*?)\) \((.*?)\) <b>\s?\(?(.*?)\)?</b> (.*)")?.Groups;
+                var references = groups[5].Value.Split(',', StringSplitOptions.RemoveEmptyEntries).Where(x => x != "refs/stash");
                 var branches = references.Where(x => !x.StartsWith("tag:")).ToArray();
                 var tags = references.Where(x => x.StartsWith("tag:")).Select(x => x[5..^1]).ToArray();
-                logLines.Add(new LogLine(rawLine, Hash: groups[1].Value, Comment: groups[5].Value, Author: groups[2].Value, Date: groups[3].Value, branches, tags));
+                logLines.Add(new LogLine(rawLine, Hash: groups[1].Value, Comment: groups[6].Value, Author: groups[2].Value, Email: groups[3].Value, Date: groups[4].Value, branches, tags));
             }
             return logLines;
         }
@@ -268,8 +269,9 @@ namespace Abuksigun.MRGitUI
                 EditorGUI.LabelField(rect, columnIndex switch {
                     1 => commit.LogLine.Hash,
                     2 => commit.LogLine.Author,
-                    3 => commit.LogLine.Date,
-                    4 => $"<b><color={color}>{commit.LogLine.Branches.Join(", ")}</color><color=brown>{commit.LogLine.Tags.Join(", ")}</color></b> {commit.LogLine.Comment}",
+                    3 => commit.LogLine.Email,
+                    4 => commit.LogLine.Date,
+                    5 => $"<b><color={color}>{commit.LogLine.Branches.Join(", ")}</color><color=brown>{commit.LogLine.Tags.Join(", ")}</color></b> {commit.LogLine.Comment}",
                     _ => "",
                 }, Style.RichTextLabel.Value);
             }
@@ -356,7 +358,7 @@ namespace Abuksigun.MRGitUI
                 string filesList = LogFiles?.Join();
                 menu.AddItem(new GUIContent($"Checkout {filesLableString}/{contextMenuname}"), false, () => {
                     if (EditorUtility.DisplayDialog($"Are you sure you want CHECKOUT {filesLableString} to COMMIT", $"{reference.QualifiedName}\n{filesList}", "Yes", "No"))
-                        _ = GUIUtils.RunGitAndErrorCheck(new[] { module }, x => x.Checkout(reference.QualifiedName, LogFiles));
+                        _ = GUIUtils.RunSafe(new[] { module }, x => x.Checkout(reference.QualifiedName, LogFiles));
                 });
                 if (!LogFiles.Any())
                 {
@@ -372,17 +374,21 @@ namespace Abuksigun.MRGitUI
                 var allReferences = commitReference.Concat((await module.References).Where(x => (x is Branch || x is Tag) && x.Hash.StartsWith(selectedCommit)));
                 foreach (var reference in allReferences)
                 {
-                    var contextMenuname = reference.QualifiedName.Replace("/", "\u2215");
-                    menu.AddItem(new GUIContent($"Reset Hard/{contextMenuname}"), false, () =>
+                    var contextMenuName = reference.QualifiedName.Replace("/", "\u2215");
+                    menu.AddItem(new GUIContent($"Reset Hard/{contextMenuName}"), false, () =>
                     {
                         if (EditorUtility.DisplayDialog("Are you sure you want RESET HARD to COMMIT.", reference.QualifiedName, "Yes", "No"))
                             _ = module.Reset(reference.QualifiedName, true);
+                    });
+                    menu.AddItem(new GUIContent($"Merge/{contextMenuName}"), false, () =>
+                    {
+                        _ = module.Merge(reference.QualifiedName);
                     });
                 }
                 menu.AddItem(new GUIContent($"Cherry Pick/{selectedCommits.Join(", ")}"), false, () =>
                 {
                     if (EditorUtility.DisplayDialog("Are you sure you want to cherry-pick these commits?", selectedCommits.Join(", "), "Yes", "No"))
-                        _ = GUIUtils.RunGitAndErrorCheck(new[] { module }, x => x.CherryPick(selectedCommits));
+                        _ = GUIUtils.RunSafe(new[] { module }, x => x.CherryPick(selectedCommits));
                 });
             }
             menu.AddItem(new GUIContent($"New Tag"), false, () => GUIUtils.MakeTag(selectedCommit));
@@ -398,11 +404,11 @@ namespace Abuksigun.MRGitUI
             menu.AddItem(new GUIContent("Diff"), false, () => GitDiff.ShowDiff());
             menu.AddItem(new GUIContent($"Revert to this commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
-                    _ = GUIUtils.RunGitAndErrorCheck(new[] { module }, x => x.RevertFiles(selectedCommit, filePaths));
+                    _ = GUIUtils.RunSafe(new[] { module }, x => x.RevertFiles(selectedCommit, filePaths));
             });
             menu.AddItem(new GUIContent($"Revert to previous commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
-                    _ = GUIUtils.RunGitAndErrorCheck(new[] { module }, x => x.RevertFiles($"{selectedCommit}~1", filePaths));
+                    _ = GUIUtils.RunSafe(new[] { module }, x => x.RevertFiles($"{selectedCommit}~1", filePaths));
             });
             menu.ShowAsContext();
         }

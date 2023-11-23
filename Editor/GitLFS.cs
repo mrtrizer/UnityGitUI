@@ -57,9 +57,9 @@ namespace Abuksigun.MRGitUI
                         if ((module.LfsTrackedPaths.GetResultOrDefault()?.Any() ?? false) || (module.LfsFiles.GetResultOrDefault()?.Any() ?? false))
                         {
                             if (GUILayout.Button("Prune LFS"))
-                                _ = GUIUtils.RunGitAndErrorCheck(new[] { module }, (module) => module.PruneLfsObjects());
+                                _ = GUIUtils.RunSafe(new[] { module }, (module) => module.PruneLfsObjects());
                             if (GUILayout.Button("Fetch LFS"))
-                                _ = GUIUtils.RunGitAndErrorCheck(new[] { module }, (module) => module.FetchLfsObjects());
+                                _ = GUIUtils.RunSafe(new[] { module }, (module) => module.FetchLfsObjects());
                         }
                         if (GUILayout.Button("Add new pattern"))
                             _ = ShowAddTrackPatternWindow(module);
@@ -82,7 +82,7 @@ namespace Abuksigun.MRGitUI
                             menu.AddItem(new GUIContent("Migrate"), false, () => {
                                 string msg = $"Rewrite every commit in history (with flag -- everything) (will require running git push --force)\n{selectedPaths.Join()}";
                                 if (EditorUtility.DisplayDialog($"DANGER! REWRITE HISTORY IN ALL BRANCHES!", msg, "Rewrite histroy", "Cancel"))
-                                    _ = GUIUtils.RunGitAndErrorCheck(new[] { module }, (module) => module.GitLfsMigrate(GitLfsMigrateMode.Import, selectedPaths, false));
+                                    _ = GUIUtils.RunSafe(new[] { module }, (module) => module.GitLfsMigrate(GitLfsMigrateMode.Import, selectedPaths, false));
                             });
                             menu.ShowAsContext();
                         },
@@ -105,7 +105,7 @@ namespace Abuksigun.MRGitUI
                         }
                         if (GUILayout.Button("Apply"))
                         {
-                            _ = _ = GUIUtils.RunGitAndErrorCheck(new[] { module }, (module) => module.TrackPathsWithLfs(new[] { newPattern }));
+                            _ = _ = GUIUtils.RunSafe(new[] { module }, (module) => module.TrackPathsWithLfs(new[] { newPattern }));
                             window.Close();
                         }
                     }

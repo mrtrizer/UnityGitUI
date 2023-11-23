@@ -37,7 +37,7 @@ namespace Abuksigun.MRGitUI
         public delegate void HunkAction(FileStatus filePath, int hunkIndex);
 
         const int TopPanelHeight = 20;
-        const int MaxChangesDisplay = 1000;
+        const int MaxChangesDisplay = 2000;
         const int CodeLineHeight = 12;
 
         static Regex hunkStartRegex = new(@"@@ -(\d+),?(\d+)?.*?\+(\d+),?(\d+)?.*?@@");
@@ -51,6 +51,7 @@ namespace Abuksigun.MRGitUI
         int lastSelectedIndex = -1;
         int lastSelectedLine = -1;
         int lastHashCode = 0;
+        bool showLongDiff = false;
 
         [SerializeField] bool staged;
 
@@ -167,9 +168,11 @@ namespace Abuksigun.MRGitUI
         {
             if (diffLines == null || diffLines.Length == 0)
                 return;
-            if (diffLines.Length > MaxChangesDisplay)
+            if (diffLines.Length > MaxChangesDisplay && !showLongDiff)
             {
-                EditorGUI.LabelField(new Rect(Vector2.zero, size), $"Can't display without performance drop. More then {MaxChangesDisplay} in the selected files.");
+                EditorGUI.LabelField(new Rect(Vector2.zero, size), $"Can't display without performance drop. Diff contains {diffLines.Length} lines of max {MaxChangesDisplay}");
+                if (GUI.Button(new Rect(0, size.y - 20, size.x, 20), "Show anyway"))
+                    showLongDiff = true;
                 return;
             }
             int longestLine = diffLines.Max(x => x.Length);
@@ -288,7 +291,9 @@ namespace Abuksigun.MRGitUI
         {
             bool inputApplied = false;
             var module = Utils.GetModule(file.ModuleGuid);
-            await module.RunProcess("git", $"{args} -- {file.FullPath}", data => {
+            await module.RunProcess("git", $"{args} -- {file.FullPath.WrapUp()}", false, data => {
+                if (data.Error)
+                    throw new System.Exception($"Got an error can't continue staging! {data.Data}");
                 if (!inputApplied)
                 {
                     for (int i = 0; i < id; i++)

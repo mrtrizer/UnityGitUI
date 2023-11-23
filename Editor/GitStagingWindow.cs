@@ -63,56 +63,64 @@ namespace Abuksigun.MRGitUI
             int modulesWithStagedFiles = moduleNotInMergeState.Count(x => x.GitStatus.GetResultOrDefault()?.Staged?.Count() > 0);
             bool commitAvailable = modulesWithStagedFiles > 0 && !string.IsNullOrWhiteSpace(commitMessage) && !tasksInProgress.Any();
             bool amendAvailable = (modulesWithStagedFiles > 0 || !string.IsNullOrWhiteSpace(commitMessage)) && !tasksInProgress.Any();
+            bool stashAvailable = amendAvailable && moduleNotInMergeState.Any(x => x.GitStatus.GetResultOrDefault()?.Files.Any() ?? false);
+
+            var statuses = modules.Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
+            var unstagedSelection = statuses.SelectMany(x => x.Files)
+                .Where(x => treeViewUnstaged.HasFocus() && treeViewStateUnstaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
+            var stagedSelection = statuses.SelectMany(x => x.Files)
+                .Where(x => treeViewStaged.HasFocus() && treeViewStateStaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
+
+            var allSelection = unstagedSelection.Concat(stagedSelection).Distinct().ToList();
 
             using (new GUILayout.HorizontalScope())
             {
                 using (new EditorGUI.DisabledGroupScope(!commitAvailable))
                 {
-                    if (GUILayout.Button($"Commit {modulesWithStagedFiles}/{modules.Count}", GUILayout.Width(150)))
-                    {
-                        tasksInProgress.AddRange(moduleNotInMergeState.Select(module => module.Commit(commitMessage)));
-                        commitMessage = "";
-                    }
+                    if (GUILayout.Button($"Commit", GUILayout.Width(150)))
+                        _ = Commit(moduleNotInMergeState);
                 }
                 GUILayout.Space(20);
                 using (new EditorGUI.DisabledGroupScope(!amendAvailable))
                 {
-                    if (GUILayout.Button($"Amend {modulesWithStagedFiles}/{modules.Count}", GUILayout.Width(150)))
+                    if (GUILayout.Button($"Amend", GUILayout.Width(150)))
                     {
                         tasksInProgress.AddRange(moduleNotInMergeState.Select(module => module.Commit(commitMessage.Length == 0 ? null : commitMessage, true)));
                         commitMessage = "";
                     }
                 }
-                using (new EditorGUI.DisabledGroupScope(!commitAvailable))
+                using (new EditorGUI.DisabledGroupScope(!stashAvailable))
                 {
-                    if (GUILayout.Button($"Stash {modulesWithStagedFiles}/{modules.Count}", GUILayout.Width(150)))
-                    {
-                        tasksInProgress.AddRange(moduleNotInMergeState.Select(module => {
-                            var files = module.GitStatus.GetResultOrDefault().Files.Where(x => x.IsStaged).Select(x => x.FullPath);
-                            return module.Stash(commitMessage, files);
-                        }));
-                        commitMessage = "";
-                    }
+                    if (GUILayout.Button($"Stash", GUILayout.Width(150)))
+                        ShowStashMenu(moduleNotInMergeState, allSelection);
+                }
+                if (modules.Count > 1)
+                {
+                    GUIUtils.DrawVerticalExpand();
+                    GUILayout.Label($"Changes in {modulesWithStagedFiles}/{modules.Count} modules", GUILayout.Width(150));
                 }
             }
             using (new GUILayout.HorizontalScope())
             {
                 GUILayout.Space(20);
-                if (modulesInMergingState.Any() && GUILayout.Button($"Commit merge in {modulesInMergingState.Count()}/{modules.Count}", GUILayout.Width(200))
+                if (modulesInMergingState.Any()
+                    && GUILayout.Button($"Commit merge in {modulesInMergingState.Count()}/{modules.Count}", GUILayout.Width(200))
                     && EditorUtility.DisplayDialog($"Are you sure you want COMMIT merge?", "It will be default commit message for each module. You can't change it!", "Yes", "No"))
                 {
                     tasksInProgress.AddRange(modules.Select(module => module.Commit()));
                 }
-                if (modulesInMergingState.Any() && GUILayout.Button($"Abort merge in {modulesInMergingState.Count()}/{modules.Count}", GUILayout.Width(200))
+                if (modulesInMergingState.Any()
+                    && GUILayout.Button($"Abort merge in {modulesInMergingState.Count()}/{modules.Count}", GUILayout.Width(200))
                     && EditorUtility.DisplayDialog($"Are you sure you want ABORT merge?", modulesInCherryPickState.Select(x => x.DisplayName).Join(", "), "Yes", "No"))
                 {
                     tasksInProgress.AddRange(modules.Select(module => module.AbortMerge()));
                 }
                 if (modulesInCherryPickState.Any() && GUILayout.Button($"Continue cherry-pick in {modulesInCherryPickState.Count()}/{modules.Count}", GUILayout.Width(200)))
                 {
-                    tasksInProgress.Add(GUIUtils.RunGitAndErrorCheck(modules, module => module.ContinueCherryPick()));
+                    tasksInProgress.Add(GUIUtils.RunSafe(modules, module => module.ContinueCherryPick()));
                 }
-                if (modulesInCherryPickState.Any() && GUILayout.Button($"Abort cherry-pick in {modulesInCherryPickState.Count()}/{modules.Count}", GUILayout.Width(200))
+                if (modulesInCherryPickState.Any()
+                    && GUILayout.Button($"Abort cherry-pick in {modulesInCherryPickState.Count()}/{modules.Count}", GUILayout.Width(200))
                     && EditorUtility.DisplayDialog($"Are you sure you want ABORT cherry-pick?", modulesInCherryPickState.Select(x => x.DisplayName).Join(", "), "Yes", "No"))
                 {
                     tasksInProgress.AddRange(modules.Select(module => module.AbortCherryPick()));
@@ -121,12 +129,6 @@ namespace Abuksigun.MRGitUI
 
             if (!modulesInMergingState.Any() && !modulesInCherryPickState.Any())
                 EditorGUILayout.Space(21);
-
-            var statuses = modules.Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
-            var unstagedSelection = statuses.SelectMany(x => x.Files)
-                .Where(x => treeViewUnstaged.HasFocus() && treeViewStateUnstaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
-            var stagedSelection = statuses.SelectMany(x => x.Files)
-                .Where(x => treeViewStaged.HasFocus() && treeViewStateStaged.selectedIDs.Contains(x.FullPath.GetHashCode()));
 
             if (unstagedSelection.Any())
                 Utils.SetSelectedFiles(unstagedSelection, false);
@@ -159,12 +161,60 @@ namespace Abuksigun.MRGitUI
             base.OnGUI();
         }
 
+        async Task Commit(IEnumerable<Module> modules)
+        {
+            var currentBranches = await Task.WhenAll(modules.Select(async module => (module, branch: await module.CurrentBranch)));
+            var detachedBranchModules = currentBranches.Where(x => x.branch == null).Select(x => x.module.Name);
+            if (detachedBranchModules.Any()
+                && !EditorUtility.DisplayDialog("Detached head detected!", $"In modules:\n{detachedBranchModules}\n\nUse Branches panel to checkout!", "Commit anyway", "Cancel"))
+            {
+                return;
+            }
+            tasksInProgress.AddRange(modules.Select(module => module.Commit(commitMessage)));
+            commitMessage = "";
+        }
+
         static void SelectAsset(int id)
         {
             var statuses = Utils.GetGitModules().Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
             var selectedAsset = statuses.SelectMany(x => x.Files).FirstOrDefault(x => x.FullPath.GetHashCode() == id);
             if (selectedAsset != null)
                 GUIUtils.SelectAsset(selectedAsset.FullProjectPath);
+        }
+
+        void ShowStashMenu(IEnumerable<Module> modules, IEnumerable<FileStatus> files)
+        {
+            var menu = new GenericMenu();
+            menu.AddItem(new GUIContent("Stash (default)"), false, () =>
+            {
+                tasksInProgress.AddRange(modules.Select(module => module.Stash(commitMessage)));
+                commitMessage = "";
+            });
+            menu.AddItem(new GUIContent("Stash including untracked"), false, () =>
+            {
+                tasksInProgress.AddRange(modules.Select(module => module.Stash(commitMessage, true)));
+                commitMessage = "";
+            });
+
+            var content = new GUIContent($"Stash selected files ({files.Count()})");
+            if (files.Any())
+            {
+                var selectionPerModule = modules.Select(module => (module, selection: files.Where(x => x.ModuleGuid == module.Guid)));
+                menu.AddItem(content, false, () =>
+                {
+                    var bothStateFiles = files.Where(x => x.IsStaged && x.IsUnstaged).Select(x => x.FullProjectPath).Distinct();
+                    if (!bothStateFiles.Any() || EditorUtility.DisplayDialog($"Some files are in both staged and unstaged state", $"{bothStateFiles.Join('\n')}", "Stash anyway", "Cancel"))
+                    {
+                        tasksInProgress.AddRange(selectionPerModule.Select(pair => pair.module.StashFiles(commitMessage, pair.selection.Select(x => x.FullPath).Distinct())));
+                        commitMessage = "";
+                    }
+                });
+            }
+            else
+            {
+                menu.AddDisabledItem(content);
+            }
+            menu.ShowAsContext();
         }
 
         static void ShowContextMenu(IEnumerable<Module> modules, List<FileStatus> files)
@@ -231,6 +281,11 @@ namespace Abuksigun.MRGitUI
                             _ = module.TakeTheirs(conflictedFilesList[module]);
                         AssetDatabase.Refresh();
                     }
+                });
+                menu.AddItem(new GUIContent("Mark Resolved"), false, () => {
+                    foreach (var module in modules)
+                        _ = module.Stage(conflictedFilesList[module]);
+                    AssetDatabase.Refresh();
                 });
             }
             menu.AddItem(new GUIContent("Delete"), false, () => {

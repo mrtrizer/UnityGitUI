@@ -87,7 +87,7 @@ namespace Abuksigun.MRGitUI.Tests.Editor
             Assert.Zero(createBranchResult.ExitCode);
 
             string fileToModify = Path.Combine(module.PhysicalPath, "File1_Repo1.txt");
-            GitTestUtils.ModifyFile(fileToModify, "\n// New line added for testing");
+            GitTestUtils.AddLineToFile(fileToModify, "\n// New line added for testing");
 
             var stageResult = await module.Stage(new[] { fileToModify });
             foreach (var result in stageResult)

@@ -140,11 +140,11 @@ namespace Abuksigun.MRGitUI
             {
                 var relevantModules = modules.Where(x => x.References.GetResultOrDefault().Contains(localBranch, referenceComparer)).ToList();
                 menu.AddItem(new GUIContent($"Checkout [{branchName}]"), false, () => {
-                    task = GUIUtils.RunGitAndErrorCheck(relevantModules, x => x.Checkout(localBranch.Name));
+                    task = GUIUtils.RunSafe(relevantModules, x => x.Checkout(localBranch.Name));
                 });
                 menu.AddItem(new GUIContent($"Delete local [{branchName}]"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want DELETE branch", $"LOCAL {localBranch.Name} in {relevantModules.Count()} modules", "Yes", "No"))
-                        task = GUIUtils.RunGitAndErrorCheck(relevantModules, x => x.DeleteBranch(localBranch.Name));
+                        task = GUIUtils.RunSafe(relevantModules, x => x.DeleteBranch(localBranch.Name));
                 });
                 menu.AddItem(new GUIContent($"Rename local [{branchName}]"), false, () => {
                     CreateOrRenameBranch(localBranch.Name);
@@ -153,32 +153,32 @@ namespace Abuksigun.MRGitUI
             else if (selectedReference is RemoteBranch remoteBranch)
             {
                 menu.AddItem(new GUIContent($"Checkout & Track [{branchName}]"), false, () => {
-                    task = GUIUtils.RunGitAndErrorCheck(modules, x => x.CheckoutRemote(remoteBranch.Name));
+                    task = GUIUtils.RunSafe(modules, x => x.CheckoutRemote(remoteBranch.Name));
                 });
                 menu.AddItem(new GUIContent($"Delete [{branchName}] on remote"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want DELETE branch", $"REMOTE {remoteBranch.Name} in {modules.Count()} modules", "Yes", "No"))
-                        task = GUIUtils.RunGitAndErrorCheck(modules, x => x.DeleteRemoteBranch(remoteBranch.RemoteAlias, remoteBranch.Name));
+                        task = GUIUtils.RunSafe(modules, x => x.DeleteRemoteBranch(remoteBranch.RemoteAlias, remoteBranch.Name));
                 });
             }
             else if (selectedReference is Tag tag)
             {
                 menu.AddItem(new GUIContent($"Checkout tag [{branchName}]"), false, () => {
-                    task = GUIUtils.RunGitAndErrorCheck(modules, x => x.Checkout(tag.QualifiedName));
+                    task = GUIUtils.RunSafe(modules, x => x.Checkout(tag.QualifiedName));
                 });
                 menu.AddItem(new GUIContent($"Delete tag [{branchName}]"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want DELETE tag", $"LOCAL {tag.QualifiedName} in {modules.Count()} modules", "Yes", "No"))
-                        task = GUIUtils.RunGitAndErrorCheck(modules, x => x.DeleteTag(tag.Name));
+                        task = GUIUtils.RunSafe(modules, x => x.DeleteTag(tag.Name));
                 });
             }
             else if (selectedReference is Stash stash)
             {
                 string stashName = $"stash@{{{stash.Id}}}";
                 menu.AddItem(new GUIContent($"Apply stash [{branchName}]"), false, () => {
-                    task = GUIUtils.RunGitAndErrorCheck(modules, x => x.ApplyStash(stashName));
+                    task = GUIUtils.RunSafe(modules, x => x.ApplyStash(stashName));
                 });
                 menu.AddItem(new GUIContent($"Delete stash [{branchName}]"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want DELETE stash", $"LOCAL {stashName} in {modules.Count()} modules", "Yes", "No"))
-                        task = GUIUtils.RunGitAndErrorCheck(modules, x => x.DeleteStash(stashName));
+                        task = GUIUtils.RunSafe(modules, x => x.DeleteStash(stashName));
                 });
             }
 
@@ -189,16 +189,16 @@ namespace Abuksigun.MRGitUI
                 menu.AddSeparator("");
                 menu.AddItem(new GUIContent($"Reset HARD [{branchName}]"), false, () => {
                     if (EditorUtility.DisplayDialog($"Are you sure you want RESET HARD to BRANCH/TAG {branchName}", affectedModules, "Yes", "No"))
-                        task = GUIUtils.RunGitAndErrorCheck(modules, x => x.Reset(selectedReference.QualifiedName, true));
+                        task = GUIUtils.RunSafe(modules, x => x.Reset(selectedReference.QualifiedName, true));
                 });
                 menu.AddSeparator("");
                 menu.AddItem(new GUIContent($"Merge [{branchName}]"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want MERGE branch", affectedModules, "Yes", "No"))
-                        task = GUIUtils.RunGitAndErrorCheck(modules, x => x.Merge(selectedReference.QualifiedName));
+                        task = GUIUtils.RunSafe(modules, x => x.Merge(selectedReference.QualifiedName));
                 });
                 menu.AddItem(new GUIContent($"Rebase [{branchName}]"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want REBASE branch", affectedModules, "Yes", "No"))
-                        task = GUIUtils.RunGitAndErrorCheck(modules, x => x.Rebase(selectedReference.QualifiedName));
+                        task = GUIUtils.RunSafe(modules, x => x.Rebase(selectedReference.QualifiedName));
                 });
             }
 

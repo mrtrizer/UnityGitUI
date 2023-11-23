@@ -25,7 +25,16 @@ namespace Abuksigun.MRGitUI
 
     public static class GUIUtils
     {
+        class ErrorWindowData
+        {
+            public string Command { get; set; }
+            public int[] ProcessIds { get; set; }
+            public DefaultWindow Window { get; set; }
+            public Task Task { get; set; }
+        }
+
         static Dictionary<string, Vector2> logScrollPositions = new();
+        static Dictionary<Module, ErrorWindowData> commandErrorWindowMap = new();
         static int reloadAssembliesStack = 0;
 
         static void PushReloadAssembliesLock()
@@ -46,8 +55,9 @@ namespace Abuksigun.MRGitUI
         public static Task ShowModalWindow(DefaultWindow window, Vector2Int size, Action<EditorWindow> onGUI = null)
         {
             window.onGUI = onGUI;
+            window.titleContent = new GUIContent(window.titleContent.text + " (Compilation disabled)");
             PushReloadAssembliesLock();
-            // True modal window in unity blocks execution of thread. So, instread I just fake it's behaviour.
+            // True modal window in unity blocks execution of a thread. So, instread I just mimic it's behaviour.
             window.ShowUtility();
             window.position = new Rect(EditorGUIUtility.GetMainWindowPosition().center - size / 2, size);
             var tcs = new TaskCompletionSource<bool>();
@@ -91,39 +101,66 @@ namespace Abuksigun.MRGitUI
             return items;
         }
 
-        public static async Task<CommandResult[]> RunGitAndErrorCheck(IEnumerable<Module> modules, Func<Module, Task<CommandResult>> command)
+        public static async Task HandleError(Module module, CommandResult result)
         {
-            var taskPerModule = modules.ToDictionary(x => x, async module => {
+            var errorWindowData = commandErrorWindowMap.GetValueOrDefault(module);
+            if (errorWindowData == null)
+            {
+                var processIds = new int[] { result.LocalProcessId };
+                string guid = "";
+                var window = ScriptableObject.CreateInstance<DefaultWindow>();
+                window.titleContent = new GUIContent("Error");
+                var task = ShowModalWindow(window, new Vector2Int(500, 400), (window) => {
+                    try
+                    {
+                        DrawProcessLogs(commandErrorWindowMap.Keys.ToList(), ref guid, window.position.size, commandErrorWindowMap.ToDictionary(x => x.Key.Guid, x => x.Value.ProcessIds));
+                    }
+                    catch
+                    {
+                        // WIP: Layout may be inconsistent when new logs are pushed
+                    }
+                });
+                errorWindowData = new ErrorWindowData { Command = result.Command, ProcessIds = processIds, Task = task, Window = window };
+                commandErrorWindowMap[module] = errorWindowData;
+                await task;
+                commandErrorWindowMap.Remove(module);
+            }
+            else
+            {
+                errorWindowData.ProcessIds = errorWindowData.ProcessIds.Append(result.LocalProcessId).ToArray();
+            }
+        }
+
+        public static async Task ShowOutputWindow(Dictionary<Module, Task<CommandResult>> taskPerModule)
+        {
+            string guid = "";
+            var erroredModules = taskPerModule.Where(x => x.Value.Result.ExitCode != 0).Select(x => x.Key).ToList();
+            await ShowModalWindow("Error", new Vector2Int(500, 400), (window) => {
+                DrawProcessLogs(erroredModules, ref guid, window.position.size, taskPerModule.ToDictionary(x => x.Key.Guid, x => new[] { x.Value.Result.LocalProcessId }));
+            });
+        }
+
+        public static Task<CommandResult[]> RunSafe(IEnumerable<Module> modules, Func<Module, Task<CommandResult>> command)
+        {
+            return Task.WhenAll(modules.Select(module => {
                 try
                 {
-                    var commandLog = new List<IOData>();
                     PushReloadAssembliesLock();
-                    var result = await command(module);
-                    return result;
+                    return command(module);
                 }
                 finally
                 {
                     PopReloadAssembliesLock();
                 }
-            });
-            await Task.WhenAll(taskPerModule.Values);
-            if (taskPerModule.Values.Any(x => x.Result.ExitCode != 0))
-            {
-                string guid = "";
-                var erroredModules = taskPerModule.Where(x => x.Value.Result.ExitCode != 0).Select(x => x.Key).ToList();
-                await ShowModalWindow("Error", new Vector2Int(500, 400), (window) => {
-                    DrawProcessLogs(erroredModules, ref guid, window.position.size, taskPerModule.ToDictionary(x => x.Key.Guid, x => x.Value.Result.LocalProcessId));
-                });
-            }
-            return taskPerModule.Values.Select(x => x.Result).ToArray();
+            }));
         }
 
-        public static async void MakeTag(string hash = null)
+        public static Task MakeTag(string hash = null)
         {
             string tagName = "";
             string annotation = "";
 
-            await ShowModalWindow($"New Tag {hash?.WrapUp("In ", " commit")}", new Vector2Int(300, 150), (window) => {
+            return ShowModalWindow($"New Tag {hash?.WrapUp("In ", " commit")}", new Vector2Int(300, 150), (window) => {
                 GUILayout.Label("Tag Name: ");
                 tagName = EditorGUILayout.TextField(tagName);
                 GUILayout.Label("Annotation (optional): ");
@@ -164,21 +201,32 @@ namespace Abuksigun.MRGitUI
             return modules[tab];
         }
 
-        public static void DrawProcessLogs(IReadOnlyList<Module> modules, ref string guid, Vector2 size, Dictionary<string, int> localProcessIds = null, bool letFocus = true)
+        public static void DrawVerticalExpand()
+        {
+            GUILayout.Label("");
+        }
+
+        public static void DrawProcessLogs(IReadOnlyList<Module> modules, ref string guid, Vector2 size, Func<IOData, bool> predicate = null, bool letFocus = true)
         {
             if (modules.Count == 0)
                 return;
             var module = ModuleGuidToolbar(modules, guid);
             guid = module.Guid;
+            var filtered = predicate != null ? module.ProcessLog.Where(predicate) : module.ProcessLog;
+            DrawProcessLog(guid, size, filtered, letFocus);
+        }
 
-            int localProcessId = int.MaxValue;
-            if (localProcessIds == null)
-                localProcessId = -1;
+        public static void DrawProcessLogs(IReadOnlyList<Module> modules, ref string guid, Vector2 size, Dictionary<string, int[]> guidToProcessId = null, bool letFocus = true)
+        {
+            if (guidToProcessId != null)
+            {
+                int[] localProcessIds = guidToProcessId.GetValueOrDefault(guid ?? "") ?? Array.Empty<int>();
+                DrawProcessLogs(modules, ref guid, size, x => localProcessIds.Contains(x.LocalProcessId), letFocus);
+            }
             else
-                localProcessIds.TryGetValue(guid, out localProcessId);
-
-            var filteredProcessLog = localProcessId == -1 ? module.ProcessLog : module.ProcessLog.Where(x => x.LocalProcessId == localProcessId);
-            DrawProcessLog(guid, size, filteredProcessLog, letFocus);
+            {
+                DrawProcessLogs(modules, ref guid, size, x => true, letFocus);
+            }
         }
 
         public static void DrawProcessLog(string guid, Vector2 size, IEnumerable<IOData> filteredProcessLog, bool letFocus = true)
@@ -227,10 +275,18 @@ namespace Abuksigun.MRGitUI
                 _ = pair.module.DiscardFiles(pair.files);
         }
 
-        public static void Stage(IEnumerable<(Module module, string[] files)> selectionPerModule)
+        public static async Task Stage(IEnumerable<(Module module, string[] files)> selectionPerModule)
         {
+            await Task.WhenAll(selectionPerModule.Select(x => x.module.GitStatus));
+            var fileInfos = selectionPerModule.SelectMany(x => x.files).Select(x => Utils.GetFileGitInfo(x));
+            var unresolvedFiles = fileInfos.Where(x => x.FileStatuses?.Any(y => y.IsUnresolved) ?? false).Select(x => x.FullPath);
+            if (unresolvedFiles.Any())
+            {
+                EditorUtility.DisplayDialog("You need to resolve conflicts first!", $"Affected files\n { string.Join('\n', unresolvedFiles)}", "Ok");
+                return;
+            }
             foreach (var pair in selectionPerModule)
-                _ = pair.module.Stage(pair.files);
+                await pair.module.Stage(pair.files);
         }
 
         public static void Unstage(IEnumerable<(Module module, string[] files)> selectionPerModule)

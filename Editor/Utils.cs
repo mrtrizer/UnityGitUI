@@ -68,12 +68,12 @@ namespace Abuksigun.MRGitUI
         {
             modules = new();
             string assetsGuid = AssetDatabase.AssetPathToGUID("Assets");
-            modules.Add(assetsGuid, new Module(assetsGuid));
+            modules.Add(assetsGuid, new Module(assetsGuid, GUIUtils.HandleError));
             foreach (var package in PackageInfo.GetAllRegisteredPackages())
             {
                 string guid = AssetDatabase.AssetPathToGUID(package.assetPath);
                 if (guid != null)
-                    modules.Add(guid, new Module(guid));
+                    modules.Add(guid, new Module(guid, GUIUtils.HandleError));
             }
             Debug.Log($"{nameof(MRGitUI)} has found modules: {modules.Values.Select(x => x.Name).Join('\n')}");
         }
@@ -85,7 +85,7 @@ namespace Abuksigun.MRGitUI
 
         public static Module GetModule(string guid)
         {
-            return modules.GetValueOrDefault(guid) ?? (modules[guid] = IsModule(guid) ? new Module(guid) : null);
+            return modules.GetValueOrDefault(guid) ?? (modules[guid] = IsModule(guid) ? new Module(guid, GUIUtils.HandleError) : null);
         }
 
         public static void ResetModule(Module module)
@@ -184,7 +184,7 @@ namespace Abuksigun.MRGitUI
         public static Module FindModuleContainingPath(string path)
         {
             string normalizedPath = GetFullPathFromUnityLogicalPath(path.Trim().NormalizeSlashes());
-            return modules.Values.Where(x => x != null).OrderByDescending(x => x.ProjectDirPath.Length).FirstOrDefault(x => normalizedPath.Contains(x.ProjectDirPath));
+            return modules.Values.Where(x => x?.ProjectDirPath != null).OrderByDescending(x => x.ProjectDirPath.Length).FirstOrDefault(x => normalizedPath.Contains(x.ProjectDirPath));
         }
 
         public static string GetFullPathFromGuid(string guid)
@@ -213,9 +213,11 @@ namespace Abuksigun.MRGitUI
             if (string.IsNullOrEmpty(filePath))
                 return null;
             var allFiles = gitModules.Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null).SelectMany(x => x.Files);
-            if (allFiles.Where(x => x.FullProjectPath == filePath || x.FullProjectPath == filePath + ".meta") is { } fileStatuses && fileStatuses.Any())
+            var fileStatuses = allFiles.Where(x => x.FullProjectPath == filePath || x.FullProjectPath == filePath + ".meta");
+            if (fileStatuses.Any())
                 return new AssetGitInfo(GetModule(fileStatuses.First().ModuleGuid), filePath, fileStatuses.ToArray(), false);
-            if (allFiles.Where(x => x.FullProjectPath.Contains(filePath)) is { } nestedFileStatuses && nestedFileStatuses.Any())
+            var nestedFileStatuses = allFiles.Where(x => x.FullProjectPath.Contains(filePath));
+            if (nestedFileStatuses.Any())
                 return new AssetGitInfo(GetModule(nestedFileStatuses.First().ModuleGuid), filePath, nestedFileStatuses.ToArray(), true);
             return new AssetGitInfo(FindModuleContainingPath(filePath), filePath, null, false);
         }
@@ -230,9 +232,7 @@ namespace Abuksigun.MRGitUI
 
         public static string JoinFileNames(IEnumerable<string> fileNames)
         {
-            if (fileNames == null)
-                return null;
-            return fileNames?.Select(x => $"\"{x}\"")?.Join(' ');
+            return fileNames?.Select(x => $"\"{x}\"").Join(' ');
         }
 
         public static IEnumerable<string> BatchFiles(IEnumerable<string> files)
@@ -302,8 +302,15 @@ namespace Abuksigun.MRGitUI
 
             void HandleData(StringBuilder stringBuilder, bool error, DataReceivedEventArgs args)
             {
-                if (args.Data != null && (dataHandler?.Invoke(process, new IOData { Data = args.Data, Error = error, LocalProcessId = localProcessId, Process = process }) ?? true))
-                    stringBuilder.AppendLine(args.Data);
+                try
+                {
+                    if (args.Data != null && (dataHandler?.Invoke(process, new IOData { Data = args.Data, Error = error, LocalProcessId = localProcessId, Process = process }) ?? true))
+                        stringBuilder.AppendLine(args.Data);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
             }
         }
 

@@ -146,14 +146,16 @@ namespace Abuksigun.MRGitUI
             string linkPath = Path.Join("Packages", packageName);
             SymLinkUtils.CreateDirectoryLink(localDirPath, linkPath);
             string[] excludeFileContent = File.Exists(ExcludeFilePath) ? File.ReadAllLines(ExcludeFilePath, Encoding.UTF8) : Array.Empty<string>();
-            File.WriteAllLines(ExcludeFilePath, excludeFileContent.Append(linkPath.NormalizeSlashes()).Distinct());
+            if (Directory.Exists(Path.GetDirectoryName(ExcludeFilePath)))
+                File.WriteAllLines(ExcludeFilePath, excludeFileContent.Append(linkPath.NormalizeSlashes()).Distinct());
         }
 
         public static void DeleteLocalLink(Module module)
         {
             string linkPath = Path.Join("Packages", module.Name).NormalizeSlashes();
             Directory.Delete(linkPath);
-            File.WriteAllLines(ExcludeFilePath, File.ReadAllLines(ExcludeFilePath, Encoding.UTF8).Where(x => x != linkPath).Distinct());
+            if (File.Exists(ExcludeFilePath))
+                File.WriteAllLines(ExcludeFilePath, File.ReadAllLines(ExcludeFilePath, Encoding.UTF8).Where(x => x != linkPath).Distinct());
         }
     }
 }

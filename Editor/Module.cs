@@ -53,7 +53,10 @@ namespace Abuksigun.MRGitUI
 
     public class Module
     {
+        readonly Func<Module, CommandResult, Task> errorHandler;
+
         Task<bool> isGitRepo;
+        Task<int> gitVersion;
         Task<string> gitRepoPath;
         Task<string> gitParentRepoPath;
         Task<Reference[]> references;
@@ -90,6 +93,7 @@ namespace Abuksigun.MRGitUI
         public string ProjectDirPath => PhysicalPath == Application.dataPath ? Directory.GetParent(PhysicalPath).FullName.NormalizeSlashes() : PhysicalPath;
         public PackageInfo PackageInfo { get; }
         public Task<bool> IsGitRepo => isGitRepo ??= GetIsGitRepo();
+        public Task<int> GitVersion => gitVersion ??= GetGitVersion();
         public Task<string> GitRepoPath => gitRepoPath ??= GetRepoPath();
         public Task<string> GitParentRepoPath => gitParentRepoPath ??= GetParentRepoPath();
         public Task<Reference[]> References => references ??= GetReferences();
@@ -112,9 +116,10 @@ namespace Abuksigun.MRGitUI
         public IReadOnlyList<IOData> ProcessLog => GetProcessLog();
         public DateTime RefreshTimestamp { get; private set; }
 
-        public Module(string guid)
+        public Module(string guid, Func<Module, CommandResult, Task> errorHandler = null)
         {
             Guid = guid;
+            this.errorHandler = errorHandler;
             string path = LogicalPath = AssetDatabase.GUIDToAssetPath(guid);
             PhysicalPath = Path.GetFullPath(FileUtil.GetPhysicalPath(LogicalPath)).NormalizeSlashes();
             UnreferencedPath = SymLinkUtils.ResolveLink(PhysicalPath);
@@ -126,23 +131,26 @@ namespace Abuksigun.MRGitUI
             RefreshTimestamp = DateTime.Now;
         }
 
-        public Task<CommandResult> RunGit(string args, Action<IOData> dataHandler = null, string workingDir = null)
+        public Task<CommandResult> RunGit(string args, bool ignoreError = false, Action<IOData> dataHandler = null, string workingDir = null)
         {
             string mergedArgs = "-c core.quotepath=false --no-optional-locks " + args;
-            return RunProcess("git", mergedArgs, dataHandler, workingDir);
+            return RunProcess("git", mergedArgs, ignoreError, dataHandler, workingDir);
         }
 
-        public Task<CommandResult> RunProcess(string command, string args, Action<IOData> dataHandler = null, string workingDir = null)
+        public async Task<CommandResult> RunProcess(string command, string args, bool ignoreError = false, Action<IOData> dataHandler = null, string workingDir = null)
         {
             lock (processLogConcurent)
                 processLogConcurent.Add(new IOData { Data = $">> {command} {args}", Error = false, LocalProcessId = Utils.GetNextRunCommandProcessId() });
-            var result =  Utils.RunCommand(workingDir ?? PhysicalPath, command, args, (_, data) => {
+            var handle = Utils.RunCommand(workingDir ?? PhysicalPath, command, args, (_, data) => {
                 lock (processLogConcurent)
                     processLogConcurent.Add(data);
                 dataHandler?.Invoke(data);
                 return true;
             });
-            return result.task;
+            var result = await handle.task;
+            if (!ignoreError && result.ExitCode != 0)
+                _ = errorHandler?.Invoke(this, result);
+            return result;
         }
 
         public Task<string> FileDiff(GitFileReference logFileReference)
@@ -247,15 +255,22 @@ namespace Abuksigun.MRGitUI
 
         async Task<string> GetRepoPath()
         {
-            return (await RunGit("rev-parse --show-toplevel")).Output.Trim();
+            return (await RunGit("rev-parse --show-toplevel", true)).Output.Trim();
         }
 
         async Task<bool> GetIsGitRepo()
         {
-            var result = await RunGit("rev-parse --show-toplevel");
+            var result = await RunGit("rev-parse --show-toplevel", true);
             if (result.ExitCode != 0 || string.IsNullOrEmpty(result.Output))
                 return false;
             return Path.GetFullPath(result.Output.Trim()) != Directory.GetCurrentDirectory() || Path.GetFullPath(PhysicalPath) == Path.GetFullPath(Application.dataPath);
+        }
+
+        async Task<int> GetGitVersion()
+        {
+            string strVersion = (await RunGit("--version")).Output.Trim();
+            string[] parts = strVersion[12..].Split('.');
+            return int.Parse(parts[0]) * 100 + int.Parse(parts[1]);
         }
 
         async Task<string> GetCommit()
@@ -285,12 +300,12 @@ namespace Abuksigun.MRGitUI
                         ? new RemoteBranch(split[3..].Join('/'), x[1], split[2])
                         : new LocalBranch(split[2..].Join('/'), x[1], x.Length > 2 ? x[2] : null);
                 });
-            var stashesResult = await RunGit($"log -g --format=\"%gd %H %s\" refs/stash");
+            var stashesResult = await RunGit($"log -g --format=\"%gd %H %s\" refs/stash", true);
             var stashes = stashesResult.Output.SplitLines()
                 .Select(x => Regex.Match(x, @"stash@\{([0-9]+)\} ([a-f0-9]{40}) (.*?)(--|$)"))
                 .Select(x => new Stash(x.Groups[3].Value, int.Parse(x.Groups[1].Value), x.Groups[2].Value))
                 .Cast<Reference>();
-            var tagsResult = await RunGit($"show-ref --tags");
+            var tagsResult = await RunGit($"show-ref --tags", true);
             var tags = tagsResult.Output.SplitLines()
                 .Select(x => Regex.Match(x, @"([a-f0-9]{40}) refs/tags/(.*)"))
                 .Select(x => new Tag(x.Groups[2].Value, x.Groups[1].Value))
@@ -301,7 +316,7 @@ namespace Abuksigun.MRGitUI
         async Task<string[]> GetLog(IEnumerable<string> files = null)
         {
             string filesStr = files != null && files.Any() ? Utils.JoinFileNames(files).WrapUp("--follow -- ", "") : null;
-            var result = await RunGit($"log --graph --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ar) <b>%d</b> %s\" --branches --remotes --tags {filesStr}");
+            var result = await RunGit($"log --graph --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ae) (%ar) <b>%d</b> %s\" --branches --remotes --tags {filesStr}");
             return result.Output.SplitLines();
         }
 
@@ -389,12 +404,12 @@ namespace Abuksigun.MRGitUI
             return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged), await GitParentRepoPath, Guid);
         }
 
-        async Task<bool> GetIsLfsAvailable() => (await RunProcess("git", "lfs version")).ExitCode == 0;
-        async Task<bool> GetIsLfsInstalled() => (await RunGit("lfs ls-files")).ExitCode == 0;
+        async Task<bool> GetIsLfsAvailable() => (await RunProcess("git", "lfs version", true)).ExitCode == 0;
+        async Task<bool> GetIsLfsInstalled() => (await RunGit("lfs ls-files", true)).ExitCode == 0;
 
         async Task<LfsFileInfo[]> GitLfsLsFiles()
         {
-            var result = await RunGit("lfs ls-files");
+            var result = await RunGit("lfs ls-files", true);
             if (result.ExitCode != 0)
                 return Array.Empty<LfsFileInfo>();
             string gitRepoPath = await GitRepoPath;
@@ -410,7 +425,7 @@ namespace Abuksigun.MRGitUI
 
         async Task<string[]> GetLfsTrackedPatterns()
         {
-            var result = await RunGit("lfs track");
+            var result = await RunGit("lfs track", true);
             if (result.ExitCode != 0)
                 return Array.Empty<string>();
             return result.Output.SplitLines().Skip(1).Where(x => x.Contains("(.gitattributes)")).Select(x => x[4..^17]).Distinct().ToArray();
@@ -461,9 +476,9 @@ namespace Abuksigun.MRGitUI
         {
             return statusOutput.SplitLines().Select(line => {
                 string[] paths = line[2..].Split(new[] { " ->", "\t" }, RemoveEmptyEntries);
-                string path = paths[paths.Length - 1].Trim();
+                string path = paths[paths.Length - 1].Trim().Trim('"');
                 string oldPath = paths.Length > 1 ? paths[paths.Length - 2].Trim() : null;
-                string fullPath = Path.Join(gitRepoPath, path.Trim('"')).NormalizeSlashes();
+                string fullPath = Path.Join(gitRepoPath, path).NormalizeSlashes();
                 string fullProjectPath = GetSymLinkReferencedPath(fullPath);
                 return new FileStatus(Guid, fullProjectPath, fullPath, oldPath, X: line[0], Y: line[1], numStatUnstaged.GetValueOrDefault(path), numStatStaged.GetValueOrDefault(path));
             }).ToArray();
@@ -515,11 +530,11 @@ namespace Abuksigun.MRGitUI
         public Task<CommandResult> CheckoutRemote(string branch) => RunGit($"switch {branch}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         public Task<CommandResult> Merge(string branchQualifiedName) => RunGit($"merge {branchQualifiedName}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         public Task<CommandResult> Rebase(string branchQualifiedName) => RunGit($"rebase {branchQualifiedName}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
-        public Task CreateBranch(string branchName, bool checkout) => RunGit(checkout ? $"checkout -b {branchName}" : $"branch {branchName}").AfterCompletion(RefreshReferences);
-        public Task RenameBranch(string oldBranchName, string newBranchName) => RunGit($"branch -m {oldBranchName} {newBranchName}").AfterCompletion(RefreshReferences);
+        public Task<CommandResult> CreateBranch(string branchName, bool checkout) => RunGit(checkout ? $"checkout -b {branchName}" : $"branch {branchName}").AfterCompletion(RefreshReferences);
+        public Task<CommandResult> RenameBranch(string oldBranchName, string newBranchName) => RunGit($"branch -m {oldBranchName} {newBranchName}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> DeleteBranch(string branchName) => RunGit($"branch -D {branchName}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> DeleteRemoteBranch(string remoteAlias, string branchName) => RunGit($"push -d {remoteAlias} {branchName}").AfterCompletion(RefreshReferences);
-        public Task CreateTag(string tagName, string message, string hash) => RunGit($"tag \"{tagName}\" {message} {hash}").AfterCompletion(RefreshReferences);
+        public Task<CommandResult> CreateTag(string tagName, string message, string hash) => RunGit($"tag \"{tagName}\" {message} {hash}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> DeleteTag(string tagName) => RunGit($"tag -d {tagName}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> ApplyStash(string stashName) => RunGit($"stash apply {stashName}").AfterCompletion(RefreshFilesStatus, RefreshReferences);
         public Task<CommandResult> DeleteStash(string stashName)  => RunGit($"stash drop {stashName}").AfterCompletion(RefreshReferences);
@@ -528,7 +543,7 @@ namespace Abuksigun.MRGitUI
         #region Staging
         public Task<CommandResult> Commit(string commitMessage = null, bool amend = false)
         {
-            string args = amend ? "--amend" : "" + commitMessage == null ? "--no-edit" : commitMessage?.WrapUp("-m \"", "\"");
+            string args = (amend ? "--amend" : "") + (commitMessage == null ? "--no-edit" : commitMessage.WrapUp("-m \"", "\""));
             return RunGit($"commit {args}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         }
 
@@ -557,14 +572,20 @@ namespace Abuksigun.MRGitUI
             return RunGit($"merge --abort").AfterCompletion(RefreshFilesStatus);
         }
 
-        public Task<CommandResult[]> TakeOurs(IEnumerable<string> files)
+        public async Task<CommandResult[]> TakeOurs(IEnumerable<string> files)
         {
-            return Task.WhenAll(Utils.BatchFiles(files).ToList().Select(batch => RunGit($"checkout --ours  -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+            var result = await Task.WhenAll(Utils.BatchFiles(files).ToList().Select(batch => RunGit($"checkout --ours  -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+            await Stage(files);
+            RefreshFilesStatus();
+            return result;
         }
 
-        public Task<CommandResult[]> TakeTheirs(IEnumerable<string> files)
+        public async Task<CommandResult[]> TakeTheirs(IEnumerable<string> files)
         {
-            return Task.WhenAll(Utils.BatchFiles(files).ToList().Select(batch => RunGit($"checkout --theirs  -- {batch}"))).AfterCompletion(RefreshFilesStatus);
+            var result = await Task.WhenAll(Utils.BatchFiles(files).ToList().Select(batch => RunGit($"checkout --theirs  -- {batch}")));
+            await Stage(files);
+            RefreshFilesStatus();
+            return result;
         }
 
         public Task<CommandResult> ContinueCherryPick() => RunGit($"cherry-pick --continue").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
@@ -586,7 +607,7 @@ namespace Abuksigun.MRGitUI
         public async Task<CommandResult> UntrackPathsWithLfs(IEnumerable<string> filePaths)
         {
             string pathsString = Utils.JoinFileNames(filePaths);
-            if (await RunGit($"lfs untrack {pathsString}", workingDir: await GitRepoPath).AfterCompletion(RefreshFilesStatus) is { ExitCode: not 0 } untrackResult)
+            if (await RunGit($"lfs untrack {pathsString}", true, workingDir: await GitRepoPath).AfterCompletion(RefreshFilesStatus) is { ExitCode: not 0 } untrackResult)
                 return untrackResult;
             return await RunGit($"rm --cached {filePaths}", workingDir: await GitRepoPath).AfterCompletion(RefreshFilesStatus);
         }
@@ -616,9 +637,15 @@ namespace Abuksigun.MRGitUI
             return RunGit($"checkout {commit} -- {Utils.JoinFileNames(filePaths)}").AfterCompletion(RefreshFilesStatus);
         }
 
-        public Task<CommandResult> Stash(string commitMessage, IEnumerable<string> files)
+        public Task<CommandResult> Stash(string commitMessage, bool untracked = false)
         {
-            return RunGit($"stash push -m {commitMessage.WrapUp()} -- {Utils.JoinFileNames(files)}").AfterCompletion(RefreshFilesStatus, RefreshReferences);
+            return RunGit($"stash push -m {commitMessage.WrapUp()} {"-u".When(untracked)}");
+        }
+
+        public Task<CommandResult[]> StashFiles(string commitMessage, IEnumerable<string> files)
+        {
+            var batches = Utils.BatchFiles(files).ToList();
+            return Task.WhenAll(batches.Select(batch => RunGit($"stash push -m {commitMessage.WrapUp()} -- {Utils.JoinFileNames(files)}"))).AfterCompletion(RefreshFilesStatus, RefreshReferences);
         }
         #endregion
 
