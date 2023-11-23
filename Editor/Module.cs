@@ -53,7 +53,8 @@ namespace Abuksigun.MRGitUI
 
     public class Module
     {
-        readonly Func<Module, CommandResult, Task> errorHandler;
+        public delegate Task ErrorHandler(Module module, CommandResult result);
+        readonly ErrorHandler errorHandler;
 
         Task<bool> isGitRepo;
         Task<int> gitVersion;
@@ -116,7 +117,7 @@ namespace Abuksigun.MRGitUI
         public IReadOnlyList<IOData> ProcessLog => GetProcessLog();
         public DateTime RefreshTimestamp { get; private set; }
 
-        public Module(string guid, Func<Module, CommandResult, Task> errorHandler = null)
+        public Module(string guid, ErrorHandler errorHandler = null)
         {
             Guid = guid;
             this.errorHandler = errorHandler;

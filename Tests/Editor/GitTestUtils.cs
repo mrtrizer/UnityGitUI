@@ -92,7 +92,7 @@ namespace Abuksigun.MRGitUI.Tests.Editor
         public static string GetRepoGuid(string name)
         {
             var allPackages = UnityEditor.PackageManager.PackageInfo.GetAllRegisteredPackages();
-            var package = allPackages.First(x => x.resolvedPath.EndsWith(name));
+            var package = allPackages.First(x => Path.GetFileName(x.resolvedPath) == name);
             return AssetDatabase.AssetPathToGUID(package.assetPath);
         }
 
