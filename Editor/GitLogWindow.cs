@@ -100,6 +100,7 @@ namespace Abuksigun.MRGitUI
         [SerializeField] SplitterState verticalSplitterState = new SplitterState(new float[] { 0.8f, 0.2f });
         LazyTreeView<GitStatus> treeViewFiles;
         int lastSelectedCommitHash;
+        Vector2 infoPanelScrollPosition;
 
         string GetSelectedCommitHash(int id)
         {
@@ -225,7 +226,8 @@ namespace Abuksigun.MRGitUI
 
         private void DrawFilesPanel(Module module, IEnumerable<string> selectedCommitHashes)
         {
-            string firstCommit = $"{selectedCommitHashes.First()}~1";
+            bool fistCommitSelected = selectedCommitHashes.First() == lines.Last().Hash;
+            string firstCommit = !fistCommitSelected ? $"{selectedCommitHashes.First()}~1" : Utils.EmptyTreeIdConst;
             string lastCommit = selectedCommitHashes.Last();
 
             var diffFiles = module.DiffFiles(firstCommit, lastCommit).GetResultOrDefault();
@@ -245,7 +247,7 @@ namespace Abuksigun.MRGitUI
                 {
                     GUILayout.Space(position.width - InfoPanelWidth);
                 }
-                using (new EditorGUILayout.ScrollViewScope(Vector2.zero))
+                using (var scroll = new EditorGUILayout.ScrollViewScope(infoPanelScrollPosition))
                 using (new EditorGUILayout.VerticalScope(GUILayout.Height(FilesPanelHeight)))
                 {
                     string lastHash = selectedCommitHashes.Count() > 1 ? selectedCommitHashes.Last() : null;
@@ -256,6 +258,7 @@ namespace Abuksigun.MRGitUI
                         if (commitLine != null)
                             EditorGUILayout.TextField(commitLine.Raw.AfterFirst('-'), CommitInfoStyle.Value, GUILayout.Height(60));
                     }
+                    infoPanelScrollPosition = scroll.scrollPosition;
                 }
             }
         }
@@ -389,6 +392,10 @@ namespace Abuksigun.MRGitUI
                     menu.AddItem(new GUIContent($"Merge/{contextMenuName}"), false, () =>
                     {
                         _ = module.Merge(reference.QualifiedName);
+                    });
+                    menu.AddItem(new GUIContent($"Rebase/{contextMenuName}"), false, () =>
+                    {
+                        _ = module.Rebase(reference.QualifiedName);
                     });
                 }
                 menu.AddItem(new GUIContent($"Cherry Pick/{selectedCommits.Join(", ")}"), false, () =>
