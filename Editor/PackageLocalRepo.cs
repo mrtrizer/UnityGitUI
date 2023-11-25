@@ -126,7 +126,7 @@ namespace Abuksigun.MRGitUI
                         var status = packageStatus[packageName];
                         string url = status.url.StartsWith("git+") ? status.url[4..] : status.url;
                         string args = $"clone -b {status.branch} {url.WrapUp()} {status.clonePath.WrapUp()}";
-                        status.task = Utils.RunCommand(Directory.GetCurrentDirectory(), "git", args, (_, data) => HandleCloneOutput(data, status.log)).task;
+                        status.task = Utils.RunCommand(Directory.GetCurrentDirectory(), PluginSettingsProvider.GitPath, args, (_, data) => HandleCloneOutput(data, status.log)).task;
                         status.log.Add(new IOData { Data = $">> git {args}" });
                         packageStatus[packageName] = status;
                     }

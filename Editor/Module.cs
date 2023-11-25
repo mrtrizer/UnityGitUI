@@ -135,7 +135,7 @@ namespace Abuksigun.MRGitUI
         public Task<CommandResult> RunGit(string args, bool ignoreError = false, Action<IOData> dataHandler = null, string workingDir = null)
         {
             string mergedArgs = "-c core.quotepath=false --no-optional-locks " + args;
-            return RunProcess("git", mergedArgs, ignoreError, dataHandler, workingDir);
+            return RunProcess(PluginSettingsProvider.GitPath, mergedArgs, ignoreError, dataHandler, workingDir);
         }
 
         public async Task<CommandResult> RunProcess(string command, string args, bool ignoreError = false, Action<IOData> dataHandler = null, string workingDir = null)
@@ -405,7 +405,7 @@ namespace Abuksigun.MRGitUI
             return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged), await GitParentRepoPath, Guid);
         }
 
-        async Task<bool> GetIsLfsAvailable() => (await RunProcess("git", "lfs version", true)).ExitCode == 0;
+        async Task<bool> GetIsLfsAvailable() => (await RunProcess(PluginSettingsProvider.GitPath, "lfs version", true)).ExitCode == 0;
         async Task<bool> GetIsLfsInstalled() => (await RunGit("lfs ls-files", true)).ExitCode == 0;
 
         async Task<LfsFileInfo[]> GitLfsLsFiles()

@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Abuksigun.MRGitUI
 {
-    public class GitConfigWindow : MonoBehaviour
+    public static class GitConfigWindow
     {
         record Setting(string Name);
 

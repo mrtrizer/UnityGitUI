@@ -100,7 +100,7 @@ namespace Abuksigun.MRGitUI.Tests.Editor
         {
             string remoteRepoDir = Path.Combine(Path.GetTempPath(), name);
             Directory.CreateDirectory(remoteRepoDir);
-            Utils.RunCommand(remoteRepoDir, "git", "init --bare");
+            Utils.RunCommand(remoteRepoDir, PluginSettingsProvider.GitPath, "init --bare");
             return remoteRepoDir;
         }
 
@@ -183,8 +183,8 @@ namespace Abuksigun.MRGitUI.Tests.Editor
             string packageRootDir = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Packages", name));
             Directory.CreateDirectory(packageRootDir);
 
-            Utils.RunCommand(packageRootDir, "git", "init").task.ContinueWith(_ => {
-                Utils.RunCommand(packageRootDir, "git", $"remote add origin {remoteUrl}");
+            Utils.RunCommand(packageRootDir, PluginSettingsProvider.GitPath, "init").task.ContinueWith(_ => {
+                Utils.RunCommand(packageRootDir, PluginSettingsProvider.GitPath, $"remote add origin {remoteUrl}");
             });
 
             string packageJsonPath = Path.Combine(packageRootDir, "package.json");
