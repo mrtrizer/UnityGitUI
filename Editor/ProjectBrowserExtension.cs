@@ -49,7 +49,7 @@ namespace Abuksigun.MRGitUI
 
         static void Draw(string guid, Rect drawRect)
         {
-            if (Application.isPlaying)
+            if (Application.isPlaying && PluginSettingsProvider.DisableWhileProjectRunning)
                 return;
 
             EditorApplication.RepaintProjectWindow();
