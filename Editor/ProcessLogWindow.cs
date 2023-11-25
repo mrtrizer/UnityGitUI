@@ -25,9 +25,7 @@ namespace Abuksigun.MRGitUI
 
             List<int> processIds = null;
             if (!string.IsNullOrEmpty(filter))
-            {
                 processIds = modules.SelectMany(x => x.ProcessLog).Where(x => x.Data.Contains(filter)).Select(x => x.LocalProcessId).Distinct().ToList();
-            }
 
             GUIUtils.DrawProcessLogs(modules, ref guid, position.size - Vector2.up * 15, (x) => (processIds == null || processIds.Contains(x.LocalProcessId)) && (!onlyErrors || x.Error));
             base.OnGUI();

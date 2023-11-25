@@ -27,9 +27,9 @@ public static class GitBameWindow
         await ShowBlame(module, assetInfo.FullPath);
     }
 
-    public static async Task ShowBlame(Module module, string fullPath)
+    public static async Task ShowBlame(Module module, string fullPath, string commit = null)
     {
-        var blame = await module.BlameFile(fullPath);
+        var blame = await module.BlameFile(fullPath, commit);
         if (blame == null)
             return;
 

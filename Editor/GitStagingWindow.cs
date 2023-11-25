@@ -250,10 +250,8 @@ namespace Abuksigun.MRGitUI
                 menu.AddItem(new GUIContent("Log"), false, async () => {
                     foreach ((var module, var files) in indexedSelectionPerModule)
                     {
-                        var window = ScriptableObject.CreateInstance<GitLogWindow>();
-                        window.titleContent = new GUIContent("Log Files");
-                        window.LogFiles = files.ToList();
-                        await GUIUtils.ShowModalWindow(window, new Vector2Int(800, 700));
+                        if (files.Length > 0)
+                            GitFileLog.ShowFilesLog(new[] {module}, files);
                     }
                 });
                 menu.AddSeparator("");

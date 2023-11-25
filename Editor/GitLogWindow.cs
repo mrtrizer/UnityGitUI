@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
@@ -33,11 +34,18 @@ namespace Abuksigun.MRGitUI
         public static void Invoke()
         {
             var assetsInfo = Selection.assetGUIDs.Select(x => Utils.GetAssetGitInfo(x)).Where(x => x != null);
+            var logFiles = assetsInfo.Select(x => x.FullPath).ToList();
+            var modules = assetsInfo.Select(x => x.Module).Distinct().ToList();
+            _ = ShowFilesLog(modules, logFiles);
+        }
+
+        public static async Task ShowFilesLog(IEnumerable<Module> modules, IEnumerable<string> logFiles)
+        {
             var window = ScriptableObject.CreateInstance<GitLogWindow>();
             window.titleContent = new GUIContent("Log Files");
-            window.LogFiles = assetsInfo.Select(x => x.FullPath).ToList();
-            window.LockedModules = assetsInfo.Select(x => x.Module).Distinct().ToList();
-            _ = GUIUtils.ShowModalWindow(window, new Vector2Int(800, 700));
+            window.LogFiles = logFiles.ToList();
+            window.LockedModules = modules.ToList();
+            await GUIUtils.ShowModalWindow(window, new Vector2Int(800, 700));
         }
     }
 
@@ -415,6 +423,8 @@ namespace Abuksigun.MRGitUI
             var menu = new GenericMenu();
             var filePaths = files.Select(x => x.FullPath);
             menu.AddItem(new GUIContent("Diff"), false, () => GitDiff.ShowDiff());
+            menu.AddItem(new GUIContent("Log File"), false, () => _ = GitFileLog.ShowFilesLog(new[] { module }, filePaths));
+            menu.AddItem(new GUIContent("Blame"), false, () => _ = GitBameWindow.ShowBlame(module, filePaths.First(), selectedCommit));
             menu.AddItem(new GUIContent($"Revert to this commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
                     _ = GUIUtils.RunSafe(new[] { module }, x => x.RevertFiles(selectedCommit, filePaths));

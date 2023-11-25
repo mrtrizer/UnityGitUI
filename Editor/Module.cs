@@ -175,10 +175,11 @@ namespace Abuksigun.MRGitUI
             return fileLogCache.TryGetValue(fileLogId, out var diff) ? diff : fileLogCache[fileLogId] = GetLog(files);
         }
 
-        public Task<BlameLine[]> BlameFile(string filePath)
+        public Task<BlameLine[]> BlameFile(string filePath, string commit = null)
         {
             fileBlameCache ??= new();
-            return fileBlameCache.TryGetValue(filePath, out var blame) ? blame : fileBlameCache[filePath] = GetBlame(filePath);
+            string id = $"{filePath}{commit}";
+            return fileBlameCache.TryGetValue(id, out var blame) ? blame : fileBlameCache[id] = GetBlame(filePath, commit);
         }
 
         public Task<string> ConfigValue(string key, ConfigScope scope = ConfigScope.None)
@@ -321,10 +322,10 @@ namespace Abuksigun.MRGitUI
             return result.Output.SplitLines();
         }
 
-        async Task<BlameLine[]> GetBlame(string filePath)
+        async Task<BlameLine[]> GetBlame(string filePath, string commit = null)
         {
             var blameLineRegex = new Regex(@"^([a-f0-9]+) .*?\(([^)]+) (\d+) ([+-]\d{4})\s+\d+\) (.*)$", RegexOptions.Multiline);
-            var result = await RunGit($"blame --date=raw -- {filePath.WrapUp()}");
+            var result = await RunGit($"blame {commit} --date=raw -- {filePath.WrapUp()}");
             return result.Output.SplitLines().Select((x, i) => {
                 var match = blameLineRegex.Match(x);
                 var dateTime = DateTimeOffset.FromUnixTimeSeconds(long.Parse(match.Groups[3].Value)).DateTime;
@@ -457,7 +458,9 @@ namespace Abuksigun.MRGitUI
             }
             else
             {
-                string relativePath = Path.GetRelativePath(PhysicalPath, logFileReference.FullPath);
+                string relativePath = logFileReference.FullPath.Contains(PhysicalPath) 
+                    ? Path.GetRelativePath(PhysicalPath, logFileReference.FullPath) 
+                    : Path.GetRelativePath(UnreferencedPath, logFileReference.FullPath);
                 return (await RunGit($"diff {logFileReference.FirstCommit} {logFileReference.LastCommit} -- \"{relativePath}\"")).Output;
             }
         }
