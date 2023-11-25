@@ -18,6 +18,7 @@ namespace Abuksigun.MRGitUI
             const string indexFilePath = ".git/index";
             const string headsPath = ".git/refs";
 
+            string gitRepoPath;
             Module module;
             public Dictionary<string, long> KnownHeadFiles { get; } = new();
             public long IndexFileTimestamp { get; }
@@ -25,6 +26,7 @@ namespace Abuksigun.MRGitUI
             public RepoFilesTimestamps(Module module)
             {
                 this.module = module;
+                gitRepoPath = module.GitRepoPath.GetResultOrDefault();
                 IndexFileTimestamp = GetFileTimestamp(module, Path.Join(module.PhysicalPath, indexFilePath));
                 KnownHeadFiles = GetKnownHeadFiles(module);
             }
@@ -46,7 +48,7 @@ namespace Abuksigun.MRGitUI
                 var knownHeadFiles = new Dictionary<string, long>();
                 try
                 {
-                    foreach (var headFile in Directory.GetFiles(Path.Join(module.PhysicalPath, headsPath), "*", SearchOption.AllDirectories))
+                    foreach (var headFile in Directory.GetFiles(Path.Join(gitRepoPath, headsPath), "*", SearchOption.AllDirectories))
                         knownHeadFiles[Path.GetFileName(headFile)] = GetFileTimestamp(module, headFile);
                 }
                 catch
@@ -58,7 +60,7 @@ namespace Abuksigun.MRGitUI
 
             public bool IsRepoIndexChanged()
             {
-                return IndexFileTimestamp != GetFileTimestamp(module, Path.Join(module.PhysicalPath, indexFilePath));
+                return IndexFileTimestamp != GetFileTimestamp(module, Path.Join(gitRepoPath, indexFilePath));
             }
 
             public bool IsRefsChanged()
@@ -99,7 +101,7 @@ namespace Abuksigun.MRGitUI
             }
             else
             {
-                foreach (var module in Utils.GetModules().Where(x => x != null))
+                foreach (var module in Utils.GetModules().Where(x => x != null && x.IsGitRepo.GetResultOrDefault()))
                 {
                     repoFilesTimestampsMap[module.Guid] = new RepoFilesTimestamps(module);
                 }
