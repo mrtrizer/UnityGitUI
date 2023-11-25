@@ -31,7 +31,6 @@ namespace Abuksigun.MRGitUI
         public static string Join(this IEnumerable<string> values, char separator) => string.Join(separator, values.Where(x => x != null));
         public static string Join(this IEnumerable<string> values, string separator) => string.Join(separator, values.Where(x => x != null));
 
-
         public static int GetCombinedHashCode(this IEnumerable<object> values)
         {
             int hash = 0;
