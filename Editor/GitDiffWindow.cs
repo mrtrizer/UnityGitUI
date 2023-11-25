@@ -84,6 +84,18 @@ namespace Abuksigun.MRGitUI
                 lastHashCode = 0;
         }
 
+        async Task<string> Diff(Module module, GitFileReference file)
+        {
+            var status = await module.GitStatus;
+            if (status.Unindexed.Any(x => x.FullPath == file.FullPath))
+            {
+                var content = File.ReadAllLines(file.FullPath);
+                string relativePath = Path.GetRelativePath(module.GitRepoPath.GetResultOrDefault(), file.FullPath);
+                return $"new {relativePath}\n" + $"@@ -0,0 +1,{content.Length} @@\n+" + content.Join("\n+");
+            }
+            return await module.FileDiff(file);
+        }
+
         protected override void OnGUI()
         {
             var selectedFiles = Utils.GetSelectedFiles();
@@ -93,7 +105,7 @@ namespace Abuksigun.MRGitUI
             bool hideButtons = viewingLog;
             bool viewingAsset = selectedFiles.Any(x => !x.Staged.HasValue && string.IsNullOrEmpty(x.FirstCommit));
 
-            var diffs = selectedFiles.Select(x => (module: x.Module, fullPath: x.FullPath, diff: x.Module.FileDiff(x), x.Staged));
+            var diffs = selectedFiles.Select(x => (module: x.Module, fullPath: x.FullPath, diff: Diff(x.Module, x), x.Staged));
             var loadedDiffs = diffs.Select(x => (x.module, x.fullPath, diff: x.diff.GetResultOrDefault(), x.Staged)).Where(x => x.diff != null);
 
             var stagedDiffs = loadedDiffs.Where(x => x.Staged.GetValueOrDefault()).ToList();
@@ -204,6 +216,13 @@ namespace Abuksigun.MRGitUI
                 {
                     module = Utils.GetModule(diffLines[i][1..]);
                 }
+                else if (diffLines[i][0] == 'n')
+                {
+                    currentFile = diffLines[i][4..].Trim();
+                    if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
+                        EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, headerHeight), currentFile, Style.FileName.Value);
+                    currentOffset += headerHeight;
+                }
                 else if (diffLines[i][0] == 'd')
                 {
                     if (diffLines[i + 2].StartsWith("Binary"))
@@ -211,7 +230,8 @@ namespace Abuksigun.MRGitUI
                         EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, headerHeight), diffLines[i + 2], Style.FileName.Value);
                         break;
                     }
-                    i += 3;
+                    while (!diffLines[i].StartsWith("+++"))
+                        i++;
                     hunkIndex = -1;
                     currentFile = diffLines[i][6..].Trim();
                     if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
