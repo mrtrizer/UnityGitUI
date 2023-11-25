@@ -60,9 +60,10 @@ namespace Abuksigun.MRGitUI
             var modulesInCherryPickState = modules.Where(x => x.IsCherryPickInProgress.GetResultOrDefault());
             var modulesInMergingState = modules.Where(x => x.IsMergeInProgress.GetResultOrDefault());
             var moduleNotInMergeState = modules.Where(x => !x.IsMergeInProgress.GetResultOrDefault() && !x.IsCherryPickInProgress.GetResultOrDefault());
-            int modulesWithStagedFiles = moduleNotInMergeState.Count(x => x.GitStatus.GetResultOrDefault()?.Staged?.Count() > 0);
-            bool commitAvailable = modulesWithStagedFiles > 0 && !string.IsNullOrWhiteSpace(commitMessage) && !tasksInProgress.Any();
-            bool amendAvailable = (modulesWithStagedFiles > 0 || !string.IsNullOrWhiteSpace(commitMessage)) && !tasksInProgress.Any();
+            var modulesWithStagedFiles = moduleNotInMergeState.Where(x => x.GitStatus.GetResultOrDefault()?.Staged?.Count() > 0);
+            int modulesWithStagedFilesN = modulesWithStagedFiles.Count();
+            bool commitAvailable = modulesWithStagedFilesN > 0 && !string.IsNullOrWhiteSpace(commitMessage) && !tasksInProgress.Any();
+            bool amendAvailable = (modulesWithStagedFilesN > 0 || !string.IsNullOrWhiteSpace(commitMessage)) && !tasksInProgress.Any();
             bool stashAvailable = amendAvailable && moduleNotInMergeState.Any(x => x.GitStatus.GetResultOrDefault()?.Files.Any() ?? false);
 
             var statuses = modules.Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
@@ -78,7 +79,7 @@ namespace Abuksigun.MRGitUI
                 using (new EditorGUI.DisabledGroupScope(!commitAvailable))
                 {
                     if (GUILayout.Button($"Commit", GUILayout.Width(150)))
-                        _ = Commit(moduleNotInMergeState);
+                        tasksInProgress.Add(Commit(modulesWithStagedFiles));
                 }
                 GUILayout.Space(20);
                 using (new EditorGUI.DisabledGroupScope(!amendAvailable))
@@ -168,11 +169,11 @@ namespace Abuksigun.MRGitUI
             var currentBranches = await Task.WhenAll(modules.Select(async module => (module, branch: await module.CurrentBranch)));
             var detachedBranchModules = currentBranches.Where(x => x.branch == null).Select(x => x.module.Name);
             if (detachedBranchModules.Any()
-                && !EditorUtility.DisplayDialog("Detached head detected!", $"In modules:\n{detachedBranchModules}\n\nUse Branches panel to checkout!", "Commit anyway", "Cancel"))
+                && !EditorUtility.DisplayDialog("Detached HEAD", $"Detached HEAD in modules:\n{detachedBranchModules.Join(", ")}\n\nUse Branches panel to checkout!", "Commit anyway", "Cancel"))
             {
                 return;
             }
-            tasksInProgress.AddRange(modules.Select(module => module.Commit(commitMessage)));
+            await Task.WhenAll(modules.Select(module => module.Commit(commitMessage)));
             commitMessage = "";
         }
 
