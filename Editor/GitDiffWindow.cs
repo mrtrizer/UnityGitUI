@@ -73,12 +73,24 @@ namespace Abuksigun.MRGitUI
             normal = new GUIStyleState { background = Style.GetColorTexture(new Color(0.505f, 0.618f, 0.99f)) }
         }, Style.VerifyNormalBackground);
 
+        private void OnEnable()
+        {
+            AssetsWatcher.UnityEditorFocusChanged += OnEditorFocusChanged;
+        }
+
+        void OnEditorFocusChanged(bool hasFocus)
+        {
+            if (hasFocus)
+                lastHashCode = 0;
+        }
+
         protected override void OnGUI()
         {
             var selectedFiles = Utils.GetSelectedFiles();
             if (!selectedFiles.Any())
                 return;
             bool viewingLog = selectedFiles.Any(x => !string.IsNullOrEmpty(x.FirstCommit));
+            bool hideButtons = viewingLog;
             bool viewingAsset = selectedFiles.Any(x => !x.Staged.HasValue && string.IsNullOrEmpty(x.FirstCommit));
 
             var diffs = selectedFiles.Select(x => (module: x.Module, fullPath: x.FullPath, diff: x.Module.FileDiff(x), x.Staged));
@@ -96,7 +108,7 @@ namespace Abuksigun.MRGitUI
                 staged = stagedDiffs.Count > 0 && (unstagedDiffs.Count == 0 || GUILayout.Toolbar(staged ? 1 : 0, toolbarContent, EditorStyles.toolbarButton, GUILayout.Width(160)) == 1);
 
                 GUILayout.FlexibleSpace();
-                if (!viewingLog)
+                if (!hideButtons)
                 {
                     if (staged)
                     {
@@ -159,7 +171,7 @@ namespace Abuksigun.MRGitUI
                 }
             }
 
-            DrawGitDiff(position.size - TopPanelHeight.To0Y(), StageHunk, UnstageHunk, DiscardHunk, staged, !viewingLog, ref scrollPosition);
+            DrawGitDiff(position.size - TopPanelHeight.To0Y(), StageHunk, UnstageHunk, DiscardHunk, staged, !hideButtons, ref scrollPosition);
 
             base.OnGUI();
         }
@@ -218,12 +230,15 @@ namespace Abuksigun.MRGitUI
                             const float buttonWidth = 70;
                             float verticalOffsest = size.x;
                             var fileStatus = status.Files.FirstOrDefault(x => x.FullProjectPath.Contains(currentFile));
-                            if (!staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Stage", EditorStyles.toolbarButton))
-                                stageHunk.Invoke(fileStatus, hunkIndex + 1);
-                            if (staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Unstage", EditorStyles.toolbarButton))
-                                unstageHunk.Invoke(fileStatus, hunkIndex + 1);
-                            if (!staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Discard", EditorStyles.toolbarButton))
-                                discardHunk.Invoke(fileStatus, hunkIndex + 1);
+                            if (fileStatus != null && !fileStatus.IsUnresolved)
+                            {
+                                if (!staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Stage", EditorStyles.toolbarButton))
+                                    stageHunk.Invoke(fileStatus, hunkIndex + 1);
+                                if (staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Unstage", EditorStyles.toolbarButton))
+                                    unstageHunk.Invoke(fileStatus, hunkIndex + 1);
+                                if (!staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Discard", EditorStyles.toolbarButton))
+                                    discardHunk.Invoke(fileStatus, hunkIndex + 1);
+                            }
                         }
                     }
 
@@ -291,7 +306,7 @@ namespace Abuksigun.MRGitUI
         {
             bool inputApplied = false;
             var module = Utils.GetModule(file.ModuleGuid);
-            await module.RunProcess("git", $"{args} -- {file.FullPath.WrapUp()}", false, data => {
+            await module.RunProcess(PluginSettingsProvider.GitPath, $"{args} -- {file.FullPath.WrapUp()}", false, data => {
                 if (data.Error)
                     throw new System.Exception($"Got an error can't continue staging! {data.Data}");
                 if (!inputApplied)
