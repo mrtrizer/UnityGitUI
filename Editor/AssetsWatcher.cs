@@ -18,20 +18,21 @@ namespace Abuksigun.MRGitUI
             const string indexFilePath = ".git/index";
             const string headsPath = ".git/refs";
 
-            string gitRepoPath;
-            Module module;
-            public Dictionary<string, long> KnownHeadFiles { get; } = new();
+            readonly string gitRepoPath;
+            readonly Module module;
+
+            public Dictionary<string, long> KnownHeadFiles { get; }
             public long IndexFileTimestamp { get; }
 
             public RepoFilesTimestamps(Module module)
             {
                 this.module = module;
                 gitRepoPath = module.GitRepoPath.GetResultOrDefault();
-                IndexFileTimestamp = GetFileTimestamp(module, Path.Join(module.PhysicalPath, indexFilePath));
+                IndexFileTimestamp = GetFileTimestamp(Path.Join(module.PhysicalPath, indexFilePath));
                 KnownHeadFiles = GetKnownHeadFiles(module);
             }
 
-            long GetFileTimestamp(Module module, string path)
+            long GetFileTimestamp(string path)
             {
                 try
                 {
@@ -49,7 +50,7 @@ namespace Abuksigun.MRGitUI
                 try
                 {
                     foreach (var headFile in Directory.GetFiles(Path.Join(gitRepoPath, headsPath), "*", SearchOption.AllDirectories))
-                        knownHeadFiles[Path.GetFileName(headFile)] = GetFileTimestamp(module, headFile);
+                        knownHeadFiles[Path.GetFileName(headFile)] = GetFileTimestamp(headFile);
                 }
                 catch
                 {
@@ -60,7 +61,7 @@ namespace Abuksigun.MRGitUI
 
             public bool IsRepoIndexChanged()
             {
-                return IndexFileTimestamp != GetFileTimestamp(module, Path.Join(gitRepoPath, indexFilePath));
+                return IndexFileTimestamp != GetFileTimestamp(Path.Join(gitRepoPath, indexFilePath));
             }
 
             public bool IsRefsChanged()
@@ -93,9 +94,8 @@ namespace Abuksigun.MRGitUI
                 foreach (var module in Utils.GetGitModules().Where(x => x != null))
                 {
                     var repoFilesTimestamps = repoFilesTimestampsMap.GetValueOrDefault(module.Guid);
-                    if (repoFilesTimestamps == null || repoFilesTimestamps.IsRepoIndexChanged())
-                        module.RefreshFilesStatus();
-                    if (repoFilesTimestamps == null || repoFilesTimestamps.IsRefsChanged())
+                    module.RefreshFilesStatus();
+                    if (!PluginSettingsProvider.WatchRefsDir || repoFilesTimestamps == null || repoFilesTimestamps.IsRefsChanged())
                         module.RefreshReferences();
                 }
             }
