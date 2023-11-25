@@ -232,10 +232,13 @@ namespace Abuksigun.MRGitUI
                         EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, headerHeight), diffLines[i + 2], Style.FileName.Value);
                         break;
                     }
-                    while (!diffLines[i].StartsWith("+++"))
+                    while (!diffLines[i].StartsWith("---"))
                         i++;
+                    string removedFile = diffLines[i][6..].Trim();
+                    i++;
+                    string addedFile = diffLines[i][6..].Trim();
+                    currentFile = addedFile == "ev/null" ? removedFile : addedFile;
                     hunkIndex = -1;
-                    currentFile = diffLines[i][6..].Trim();
                     if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
                         EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, headerHeight), currentFile, Style.FileName.Value);
                     currentOffset += headerHeight;
