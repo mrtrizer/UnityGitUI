@@ -53,6 +53,7 @@ namespace Abuksigun.MRGitUI
 
     public class Utils : ScriptableSingleton<Utils>
     {
+        public const string EmptyTreeIdConst = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
         static Dictionary<string, Module> modules = new();
         static object processLock = new();
 
@@ -75,7 +76,6 @@ namespace Abuksigun.MRGitUI
                 if (guid != null)
                     modules.Add(guid, new Module(guid, GUIUtils.HandleError));
             }
-            Debug.Log($"{nameof(MRGitUI)} has found modules: {modules.Values.Select(x => x.Name).Join('\n')}");
         }
 
         public static Module GetModuleByPath(string path)
@@ -184,6 +184,8 @@ namespace Abuksigun.MRGitUI
         public static Module FindModuleContainingPath(string path)
         {
             string normalizedPath = GetFullPathFromUnityLogicalPath(path.Trim().NormalizeSlashes());
+            if (string.IsNullOrEmpty(normalizedPath))
+                return null;
             return modules.Values.Where(x => x?.ProjectDirPath != null).OrderByDescending(x => x.ProjectDirPath.Length).FirstOrDefault(x => normalizedPath.Contains(x.ProjectDirPath));
         }
 
