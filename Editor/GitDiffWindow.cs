@@ -201,6 +201,8 @@ namespace Abuksigun.MRGitUI
             }
             int longestLine = diffLines.Max(x => x.Length);
             float width = Mathf.Max(diffUnchanged.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x) + 100;
+            int currentAddedLine = 1;
+            int currentRemovedLine = 1;
             int currentLine = 1;
 
             using var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, GUILayout.Width(size.x), GUILayout.Height(size.y));
@@ -262,7 +264,9 @@ namespace Abuksigun.MRGitUI
                         }
                     }
 
-                    currentLine = match.Groups[1].Value != "0" ? int.Parse(match.Groups[1].Value) : int.Parse(match.Groups[3].Value);
+                    currentAddedLine = match.Groups[1].Value != "0" ? int.Parse(match.Groups[1].Value) : int.Parse(match.Groups[3].Value);
+                    currentRemovedLine = match.Groups[3].Value != "0" ? int.Parse(match.Groups[3].Value) : currentAddedLine;
+                    currentLine = currentAddedLine;
                     hunkIndex++;
 
                     currentOffset += headerHeight;
@@ -270,13 +274,19 @@ namespace Abuksigun.MRGitUI
                 else if (hunkIndex >= 0)
                 {
                     bool selected = selectedLines?.Contains(i) ?? false;
-                    var style = selected ? diffSelected : diffLines[i][0] switch { '+' => diffAdded, '-' => diffRemoved, _ => diffUnchanged };
+                    char lineMode = diffLines[i][0];
+                    var style = selected ? diffSelected : lineMode switch { '+' => diffAdded, '-' => diffRemoved, _ => diffUnchanged };
                     if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
                     {
                         var rect = new Rect(0, currentOffset, width, CodeLineHeight);
-                        if (GUI.Toggle(rect, selected, $"{diffLines[i][0]} {currentLine++,4} {diffLines[i][1..]}", style.Value) != selected)
+                        if (GUI.Toggle(rect, selected, $"{diffLines[i][0]} {(lineMode == '-' ? currentRemovedLine : currentAddedLine),4} {diffLines[i][1..]}", style.Value) != selected)
                             HandleSelection(selected, module, currentFile, i, currentLine);
                     }
+                    if (lineMode == '-' || lineMode == ' ')
+                        currentRemovedLine++;
+                    if (lineMode == '+' || lineMode == ' ')
+                        currentAddedLine++;
+                    currentLine++;
                     currentOffset += CodeLineHeight;
                 }
             }
