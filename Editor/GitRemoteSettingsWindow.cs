@@ -14,7 +14,7 @@ namespace Abuksigun.MRGitUI
         [MenuItem("Assets/Git/Remote Settings", priority = 100)]
         public static async void Invoke()
         {
-            var window = EditorWindow.CreateInstance<GitSettingsWindow>();
+            var window = EditorWindow.CreateInstance<GitRemoteSettingsWindow>();
             window.titleContent = new GUIContent("Git Remote Settings");
             await GUIUtils.ShowModalWindow(window, new Vector2Int(500, 300));
         }
@@ -30,7 +30,7 @@ namespace Abuksigun.MRGitUI
         [field: SerializeField] public bool NewlyAdded { get; set; }
     };
 
-    class GitSettingsWindow : DefaultWindow
+    class GitRemoteSettingsWindow : DefaultWindow
     {
         int lastHash = 0;
         ReorderableList list = null;
@@ -51,7 +51,7 @@ namespace Abuksigun.MRGitUI
                     var property = serializedObject.FindProperty(nameof(editableRemotes));
                     list = new ReorderableList(serializedObject, property, true, false, true, true)
                     {
-                        drawElementCallback = (rect, index, isActive, isFocused) => DrawListItems(rect, index, isActive, isFocused, editableRemotes),
+                        drawElementCallback = (rect, index, isActive, isFocused) => DrawListItems(rect, index, editableRemotes),
                         onAddCallback = (list) => {
                             list.serializedProperty.arraySize++;
                             editableRemotes.Add(new EditableRecord());
@@ -83,7 +83,7 @@ namespace Abuksigun.MRGitUI
             base.OnGUI();
         }
 
-        static void DrawListItems(Rect rect, int index, bool isActive, bool isFocused, List<EditableRecord> remotes)
+        static void DrawListItems(Rect rect, int index, List<EditableRecord> remotes)
         {
             var remote = remotes[index];
             using (new GUILayout.HorizontalScope())
