@@ -280,7 +280,7 @@ namespace Abuksigun.MRGitUI
         {
             if (item is CommitTreeViewItem { } commit)
             {
-                bool head = commit.LogLine.Branches.Any(x => x.StartsWith("HEAD ->"));
+                bool head = commit.LogLine.Branches.Any(x => x.StartsWith("HEAD"));
                 string defaultColor = EditorGUIUtility.isProSkin ? "white" : "black";
                 string color = head ? "red" : defaultColor;
                 EditorGUI.LabelField(rect, columnIndex switch {
