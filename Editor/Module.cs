@@ -514,13 +514,8 @@ namespace Abuksigun.MRGitUI
         #endregion
 
         #region RepoSync
-        public async Task<CommandResult> Pull(Remote remote = null, bool force = false, bool rebase = false, bool clean = false)
+        public async Task<CommandResult> Pull(Remote remote = null, bool force = false, bool rebase = false)
         {
-            if (clean)
-            {
-                await RunGit($"clean -fd");
-                await Reset("", true);
-            }
             return await RunGit($"pull {"--force".When(force)} {"--rebase".When(rebase)} {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         }
         public async Task<CommandResult> Fetch(bool prune, Remote remote = null)

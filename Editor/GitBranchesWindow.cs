@@ -41,8 +41,12 @@ namespace Abuksigun.MRGitUI
 
         bool showAllBranches = false;
         Task task = null;
-        LazyTreeView<Reference[]> simpleTreeView;
-        [SerializeField] TreeViewState treeViewState;
+        Vector2 reposScrollPosition;
+        LazyTreeView<Reference[]> simpleTreeViewBranches;
+        [SerializeField] TreeViewState treeViewStateBranches;
+        LazyTreeView<Module> simpleTreeViewRepos;
+        [SerializeField] TreeViewState treeViewStateRepos;
+        [SerializeField] SplitterState splitterState = new(new[] {0.5f, 0.5f});
 
         protected override void OnGUI()
         {
@@ -55,29 +59,29 @@ namespace Abuksigun.MRGitUI
                 if (showAllBranches != GUILayout.Toggle(showAllBranches, showAllBranchesContent, EditorStyles.toolbarButton, GUILayout.Width(32)))
                 {
                     showAllBranches = !showAllBranches;
-                    simpleTreeView.Reload();
+                    simpleTreeViewBranches.Reload();
                 }
                 GUIContent lockBranchesContent = EditorGUIUtility.TrIconContent("AssemblyLock", "Lock");
                 bool lockedModules = Utils.LockedModules != null;
                 Utils.LockModules(GUILayout.Toggle(lockedModules, lockBranchesContent, EditorStyles.toolbarButton, GUILayout.Width(32)) ? modules.ToList() : null);
             }
 
+            SplitterGUILayout.BeginVerticalSplit(splitterState);
+
+
             var referencesPerRepo = modules.Select(module => module.References.GetResultOrDefault());
-            if (!referencesPerRepo.Any() || referencesPerRepo.Any(x => x == null))
-                return;
-
             IEnumerable<Reference> references = referencesPerRepo.SelectMany(x => x).Distinct(referenceComparer);
-            simpleTreeView ??= new (GenerateItems, treeViewState ??= new (), false);
-
-            simpleTreeView.Draw(
-                new Vector2(position.width, position.height - TopPanelHeight - BottomPanelHeight),
-                referencesPerRepo,
+            simpleTreeViewBranches ??= new(GenerateItemsBranches, treeViewStateBranches ??= new(), false);
+                
+            simpleTreeViewBranches.Draw(
+                new Vector2(position.width - 20, splitterState.RealSizes[0]),
+                referencesPerRepo.Where(x => x!= null),
                 contextMenuCallback: id => {
                     if (task == null || task.IsCompleted)
                         ShowContextMenu(modules, references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id));
                 },
                 doubleClickCallback: id => {
-                    if (references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id) is { }  reference)
+                    if (references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id) is { } reference)
                     {
                         if (modules.Any() && reference is Stash stash)
                             _ = GitStash.ShowStash(modules.First(), reference.Hash);
@@ -86,12 +90,23 @@ namespace Abuksigun.MRGitUI
                     }
                 });
 
+            // FIXME: For some reason splitter works only with scroll
+            using (var scroll = new EditorGUILayout.ScrollViewScope(reposScrollPosition)) 
+            {
+                simpleTreeViewRepos ??= new(GenerateItemsRepos, treeViewStateRepos ??= new(), true, drawRowCallback: DrawRepoRow) { RowHeight = 30 };
+                simpleTreeViewRepos.Draw(new Vector2(position.width - 20, splitterState.RealSizes[1] - 2), Utils.GetGitModules(), selectionChangedCallback : OnSelectionChangedRepos);
+
+                reposScrollPosition = scroll.scrollPosition;
+            }
+
+            SplitterGUILayout.EndVerticalSplit();
+
             using (new EditorGUILayout.HorizontalScope())
             using (new EditorGUIUtility.IconSizeScope(new Vector2(22, 22)))
             {
                 var layout = new GUILayoutOption[] { GUILayout.Width(BottomPanelHeight - 2), GUILayout.Height(BottomPanelHeight - 2) };
                 if (GUILayout.Button(EditorGUIUtility.TrIconContent("Refresh@2x", "Fetch"), layout))
-                    GitRemotes.ShowRemotesSyncWindow(GitRemotes.Mode.Fetch);
+                    Utils.GetGitModules().ToList().ForEach(x => x.RefreshRemoteStatus());
                 if (GUILayout.Button(EditorGUIUtility.TrIconContent("Download-Available@2x", "Pull"), layout))
                     GitRemotes.ShowRemotesSyncWindow(GitRemotes.Mode.Pull);
                 if (GUILayout.Button(EditorGUIUtility.TrIconContent("Update-Available@2x", "Push"), layout))
@@ -104,6 +119,39 @@ namespace Abuksigun.MRGitUI
             }
 
             base.OnGUI();
+        }
+
+        void OnSelectionChangedRepos(IList<int> selectedIds)
+        {
+            Utils.SetSelectedModules(Utils.GetGitModules().Where(x => selectedIds.Contains(x.Guid.GetHashCode())));
+        }
+
+        void DrawRepoRow(TreeViewItem item, int columnIndex, Rect drawRect)
+        {
+            var module = Utils.GetGitModules().First(x => x.Guid.GetHashCode() == item.id);
+            GUI.Label(drawRect, module.DisplayName);
+
+            float offset = 0;
+
+            if (module.GitStatus.GetResultOrDefault() is { } gitStatus)
+            {
+                offset += 70;
+                var rect = drawRect;
+                rect.x = rect.x + rect.width - offset;
+                rect.y += 1.5f;
+                int stagedCount = gitStatus.Staged.Count();
+                string stagedCountStr = stagedCount > 0 ? stagedCount + "/" : null;
+                GUI.Label(rect, $"+{gitStatus.Unindexed.Count()} *{stagedCountStr}{stagedCount + gitStatus.IndexedUnstaged.Count()}", Style.RichTextLabel.Value);
+            }
+
+            if (module.RemoteStatus.GetResultOrDefault() is { } result)
+            {
+                offset += 50;
+                var rect = drawRect;
+                rect.x = rect.x + rect.width - offset;
+                rect.y += 1.5f;
+                GUI.Label(rect, $"{result.Behind}↓{result.Ahead}↑", Style.RichTextLabel.Value);
+            }
         }
 
         static async void CreateOrRenameBranch(string oldName = null)
@@ -206,14 +254,25 @@ namespace Abuksigun.MRGitUI
             menu.ShowAsContext();
         }
 
-        List<TreeViewItem> GenerateItems(IEnumerable<Reference[]> branchesPerRepo)
+        List<TreeViewItem> GenerateItemsRepos(IEnumerable<Module> modules)
         {
+            var items = new List<TreeViewItem>();
+            foreach (var module in modules)
+                items.Add(new TreeViewItem(module.Guid.GetHashCode(), 0, module.DisplayName));
+            return items;
+        }
+
+        List<TreeViewItem> GenerateItemsBranches(IEnumerable<Reference[]> branchesPerRepo)
+        {
+            var items = new List<TreeViewItem>();
+            if (!branchesPerRepo.Any())
+                return items;
             ReferenceComparer listingReferenceComparer = new(true);
             var modules = Utils.GetSelectedGitModules();
             Reference[] references = branchesPerRepo.Count() == 1 ? branchesPerRepo.First()
                 : showAllBranches ? branchesPerRepo.SelectMany(x => x).Distinct(listingReferenceComparer).ToArray()
                 : branchesPerRepo.Skip(1).Aggregate(branchesPerRepo.First().AsEnumerable(), (result, nextArray) => result.Intersect(nextArray, listingReferenceComparer)).ToArray();
-            var items = new List<TreeViewItem>();
+            
             items.Add(new TreeViewItem(0, 0, "Branches") { icon = EditorGUIUtility.IconContent("UnityEditor.VersionControl").image as Texture2D });
             BranchesToItems(modules, references.Where(x => x is LocalBranch), 1, items);
             items.Add(new TreeViewItem(1, 0, "Remotes") { icon = EditorGUIUtility.IconContent("CloudConnect@2x").image as Texture2D });
