@@ -36,6 +36,7 @@ namespace Abuksigun.MRGitUI
         static Dictionary<string, Vector2> logScrollPositions = new();
         static Dictionary<Module, ErrorWindowData> commandErrorWindowMap = new();
         static int reloadAssembliesStack = 0;
+        static int alreadyShownProcessId = 0;
 
         static void PushReloadAssembliesLock()
         {
@@ -103,6 +104,8 @@ namespace Abuksigun.MRGitUI
 
         public static async Task HandleError(Module module, CommandResult result)
         {
+            if (result.LocalProcessId <= alreadyShownProcessId)
+                return;
             var errorWindowData = commandErrorWindowMap.GetValueOrDefault(module);
             if (errorWindowData == null)
             {
@@ -129,6 +132,11 @@ namespace Abuksigun.MRGitUI
             {
                 errorWindowData.ProcessIds = errorWindowData.ProcessIds.Append(result.LocalProcessId).ToArray();
             }
+        }
+
+        public static void MarkProcessIdsShown(int[] processIds)
+        {
+            alreadyShownProcessId = Math.Max(alreadyShownProcessId, processIds.Max());
         }
 
         public static async Task ShowOutputWindow(Dictionary<Module, Task<CommandResult>> taskPerModule)

@@ -105,6 +105,8 @@ namespace Abuksigun.MRGitUI
                     scrollPosition = scroll.scrollPosition;
                 }
                 var processIds = tasks?.ToDictionary(x => x.Key, x => new[] { x.Value.localProcessId });
+                foreach (var processId in processIds.Values)
+                    GUIUtils.MarkProcessIdsShown(processId);
                 GUIUtils.DrawProcessLogs(modules, ref currentLogGuid, new Vector2(window.position.width, LogHeight), processIds, tasks.All(x => x.Value.task.IsCompleted));
             });
 
