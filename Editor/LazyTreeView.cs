@@ -14,6 +14,7 @@ namespace Abuksigun.MRGitUI
         DrawRowCallback drawRowCallback;
         Action<int> contextMenuCallback;
         Action<int> doubleClickCallback;
+        Action<IList<int>> selectionChangedCallback;
         GenerateItemsCallback generateItems;
         bool multiSelection;
         bool multiColumnHeader;
@@ -30,7 +31,7 @@ namespace Abuksigun.MRGitUI
             this.drawRowCallback = drawRowCallback;
             showBorder = true;
         }
-        public void Draw(Vector2 size, IEnumerable<T> sourceObjects, Action<int> contextMenuCallback = null, Action<int> doubleClickCallback = null)
+        public void Draw(Vector2 size, IEnumerable<T> sourceObjects, Action<int> contextMenuCallback = null, Action<int> doubleClickCallback = null, Action<IList<int>> selectionChangedCallback = null)
         {
             if (this.sourceObjects == null || !this.sourceObjects.SequenceEqual(sourceObjects))
             {
@@ -40,6 +41,7 @@ namespace Abuksigun.MRGitUI
             }
             this.contextMenuCallback = contextMenuCallback;
             this.doubleClickCallback = doubleClickCallback;
+            this.selectionChangedCallback = selectionChangedCallback;
             OnGUI(GUILayoutUtility.GetRect(size.x, size.y));
         }
 
@@ -51,14 +53,15 @@ namespace Abuksigun.MRGitUI
             return root;
         }
 
-        protected override float GetCustomRowHeight(int row, TreeViewItem item)
-        {
-            return base.GetCustomRowHeight(row, item);
-        }
-
         protected override bool CanMultiSelect(TreeViewItem item)
         {
             return multiSelection;
+        }
+
+        protected override void SelectionChanged(IList<int> selectedIds)
+        {
+            selectionChangedCallback?.Invoke(selectedIds);
+            base.SelectionChanged(selectedIds);
         }
 
         protected override void ContextClickedItem(int id)

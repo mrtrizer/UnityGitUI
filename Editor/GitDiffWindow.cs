@@ -143,7 +143,7 @@ namespace Abuksigun.MRGitUI
                         var filesPerModule = modules.Select(module => (module, unstagedDiffs.Where(x => x.module == module).Select(x => x.fullPath).ToArray()));
                         if (GUILayout.Button($"Stage All ({unstagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
                         {
-                            GUIUtils.Stage(filesPerModule);
+                            _ = GUIUtils.Stage(filesPerModule);
                             UpdateSelection(modules.ToArray());
                         }
                         if (GUILayout.Button($"Discard All ({unstagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
