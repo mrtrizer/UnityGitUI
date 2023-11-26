@@ -55,6 +55,11 @@ namespace Abuksigun.MRGitUI
 
         [SerializeField] bool staged;
 
+        public static LazyStyle lineNumber = new(() => new()
+        {
+            fontSize = 10
+        }, Style.VerifyNormalBackground);
+
         public static LazyStyle diffUnchanged = new(() => new() {
             normal = new GUIStyleState { background = Style.GetColorTexture(Color.white) },
             font = Style.MonospacedFont.Value,
@@ -282,8 +287,11 @@ namespace Abuksigun.MRGitUI
                     if (currentOffset >= scrollPosition.y && currentOffset < scrollPosition.y + size.y)
                     {
                         var rect = new Rect(0, currentOffset, width, CodeLineHeight);
-                        if (GUI.Toggle(rect, selected, $"{diffLines[i][0]} {(lineMode == '-' ? currentRemovedLine : currentAddedLine),4} {diffLines[i][1..]}", style.Value) != selected)
+                        
+                        if (GUI.Toggle(rect, selected, $"             {diffLines[i][1..]}", style.Value) != selected)
                             HandleSelection(selected, module, currentFile, i, currentLine);
+                        GUI.Label(rect, $"{diffLines[i][0]}", lineNumber.Value);
+                        GUI.Label(rect.Move(8, 0), $"{(lineMode == '-' ? currentRemovedLine : currentAddedLine),4}", lineNumber.Value);
                     }
                     if (lineMode == '-' || lineMode == ' ')
                         currentRemovedLine++;
