@@ -58,11 +58,12 @@ namespace Abuksigun.MRGitUI
         static object processLock = new();
 
         [SerializeField] int lastLocalProcessId = 0;
-        [SerializeField] List<Module> lockeedModules;
+        [SerializeField] List<Module> lockedModules;
         [SerializeField] GitFileReference[] lastGitFilesSelected = Array.Empty<GitFileReference>();
         [SerializeField] List<string> lastModulesSelection = new();
+        [SerializeField] List<string> selectedModules = new();
 
-        public static List<Module> LockedModules => instance.lockeedModules;
+        public static List<Module> LockedModules => instance.lockedModules;
 
         [InitializeOnLoadMethod]
         static void InitModules()
@@ -115,7 +116,8 @@ namespace Abuksigun.MRGitUI
 
         public static void SetSelectedModules(IEnumerable<Module> modules)
         {
-            instance.lastModulesSelection = modules.Select(x => x.Guid).ToList();
+            instance.selectedModules = modules.Select(x => x.Guid).ToList();
+            Selection.objects = Array.Empty<UnityEngine.Object>();
         }
 
         public static void SetSelectedFiles(IEnumerable<GitFileReference> references)
@@ -147,27 +149,28 @@ namespace Abuksigun.MRGitUI
         {
             return GetModules().Where(module => module != null && module.IsGitRepo.GetResultOrDefault()).Where(x => x != null);
         }
-
+        
         public static IEnumerable<Module> GetSelectedModules()
         {
-            if (instance.lockeedModules != null)
-                return instance.lockeedModules;
-            var selectedModules = Selection.assetGUIDs.Where(IsModule);
-            if (selectedModules.Any())
+            if (instance.lockedModules != null)
+                return instance.lockedModules;
+            // Selection.selectionChanged is not called when selecting a package, this is a workaround
+            var browserSelectedModules = Selection.assetGUIDs.Where(IsModule);
+            if (browserSelectedModules.Any())
             {
-                if (instance.lastModulesSelection == null || (!selectedModules.SequenceEqual(instance.lastModulesSelection)))
-                    instance.lastModulesSelection = selectedModules.ToList();
-                return selectedModules.Select(guid => GetModule(guid));
+                if (instance.lastModulesSelection == null || (!browserSelectedModules.SequenceEqual(instance.lastModulesSelection)))
+                    instance.selectedModules = instance.lastModulesSelection = browserSelectedModules.ToList();
+                return instance.selectedModules.Select(guid => GetModule(guid));
             }
             else
             {
-                return instance.lastModulesSelection.Select(guid => GetModule(guid));
+                return instance.selectedModules.Select(guid => GetModule(guid));
             }
         }
 
         public static void LockModules(IEnumerable<Module> modules)
         {
-            instance.lockeedModules = modules?.ToList();
+            instance.lockedModules = modules?.ToList();
         }
 
         public static IEnumerable<Module> GetSelectedGitModules(bool withSubmodules = false)
