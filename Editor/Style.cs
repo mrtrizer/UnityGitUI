@@ -18,7 +18,7 @@ namespace Abuksigun.MRGitUI
         public static string Black => "black";
         public static string CyanBlue => "#0099ff";
         public static string Purple => "purple";
-
+        public static string Orange => "orange";
     }
 
     public static class Style
@@ -56,6 +56,10 @@ namespace Abuksigun.MRGitUI
             font = MonospacedFont.Value,
             fontSize = 10
         }, VerifyNormalBackground);
+
+        public static LazyStyle ToolbarButton = new(() => new(EditorStyles.toolbarButton) {
+            alignment = TextAnchor.MiddleLeft,
+        });
 
         public static Texture2D GetColorTexture(Color color)
         {

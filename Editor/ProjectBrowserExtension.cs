@@ -62,9 +62,7 @@ namespace Abuksigun.MRGitUI
                 if ((module.CurrentBranch.GetResultOrDefault() ?? module.CurrentCommit.GetResultOrDefault()) is { } currentHead)
                 {
                     string currentBranchClamp = currentHead[..Math.Min(20, currentHead.Length)];
-                    var rect = drawRect;
-                    rect.x = rect.x + rect.width - (int)LabelStyle.Value.CalcSize(new GUIContent(currentBranchClamp)).x - 5;
-                    rect.y -= 6.5f;
+                    var rect = drawRect.Move(drawRect.width - (int)LabelStyle.Value.CalcSize(new GUIContent(currentBranchClamp)).x - 5, - 6.5f);
                     GUI.Label(rect, currentBranchClamp.WrapUp("<b>", "</b>"), LabelStyle.Value);
                 }
 
@@ -73,44 +71,38 @@ namespace Abuksigun.MRGitUI
                 if (module.GitStatus.GetResultOrDefault() is { } gitStatus)
                 {
                     offset += 40;
-                    var rect = drawRect;
-                    rect.x = rect.x + rect.width - offset;
-                    rect.y += 1.5f;
-                    GUI.Label(rect, $"+{gitStatus.Unindexed.Count()} *{gitStatus.IndexedUnstaged.Count()} #{gitStatus.Staged.Count()}", LabelStyle.Value);
+                    var rect = drawRect.Move(drawRect.width - offset, 1.5f);
+                    string staged = gitStatus.Staged.Any() ? $"<color=green>{gitStatus.Staged.Count()}</color>" : gitStatus.Staged.Count().ToString();
+                    string unstaged = gitStatus.Unstaged.Any() ? $"<color={Colors.CyanBlue}>{gitStatus.Unstaged.Count()}</color>" : gitStatus.Unstaged.Count().ToString();
+                    string unindexed = gitStatus.Unindexed.Any() ? $"<color=green>{gitStatus.Unindexed.Count()}</color>" : gitStatus.Unindexed.Count().ToString();
+                    GUI.Label(rect, $"+{unindexed} *{unstaged} #{staged}", LabelStyle.Value);
                 }
 
                 if (module.RemoteStatus.GetResultOrDefault() is { } result)
                 {
                     offset += 30;
-                    var rect = drawRect;
-                    rect.x = rect.x + rect.width - offset;
-                    rect.y += 1.5f;
-                    GUI.Label(rect, $"{result.Behind}↓{result.Ahead}↑", LabelStyle.Value);
+                    var rect = drawRect.Move(drawRect.width - offset, 1.5f);
+                    string behind = result.Behind > 0 ? $"<color={Colors.Orange}>{result.Behind}</color>" : result.Behind.ToString();
+                    string ahead = result.Ahead > 0 ? $"<color={Colors.CyanBlue}>{result.Ahead}</color>" : result.Ahead.ToString();
+                    GUI.Label(rect, $"{behind}↓{ahead}↑", LabelStyle.Value);
                 }
                 else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
                 {
-                    var rect = drawRect;
-                    rect.height = 15;
-                    rect.x = rect.x + rect.width - 70;
+                    var rect = drawRect.Move(drawRect.width - 70, 0).Resize(drawRect.width, 15);
                     GUI.Label(rect, EditorGUIUtility.IconContent($"WaitSpin{(spinCounter++ % 1100) / 100:00}"), LabelStyle.Value);
                 }
 
                 if (module.GitParentRepoPath.GetResultOrDefault() != null)
                 {
                     offset += 20;
-                    var rect = drawRect;
-                    rect.x = rect.x + rect.width - offset;
-                    rect.y += 1.5f;
+                    var rect = drawRect.Move(drawRect.width - offset, 1.5f);
                     GUI.Label(rect, "<color=green>sub</color>", FileMarkStyle.Value);
                 }
             }
             var assetInfo = GetAssetGitInfo(guid);
             if (module == null && assetInfo != null && assetInfo.FileStatuses != null)
             {
-                var rect = drawRect;
-                rect.height = 15;
-                rect.y += 2;
-                rect.x -= 8;
+                var rect = drawRect.Move(-8, 2).Resize(drawRect.width, 15);
                 if (assetInfo.NestedFileModified)
                     GUI.Label(rect, "     <color=#0099ff>*</color>", FileMarkStyle.Value);
                 else if (assetInfo.FileStatuses.Any(x => x.IsUnstaged))
@@ -120,10 +112,7 @@ namespace Abuksigun.MRGitUI
             }
             if (module == null && assetInfo != null)
             {
-                var rect = drawRect;
-                rect.height = 15;
-                rect.y -= 4.5f;
-                rect.x -= 13;
+                var rect = drawRect.Move(-13, -4.5f).Resize(drawRect.width, 15);
                 if (assetInfo.Module.LfsFiles.GetResultOrDefault()?.Any(x => x.FileName == assetInfo.FullPath) ?? false)
                 {
                     GUI.Label(rect, "<color=brown>L</color>", LFSLabelStyle.Value);
