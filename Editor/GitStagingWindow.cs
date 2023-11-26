@@ -95,10 +95,16 @@ namespace Abuksigun.MRGitUI
                     if (GUILayout.Button($"Stash", GUILayout.Width(150)))
                         ShowStashMenu(moduleNotInMergeState, allSelection);
                 }
+                if (modules.Select(x => x.RemoteStatus.GetResultOrDefault()).Any(x => x?.Ahead > 0))
+                {
+                    GUILayout.Space(20);
+                    if (GUILayout.Button("Push", GUILayout.Width(150)))
+                        GitRemotes.ShowRemotesSyncWindow(GitRemotes.Mode.Push);
+                }
                 if (modules.Count > 1)
                 {
                     GUIUtils.DrawVerticalExpand();
-                    GUILayout.Label($"Changes in {modulesWithStagedFiles}/{modules.Count} modules", GUILayout.Width(150));
+                    GUILayout.Label($"Changes in {modulesWithStagedFiles.Count()}/{modules.Count} modules", GUILayout.Width(150));
                 }
             }
             using (new GUILayout.HorizontalScope())
@@ -157,6 +163,8 @@ namespace Abuksigun.MRGitUI
                         tasksInProgress.Add(GUIUtils.Unstage(selectionPerModule));
                         treeViewStateStaged.selectedIDs.Clear();
                     }
+                    if (GUILayout.Button(EditorGUIUtility.TrIconContent("Refresh@2x", "Refresh"), GUILayout.Width(MiddlePanelWidth), GUILayout.Height(MiddlePanelWidth)))
+                        modules.ForEach(module => module.RefreshFilesStatus());
                 }
                 treeViewStaged.Draw(size, statuses, (int id) => ShowContextMenu(modules, stagedSelection.ToList()), SelectAsset);
             }
