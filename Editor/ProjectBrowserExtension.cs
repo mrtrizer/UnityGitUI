@@ -13,7 +13,7 @@ namespace Abuksigun.MRGitUI
     public static class ProjectBrowserExtension
     {
         static LazyStyle LFSLabelStyle = new(() => new GUIStyle(EditorStyles.label) { fontSize = 7, fontStyle = FontStyle.Bold, richText = true });
-        static LazyStyle LabelStyle = new(() => new GUIStyle(EditorStyles.label) { fontSize = 8, richText = true });
+        static LazyStyle LabelStyle = new(() => new GUIStyle(EditorStyles.label) { fontStyle = FontStyle.Bold, fontSize = 8, richText = true });
         static LazyStyle FileMarkStyle = new(() => new GUIStyle(LabelStyle.Value) { fontStyle = FontStyle.Bold, fontSize = 10, richText = true });
         static int spinCounter;
 
@@ -72,19 +72,14 @@ namespace Abuksigun.MRGitUI
                 {
                     offset += 40;
                     var rect = drawRect.Move(drawRect.width - offset, 1.5f);
-                    string staged = gitStatus.Staged.Any() ? $"<color=green>{gitStatus.Staged.Count()}</color>" : gitStatus.Staged.Count().ToString();
-                    string unstaged = gitStatus.Unstaged.Any() ? $"<color={Colors.CyanBlue}>{gitStatus.Unstaged.Count()}</color>" : gitStatus.Unstaged.Count().ToString();
-                    string unindexed = gitStatus.Unindexed.Any() ? $"<color=green>{gitStatus.Unindexed.Count()}</color>" : gitStatus.Unindexed.Count().ToString();
-                    GUI.Label(rect, $"+{unindexed} *{unstaged} #{staged}", LabelStyle.Value);
+                    GUIUtils.DrawShortStatus(gitStatus, rect, LabelStyle.Value);
                 }
 
                 if (module.RemoteStatus.GetResultOrDefault() is { } result)
                 {
                     offset += 30;
                     var rect = drawRect.Move(drawRect.width - offset, 1.5f);
-                    string behind = result.Behind > 0 ? $"<color={Colors.Orange}>{result.Behind}</color>" : result.Behind.ToString();
-                    string ahead = result.Ahead > 0 ? $"<color={Colors.CyanBlue}>{result.Ahead}</color>" : result.Ahead.ToString();
-                    GUI.Label(rect, $"{behind}↓{ahead}↑", LabelStyle.Value);
+                    GUIUtils.DrawShortRemoteStatus(result, rect, LabelStyle.Value);
                 }
                 else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
                 {

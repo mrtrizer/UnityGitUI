@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -303,6 +303,23 @@ namespace Abuksigun.MRGitUI
         {
             string logicalPath = Utils.GetUnityLogicalPath(fullProjectPath);
             Selection.objects = new[] { AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(logicalPath) };
+        }
+
+        public static void DrawShortRemoteStatus(RemoteStatus result, Rect rect, GUIStyle labelStyle)
+        {
+            string behind = result.Behind > 0 ? $"<color={Colors.Orange}>{result.Behind}</color>" : result.Behind.ToString();
+            string ahead = result.Ahead > 0 ? $"<color={Colors.CyanBlue}>{result.Ahead}</color>" : result.Ahead.ToString();
+            GUI.Label(rect, $"{behind}↓{ahead}↑", labelStyle);
+        }
+
+        public static void DrawShortStatus(GitStatus gitStatus, Rect rect, GUIStyle labelStyle)
+        {
+            string staged = gitStatus.Staged.Any() ? $"<color={Colors.CyanBlue}>{gitStatus.Staged.Count()}</color>" : gitStatus.Staged.Count().ToString();
+            string unstaged = gitStatus.Unstaged.Any() ? $"<color={Colors.CyanBlue}>{gitStatus.Unstaged.Count()}</color>" : gitStatus.Unstaged.Count().ToString();
+            string unindexed = gitStatus.Unindexed.Any() ? $"<color={Colors.Purple}>{gitStatus.Unindexed.Count()}</color>" : gitStatus.Unindexed.Count().ToString();
+            int stagedCount = gitStatus.Staged.Count();
+            string stagedCountStr = stagedCount > 0 ? staged + "/" : null;
+            GUI.Label(rect, $"+{unindexed} *{stagedCountStr}{unstaged}", labelStyle);
         }
     }
 }

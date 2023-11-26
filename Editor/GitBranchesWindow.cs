@@ -136,21 +136,15 @@ namespace Abuksigun.MRGitUI
             if (module.GitStatus.GetResultOrDefault() is { } gitStatus)
             {
                 offset += 70;
-                var rect = drawRect;
-                rect.x = rect.x + rect.width - offset;
-                rect.y += 1.5f;
-                int stagedCount = gitStatus.Staged.Count();
-                string stagedCountStr = stagedCount > 0 ? stagedCount + "/" : null;
-                GUI.Label(rect, $"+{gitStatus.Unindexed.Count()} *{stagedCountStr}{stagedCount + gitStatus.IndexedUnstaged.Count()}", Style.RichTextLabel.Value);
+                var rect = drawRect.Move(drawRect.width - offset, 1.5f);
+                GUIUtils.DrawShortStatus(gitStatus, rect, Style.RichTextLabel.Value);
             }
 
             if (module.RemoteStatus.GetResultOrDefault() is { } result)
             {
                 offset += 50;
-                var rect = drawRect;
-                rect.x = rect.x + rect.width - offset;
-                rect.y += 1.5f;
-                GUI.Label(rect, $"{result.Behind}↓{result.Ahead}↑", Style.RichTextLabel.Value);
+                var rect = drawRect.Move(drawRect.width - offset, 1.5f);
+                GUIUtils.DrawShortRemoteStatus(result, rect, Style.RichTextLabel.Value);
             }
         }
 

@@ -17,7 +17,7 @@ namespace Abuksigun.MRGitUI
         public static string Green => "green";
         public static string Black => "black";
         public static string CyanBlue => "#0099ff";
-        public static string Purple => "purple";
+        public static string Purple => "#9900ff";
         public static string Orange => "orange";
     }
 
