@@ -101,8 +101,6 @@ namespace Abuksigun.MRGitUI
                     GitStaging.Invoke();
                 if (GUILayout.Button(EditorGUIUtility.TrIconContent("UnityEditor.VersionControl", "Log"), layout))
                     GitLog.Invoke();
-                if (GUILayout.Button(EditorGUIUtility.TrIconContent("Package Manager@2x", "Stash"), layout))
-                    GitStash.Invoke();
             }
 
             base.OnGUI();

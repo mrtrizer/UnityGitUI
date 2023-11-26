@@ -293,7 +293,7 @@ namespace Abuksigun.MRGitUI
                     currentOffset += CodeLineHeight;
                 }
             }
-            GUILayoutUtility.GetRect(width, currentOffset);
+            GUILayoutUtility.GetRect(width, currentOffset); // scroll won't work without telling the layout system the actual size of the diff
             scrollPosition = scroll.scrollPosition;
         }
 
