@@ -551,7 +551,7 @@ namespace Abuksigun.MRGitUI
         #region Staging
         public Task<CommandResult> Commit(string commitMessage = null, bool amend = false)
         {
-            string args = (amend ? "--amend" : "") + (commitMessage == null ? "--no-edit" : commitMessage.WrapUp("-m \"", "\""));
+            string args = (amend ? "--amend" : "") + (commitMessage == null ? " --no-edit" : commitMessage.WrapUp(" -m \"", "\""));
             return RunGit($"commit {args}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         }
 
