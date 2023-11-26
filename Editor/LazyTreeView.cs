@@ -19,7 +19,7 @@ namespace Abuksigun.MRGitUI
         bool multiColumnHeader;
         List<T> sourceObjects;
 
-        public float RowHeight => rowHeight;
+        public float RowHeight { get => rowHeight; set => rowHeight = value; }
 
         public LazyTreeView(GenerateItemsCallback generateItems, TreeViewState treeViewState, bool multiSelection, MultiColumnHeader multicolumnHeader = null, DrawRowCallback drawRowCallback = null)
             : base(treeViewState, multicolumnHeader)
@@ -49,6 +49,11 @@ namespace Abuksigun.MRGitUI
             var generatedItems = generateItems(sourceObjects);
             SetupParentsAndChildrenFromDepths(root, generatedItems);
             return root;
+        }
+
+        protected override float GetCustomRowHeight(int row, TreeViewItem item)
+        {
+            return base.GetCustomRowHeight(row, item);
         }
 
         protected override bool CanMultiSelect(TreeViewItem item)
