@@ -1,32 +1,48 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 
 namespace Abuksigun.MRGitUI
 {
-    public class SplitterState
+    [Serializable]
+    public class SplitterState : ISerializationCallbackReceiver
     {
+        [SerializeField] float[] serializedRelativeSizes;
+
         object splitterStateInstance;
         static Type splitterStateType;
         static FieldInfo realSizesField;
+        static FieldInfo relativeSizesField;
 
         internal object SplitterStateInstance => splitterStateInstance;
         public IReadOnlyList<float> RealSizes => realSizesField.GetValue(splitterStateInstance) as float[];
+        public IReadOnlyList<float> RelativeSizes => relativeSizesField.GetValue(splitterStateInstance) as float[];
 
         static SplitterState()
         {
             var unityEditorAssembly = Assembly.Load("UnityEditor");
             splitterStateType = unityEditorAssembly.GetType("UnityEditor.SplitterState");
             realSizesField = splitterStateType.GetField("realSizes", BindingFlags.Public | BindingFlags.Instance);
+            relativeSizesField = splitterStateType.GetField("relativeSizes", BindingFlags.Public | BindingFlags.Instance);
         }
 
         public SplitterState(params float[] relativeSizes)
         {
             splitterStateInstance = Activator.CreateInstance(splitterStateType, new object[] { relativeSizes });
         }
-    }
 
+        public void OnBeforeSerialize()
+        {
+            serializedRelativeSizes = RelativeSizes.ToArray();
+        }
+
+        public void OnAfterDeserialize()
+        {
+            splitterStateInstance = Activator.CreateInstance(splitterStateType, new object[] { serializedRelativeSizes });
+        }
+    }
 
     public class SplitterGUILayout
     {
