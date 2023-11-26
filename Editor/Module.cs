@@ -132,6 +132,11 @@ namespace Abuksigun.MRGitUI
             RefreshTimestamp = DateTime.Now;
         }
 
+        public string UnreferencePath(string path)
+        {
+            return IsLinkedPackage ? path.Replace(PhysicalPath, UnreferencedPath) : path;
+        }
+
         public Task<CommandResult> RunGit(string args, bool ignoreError = false, Action<IOData> dataHandler = null, string workingDir = null)
         {
             string mergedArgs = "-c core.quotepath=false --no-optional-locks " + args;
@@ -449,18 +454,19 @@ namespace Abuksigun.MRGitUI
 
         async Task<string> GetFileDiff(GitFileReference logFileReference)
         {
+            string unreferencedPath = UnreferencePath(logFileReference.FullPath); // for some reason diff sometimes(!) doesn't work with symlinks
             if (logFileReference.Staged is { } staged)
             {
                 if (staged)
-                    return (await RunGit($"diff --staged -- \"{logFileReference.FullPath}\"")).Output;
+                    return (await RunGit($"diff --staged -- \"{unreferencedPath}\"")).Output;
                 else
-                    return (await RunGit($"diff -- \"{logFileReference.FullPath}\"")).Output;
+                    return (await RunGit($"diff -- \"{unreferencedPath}\"")).Output;
             }
             else
             {
-                string relativePath = logFileReference.FullPath.Contains(PhysicalPath) 
-                    ? Path.GetRelativePath(PhysicalPath, logFileReference.FullPath) 
-                    : Path.GetRelativePath(UnreferencedPath, logFileReference.FullPath);
+                string relativePath = unreferencedPath.Contains(PhysicalPath)
+                    ? Path.GetRelativePath(PhysicalPath, unreferencedPath)
+                    : Path.GetRelativePath(UnreferencedPath, unreferencedPath);
                 return (await RunGit($"diff {logFileReference.FirstCommit} {logFileReference.LastCommit} -- \"{relativePath}\"")).Output;
             }
         }
@@ -511,7 +517,10 @@ namespace Abuksigun.MRGitUI
         public async Task<CommandResult> Pull(Remote remote = null, bool force = false, bool rebase = false, bool clean = false)
         {
             if (clean)
+            {
                 await RunGit($"clean -fd");
+                await Reset("", true);
+            }
             return await RunGit($"pull {"--force".When(force)} {"--rebase".When(rebase)} {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         }
         public async Task<CommandResult> Fetch(bool prune, Remote remote = null)
