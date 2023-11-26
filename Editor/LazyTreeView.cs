@@ -17,7 +17,7 @@ namespace Abuksigun.MRGitUI
         Action<IList<int>> selectionChangedCallback;
         GenerateItemsCallback generateItems;
         bool multiSelection;
-        bool multiColumnHeader;
+        bool multiColumnHeaderEnabled;
         List<T> sourceObjects;
 
         public float RowHeight { get => rowHeight; set => rowHeight = value; }
@@ -27,7 +27,7 @@ namespace Abuksigun.MRGitUI
         {
             this.generateItems = generateItems;
             this.multiSelection = multiSelection;
-            this.multiColumnHeader = multicolumnHeader != null;
+            this.multiColumnHeaderEnabled = multicolumnHeader != null;
             this.drawRowCallback = drawRowCallback;
             showBorder = true;
         }
@@ -82,7 +82,7 @@ namespace Abuksigun.MRGitUI
                 return;
             if (drawRowCallback != null)
             {
-                if (multiColumnHeader)
+                if (multiColumnHeaderEnabled)
                 {
                     for (int i = 0; i < args.GetNumVisibleColumns(); ++i)
                         drawRowCallback.Invoke(args.item, args.GetColumn(i), args.GetCellRect(i));

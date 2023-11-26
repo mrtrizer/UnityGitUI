@@ -113,9 +113,9 @@ namespace Abuksigun.MRGitUI.Tests.Editor
                 {
                     Directory.Delete(remoteRepoDir, true);
                 }
-                catch (Exception e)
+                catch
                 {
-                    //Debug.LogException(e);
+                    // It fails sometimes, but it's not a big deal
                 }
             }
         }
@@ -129,9 +129,9 @@ namespace Abuksigun.MRGitUI.Tests.Editor
                 {
                     Directory.Delete(packageRootDir, true);
                 }
-                catch (Exception e)
+                catch
                 {
-                    //Debug.LogException(e);
+                    // It fails sometimes, but it's not a big deal
                 }
             }
 

@@ -255,11 +255,11 @@ namespace Abuksigun.MRGitUI
                     foreach (var file in files)
                         _ = GitBameWindow.ShowBlame(Utils.GetModule(file.ModuleGuid), file.FullPath);
                 });
-                menu.AddItem(new GUIContent("Log"), false, async () => {
+                menu.AddItem(new GUIContent("Log"), false, () => {
                     foreach ((var module, var files) in indexedSelectionPerModule)
                     {
                         if (files.Length > 0)
-                            GitFileLog.ShowFilesLog(new[] {module}, files);
+                            _ = GitFileLog.ShowFilesLog(new[] {module}, files);
                     }
                 });
                 menu.AddSeparator("");
