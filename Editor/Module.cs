@@ -6,7 +6,6 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.tvOS;
 using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 namespace Abuksigun.MRGitUI
@@ -46,6 +45,7 @@ namespace Abuksigun.MRGitUI
     public record GitStatus(FileStatus[] Files, string ParentRepoPath, string ModuleGuid)
     {
         public IEnumerable<FileStatus> Staged => Files.Where(file => file.IsStaged);
+        public IEnumerable<FileStatus> Unresolved => Files.Where(file => file.IsUnresolved);
         public IEnumerable<FileStatus> Unstaged => Files.Where(file => file.IsUnstaged);
         public IEnumerable<FileStatus> Unindexed => Files.Where(file => !file.IsInIndex);
         public IEnumerable<FileStatus> IndexedUnstaged => Files.Where(file => file.IsUnstaged && file.IsInIndex);
@@ -554,27 +554,42 @@ namespace Abuksigun.MRGitUI
         public async Task<CommandResult[]> DiscardFiles(IEnumerable<string> files)
         {
             var status = await GitStatus;
-            var unstagedFiles = status.Staged.Where(file => files.Contains(file.FullProjectPath)).Select(x => x.FullPath);
-            if (unstagedFiles.Any())
-                await Utils.RunSequence(Utils.BatchFiles(unstagedFiles), batch => RunGit($"reset -q -- {batch}"));
-            status = await GetGitStatus();
-            var indexedFiles = status.IndexedUnstaged.Where(file => files.Contains(file.FullProjectPath)).Select(x => x.FullPath);
+            var unresolvedFiles = status.Unresolved.Where(file => files.Contains(file.FullPath)).Select(x => x.FullPath);
+            if (unresolvedFiles.Any())
+            {
+                await StageInternal(unresolvedFiles); // can't discard unresolved files, so we resolve them first
+                status = await GetGitStatus();
+            }
+            var stagedFiles = status.Staged.Where(file => files.Contains(file.FullPath)).Select(x => x.FullPath);
+            if (stagedFiles.Any())
+            {
+                await UnstageInternal(stagedFiles); // can't discard staged files, so we unstage them first
+                status = await GetGitStatus();
+            }
+            var indexedFiles = status.IndexedUnstaged.Where(file => files.Contains(file.FullPath)).Select(x => x.FullPath).ToList();
             return await Utils.RunSequence(Utils.BatchFiles(indexedFiles), batch => RunGit($"checkout -q -- {batch}")).AfterCompletion(RefreshFilesStatus);
+        }
+
+        Task<CommandResult[]> StageInternal(IEnumerable<string> files)
+        {
+            return Utils.RunSequence(Utils.BatchFiles(files), batch => RunGit($"add -f -- {batch}"));
         }
 
         public async Task<CommandResult[]> Stage(IEnumerable<string> files)
         {
-            // Can't be done in parallel due to unavoidable lock
-            var results = new List<CommandResult>();
-            foreach (var batch in Utils.BatchFiles(files).ToList())
-                results.Add(await RunGit($"add -f -- {batch}"));
+            var results = await StageInternal(files);
             RefreshFilesStatus();
             return results.ToArray();
         }
 
+        Task<CommandResult[]> UnstageInternal(IEnumerable<string> files)
+        {
+            return Utils.RunSequence(Utils.BatchFiles(files), batch => RunGit($"reset -q -- {batch}"));
+        }
+
         public Task<CommandResult[]> Unstage(IEnumerable<string> files)
         {
-            return Utils.RunSequence(Utils.BatchFiles(files), batch => RunGit($"reset -q -- {batch}")).AfterCompletion(RefreshFilesStatus);
+            return UnstageInternal(files).AfterCompletion(RefreshFilesStatus);
         }
 
         public Task<CommandResult> AbortMerge()
