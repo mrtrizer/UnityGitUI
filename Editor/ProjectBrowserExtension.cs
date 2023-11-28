@@ -84,7 +84,7 @@ namespace Abuksigun.MRGitUI
                 else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
                 {
                     var rect = drawRect.Move(drawRect.width - 70, 0).Resize(drawRect.width, 15);
-                    GUI.Label(rect, EditorGUIUtility.IconContent($"WaitSpin{(spinCounter++ % 1100) / 100:00}"), LabelStyle.Value);
+                    GUIUtils.DrawSpin(ref spinCounter, rect);
                 }
 
                 if (module.GitParentRepoPath.GetResultOrDefault() != null)

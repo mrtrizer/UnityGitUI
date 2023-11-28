@@ -321,5 +321,10 @@ namespace Abuksigun.MRGitUI
             string stagedCountStr = stagedCount > 0 ? staged + "/" : null;
             GUI.Label(rect, $"+{unindexed} *{stagedCountStr}{unstaged}", labelStyle);
         }
+
+        public static void DrawSpin(ref int spinCounter, Rect rect)
+        {
+            GUI.Label(rect, EditorGUIUtility.IconContent($"WaitSpin{(spinCounter++ % 1100) / 100:00}"));
+        }
     }
 }

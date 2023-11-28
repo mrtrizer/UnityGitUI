@@ -39,6 +39,7 @@ namespace Abuksigun.MRGitUI
 
         static readonly ReferenceComparer referenceComparer = new();
 
+        int spinCounter;
         bool showAllBranches = false;
         Task task = null;
         Vector2 reposScrollPosition;
@@ -145,6 +146,12 @@ namespace Abuksigun.MRGitUI
                 offset += 50;
                 var rect = drawRect.Move(drawRect.width - offset, 1.5f);
                 GUIUtils.DrawShortRemoteStatus(result, rect, Style.RichTextLabel.Value);
+            }
+            else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
+            {
+                offset += 50;
+                var rect = drawRect.Move(drawRect.width - offset, 15).Resize(drawRect.width, 15);
+                GUIUtils.DrawSpin(ref spinCounter, rect);
             }
         }
 
