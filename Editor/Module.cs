@@ -282,7 +282,7 @@ namespace Abuksigun.MRGitUI
 
         async Task<string> GetCommit()
         {
-            return (await RunGit("rev-parse --short --verify HEAD")).Output.Trim();
+            return (await RunGit("rev-parse --short --verify HEAD", true)).Output.Trim();
         }
 
         async Task<bool> GetIsMergeInProgress()

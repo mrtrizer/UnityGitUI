@@ -56,7 +56,7 @@ namespace Abuksigun.MRGitUI
         public static Task ShowModalWindow(DefaultWindow window, Vector2Int size, Action<EditorWindow> onGUI = null)
         {
             window.onGUI = onGUI;
-            window.titleContent = new GUIContent(window.titleContent.text + " (Compilation disabled)");
+            window.titleContent = new GUIContent(window.titleContent.text + " (Assembly reload disabled)");
             PushReloadAssembliesLock();
             // True modal window in unity blocks execution of a thread. So, instread I just mimic it's behaviour.
             window.ShowUtility();

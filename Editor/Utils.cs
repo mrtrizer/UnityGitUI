@@ -58,12 +58,12 @@ namespace Abuksigun.MRGitUI
         static object processLock = new();
 
         [SerializeField] int lastLocalProcessId = 0;
-        [SerializeField] List<Module> lockedModules;
+        [SerializeField] List<string> lockedModules = new();
         [SerializeField] GitFileReference[] lastGitFilesSelected = Array.Empty<GitFileReference>();
         [SerializeField] List<string> lastModulesSelection = new();
         [SerializeField] List<string> selectedModules = new();
 
-        public static List<Module> LockedModules => instance.lockedModules;
+        public static IEnumerable<Module> LockedModules => instance.lockedModules.Select(x => GetModule(x));
 
         [InitializeOnLoadMethod]
         static void InitModules()
@@ -152,8 +152,8 @@ namespace Abuksigun.MRGitUI
         
         public static IEnumerable<Module> GetSelectedModules()
         {
-            if (instance.lockedModules != null)
-                return instance.lockedModules;
+            if (instance.lockedModules.Count > 0)
+                return instance.lockedModules.Select(x => GetModule(x));
             // Selection.selectionChanged is not called when selecting a package, this is a workaround
             var browserSelectedModules = Selection.assetGUIDs.Where(IsModule);
             if (browserSelectedModules.Any())
@@ -170,7 +170,10 @@ namespace Abuksigun.MRGitUI
 
         public static void LockModules(IEnumerable<Module> modules)
         {
-            instance.lockedModules = modules?.ToList();
+            if (modules == null)
+                instance.lockedModules.Clear();
+            else
+                instance.lockedModules = modules.Select(x => x.Guid).ToList();
         }
 
         public static IEnumerable<Module> GetSelectedGitModules(bool withSubmodules = false)

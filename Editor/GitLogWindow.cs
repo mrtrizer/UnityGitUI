@@ -377,7 +377,7 @@ namespace Abuksigun.MRGitUI
                     if (EditorUtility.DisplayDialog($"Are you sure you want CHECKOUT {filesLableString} to COMMIT", $"{reference.QualifiedName}\n{filesList}", "Yes", "No"))
                         _ = GUIUtils.RunSafe(new[] { module }, x => x.Checkout(reference.QualifiedName, LogFiles));
                 });
-                if (!LogFiles.Any())
+                if (LogFiles == null || !LogFiles.Any())
                 {
                     menu.AddItem(new GUIContent($"Reset Soft/{contextMenuname}"), false, () =>
                     {
@@ -386,7 +386,7 @@ namespace Abuksigun.MRGitUI
                     });
                 }
             }
-            if (!LogFiles.Any())
+            if (LogFiles == null || !LogFiles.Any())
             {
                 var allReferences = commitReference.Concat((await module.References).Where(x => (x is Branch || x is Tag) && x.Hash.StartsWith(selectedCommit)));
                 foreach (var reference in allReferences)

@@ -63,7 +63,7 @@ namespace Abuksigun.MRGitUI
                     simpleTreeViewBranches.Reload();
                 }
                 GUIContent lockBranchesContent = EditorGUIUtility.TrIconContent("AssemblyLock", "Lock");
-                bool lockedModules = Utils.LockedModules != null;
+                bool lockedModules = Utils.LockedModules.Any();
                 Utils.LockModules(GUILayout.Toggle(lockedModules, lockBranchesContent, EditorStyles.toolbarButton, GUILayout.Width(32)) ? modules.ToList() : null);
             }
 
@@ -130,7 +130,11 @@ namespace Abuksigun.MRGitUI
         void DrawRepoRow(TreeViewItem item, int columnIndex, Rect drawRect)
         {
             var module = Utils.GetGitModules().First(x => x.Guid.GetHashCode() == item.id);
-            GUI.Label(drawRect, module.DisplayName);
+
+            GUI.Label(drawRect.Resize(32, 32), EditorGUIUtility.IconContent("d_Folder Icon"));
+            if (Utils.LockedModules?.Contains(module) ?? false)
+                GUI.Label(drawRect.Move(4, 12).Resize(16, 16), EditorGUIUtility.IconContent("P4_LockedLocal", "Locked"));
+            GUI.Label(drawRect.Move(20, 0), module.DisplayName);
 
             float offset = 0;
 
@@ -150,7 +154,7 @@ namespace Abuksigun.MRGitUI
             else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
             {
                 offset += 50;
-                var rect = drawRect.Move(drawRect.width - offset, 15).Resize(drawRect.width, 15);
+                var rect = drawRect.Move(drawRect.width - offset, 7).Resize(drawRect.width, 15);
                 GUIUtils.DrawSpin(ref spinCounter, rect);
             }
         }
@@ -310,7 +314,7 @@ namespace Abuksigun.MRGitUI
                     .Join(", ");
                 int reposHaveBranch = modules
                     .Select(module => module.References.GetResultOrDefault())
-                    .Count(x => x.Any(y => referenceComparer.Equals(y, branch)));
+                    .Count(x => x?.Any(y => referenceComparer.Equals(y, branch)) ?? false);
                 string reposHaveBranchStr = reposHaveBranch.ToString().WrapUp("(", ")");
                 string itemText = 
                     $"{branch.QualifiedName[(lastSlashIndex + 1)..]} " +
