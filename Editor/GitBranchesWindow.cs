@@ -131,29 +131,23 @@ namespace Abuksigun.MRGitUI
         {
             var module = Utils.GetGitModules().First(x => x.Guid.GetHashCode() == item.id);
 
-            GUI.Label(drawRect.Resize(32, 32), EditorGUIUtility.IconContent("d_Folder Icon"));
+            GUI.Label(drawRect.Resize(32, 32), EditorGUIUtility.IconContent(module.IsProject ? "UnityLogo" : module.IsLinkedPackage ? "Linked@2x" : "d_Folder Icon"));
             if (Utils.LockedModules?.Contains(module) ?? false)
                 GUI.Label(drawRect.Move(4, 12).Resize(16, 16), EditorGUIUtility.IconContent("P4_LockedLocal", "Locked"));
             GUI.Label(drawRect.Move(20, 0), module.DisplayName);
 
             float offset = 0;
 
+            offset += 70;
             if (module.GitStatus.GetResultOrDefault() is { } gitStatus)
-            {
-                offset += 70;
-                var rect = drawRect.Move(drawRect.width - offset, 1.5f);
-                GUIUtils.DrawShortStatus(gitStatus, rect, Style.RichTextLabel.Value);
-            }
+                GUIUtils.DrawShortStatus(gitStatus, drawRect.Move(drawRect.width - offset, 1.5f), Style.RichTextLabel.Value);
 
+            offset += 50;
             if (module.RemoteStatus.GetResultOrDefault() is { } result)
-            {
-                offset += 50;
-                var rect = drawRect.Move(drawRect.width - offset, 1.5f);
-                GUIUtils.DrawShortRemoteStatus(result, rect, Style.RichTextLabel.Value);
-            }
+                GUIUtils.DrawShortRemoteStatus(result, drawRect.Move(drawRect.width - offset, 1.5f), Style.RichTextLabel.Value);
+
             else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
             {
-                offset += 50;
                 var rect = drawRect.Move(drawRect.width - offset, 7).Resize(drawRect.width, 15);
                 GUIUtils.DrawSpin(ref spinCounter, rect);
             }

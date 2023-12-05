@@ -83,7 +83,8 @@ namespace Abuksigun.MRGitUI
 
         List<IOData> processLog = new();
         readonly List<IOData> processLogConcurent = new();
-        bool IsLinkedPackage { get; }
+        public bool IsLinkedPackage { get; }
+        public bool IsProject => PhysicalPath == Application.dataPath;
 
         public string Guid { get; }
         public string DisplayName { get; }
@@ -256,7 +257,7 @@ namespace Abuksigun.MRGitUI
 
         async Task<string> GetConfigValue(string key, ConfigScope scope)
         {
-            var result = await RunGit($"config {ScopeToString(scope)} --get {key}");
+            var result = await RunGit($"config {ScopeToString(scope)} --get {key}", true);
             return result.Output.Trim();
         }
 
