@@ -67,6 +67,19 @@ namespace Abuksigun.MRGitUI
 
         [SerializeField] string guid = "";
 
+        Color[] userColors = new Color[]
+        {
+            new (1f, 0.79f, 0.2f),
+            new (1f, 0.39f, 0.51f),
+            new (0.4f, 0.33f, 1f),
+            new (0.24f, 1f, 0.31f),
+            new (0.28f, 0.6f, 1f),
+            new (1f, 0f, 0.99f),
+            new (0.65f, 0.97f, 1f),
+        };
+
+        List<string> emails = new();
+        
         struct LogGraphCell
         {
             public bool commit;
@@ -283,10 +296,14 @@ namespace Abuksigun.MRGitUI
                 bool head = commit.LogLine.Branches.Any(x => x.StartsWith("HEAD"));
                 string defaultColor = EditorGUIUtility.isProSkin ? "white" : "black";
                 string color = head ? "red" : defaultColor;
+                
+                if (!emails.Contains(commit.LogLine.Author))
+                    emails.Add(commit.LogLine.Author);
+                    
                 EditorGUI.LabelField(rect, columnIndex switch {
                     1 => commit.LogLine.Hash,
-                    2 => commit.LogLine.Author,
-                    3 => commit.LogLine.Email,
+                    2 => $"<color=#{ColorUtility.ToHtmlStringRGBA(userColors[emails.IndexOf(commit.LogLine.Author) % userColors.Length])}>{commit.LogLine.Author}</color>",
+                    3 => $"<color=#{ColorUtility.ToHtmlStringRGBA(userColors[emails.IndexOf(commit.LogLine.Author) % userColors.Length])}>{commit.LogLine.Email}</color>",
                     4 => commit.LogLine.Date,
                     5 => $"<b><color={color}>{commit.LogLine.Branches.Join(", ")}</color><color=brown>{commit.LogLine.Tags.Join(", ")}</color></b> {commit.LogLine.Comment}",
                     _ => "",
