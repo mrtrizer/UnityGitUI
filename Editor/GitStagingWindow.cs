@@ -263,7 +263,7 @@ namespace Abuksigun.MRGitUI
                     }
                 });
                 menu.AddSeparator("");
-                menu.AddItem(new GUIContent("Discrad"), false, () => tasksInProgress.Add(GUIUtils.DiscardFiles(indexedSelectionPerModule)));
+                menu.AddItem(new GUIContent("Discard"), false, () => tasksInProgress.Add(GUIUtils.DiscardFiles(indexedSelectionPerModule)));
                 if (files.Any(x => x.IsUnstaged))
                     menu.AddItem(new GUIContent("Stage"), false, () => tasksInProgress.Add(GUIUtils.Stage(indexedSelectionPerModule)));
                 if (files.Any(x => x.IsStaged))
