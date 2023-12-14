@@ -54,21 +54,21 @@ namespace Abuksigun.MRGitUI
         bool showLongDiff = false;
 
         [SerializeField] bool staged;
-
+        
         public static LazyStyle lineNumber = new(() => new()
         {
             fontSize = 10,
             normal = new GUIStyleState()
             {
-                textColor = EditorGUIUtility.isProSkin ? Color.white : Color.black
+                textColor = Style.TextColor
             }
         }, Style.VerifyNormalBackground);
 
         public static LazyStyle diffUnchanged = new(() => new() {
             normal = new GUIStyleState
             {
-                background = Style.GetColorTexture(EditorGUIUtility.isProSkin ? new Color(0.22f, 0.22f, 0.22f, 0f) : Color.white),
-                textColor = EditorGUIUtility.isProSkin ? Color.white : Color.black
+                background = Style.GetColorTexture(Style.BackgroundColor),
+                textColor = Style.TextColor
             },
             font = Style.MonospacedFont.Value,
             fontSize = 10
@@ -76,9 +76,9 @@ namespace Abuksigun.MRGitUI
 
         public static LazyStyle diffAdded = new(() => new(diffUnchanged.Value) {
             normal = new GUIStyleState 
-            { 
+            {
                 background = Style.GetColorTexture(EditorGUIUtility.isProSkin ? new Color(0.13f, 0.33f, 0.16f) : new Color(0.505f, 0.99f, 0.618f)),
-                textColor = EditorGUIUtility.isProSkin ? Color.white : Color.black
+                textColor = Style.TextColor
             }
         }, Style.VerifyNormalBackground);
 
@@ -86,15 +86,15 @@ namespace Abuksigun.MRGitUI
             normal = new GUIStyleState
             {
                 background = Style.GetColorTexture(EditorGUIUtility.isProSkin ? new Color(0.5f, 0.19f, 0.21f) : new Color(0.990f, 0.564f, 0.564f)),
-                textColor = EditorGUIUtility.isProSkin ? Color.white : Color.black
+                textColor = Style.TextColor
             }
         }, Style.VerifyNormalBackground);
 
         public static LazyStyle diffSelected = new(() => new(diffUnchanged.Value) {
             normal = new GUIStyleState 
-            { 
+            {
                 background = Style.GetColorTexture(EditorGUIUtility.isProSkin ? new Color(0.17f, 0.3f, 0.64f) : new Color(0.505f, 0.618f, 0.99f)),
-                textColor = EditorGUIUtility.isProSkin ? Color.white : Color.black
+                textColor = Style.TextColor  
             }
         }, Style.VerifyNormalBackground);
 
@@ -282,11 +282,11 @@ namespace Abuksigun.MRGitUI
                             var fileStatus = status.Files.FirstOrDefault(x => x.FullProjectPath.Contains(currentFile));
                             if (fileStatus != null && !fileStatus.IsUnresolved)
                             {
-                                if (!staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Stage", EditorStyles.toolbarButton))
+                                if (!staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Stage", EditorStyles.miniButton))
                                     stageHunk.Invoke(fileStatus, hunkIndex + 1);
-                                if (staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Unstage", EditorStyles.toolbarButton))
+                                if (staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Unstage", EditorStyles.miniButton))
                                     unstageHunk.Invoke(fileStatus, hunkIndex + 1);
-                                if (!staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Discard", EditorStyles.toolbarButton))
+                                if (!staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Discard", EditorStyles.miniButton))
                                     discardHunk.Invoke(fileStatus, hunkIndex + 1);
                             }
                         }
