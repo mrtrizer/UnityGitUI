@@ -54,7 +54,7 @@ namespace Abuksigun.MRGitUI
         bool showLongDiff = false;
 
         [SerializeField] bool staged;
-        
+
         public static LazyStyle lineNumber = new(() => new()
         {
             fontSize = 10,
