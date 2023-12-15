@@ -43,8 +43,8 @@ namespace Abuksigun.MRGitUI
         public static LazyStyle FileName = new(() => new() {
             fontStyle = FontStyle.Bold,
             normal = new() {
-                background = GetColorTexture(new Color(0.8f, 0.8f, 0.8f)),
-                textColor = Color.black
+                background = GetColorTexture(BackgroundColor),
+                textColor = TextColor
             }
         }, VerifyNormalBackground);
 
@@ -71,9 +71,10 @@ namespace Abuksigun.MRGitUI
             return colorTextures[color] = texture;
         }
 
-        public static bool VerifyNormalBackground(GUIStyle style)
-        {
-            return style.normal.background != null;
-        }
+        public static bool VerifyNormalBackground(GUIStyle style) => style.normal.background != null;
+
+        public static Color BackgroundColor => EditorGUIUtility.isProSkin ? new Color(0.22f, 0.22f, 0.22f, 0f) : Color.white;
+        
+        public static Color TextColor => EditorGUIUtility.isProSkin ? Color.white : Color.black;
     }
 }
