@@ -89,7 +89,7 @@ namespace Abuksigun.MRGitUI
         private static async void LoadAvatar(string email)
         {
             string hashedEmail = await Task.Run(() => Md5Hash(email.Trim().ToLower()));
-            string url = $"https://www.gravatar.com/avatar/{hashedEmail}?s=128";
+            string url = $"https://www.gravatar.com/avatar/{hashedEmail}?s=128&d=identicon";
             var avatar = await DownloadTextureAsync(url);
             avatar.name = hashedEmail;
             users[email].avatar = avatar;
