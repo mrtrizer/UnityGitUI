@@ -70,7 +70,7 @@ namespace Abuksigun.MRGitUI
 
     public static class GitUserBase
     {
-        const float AvatarSize = 96;
+        public const float AvatarSize = 96;
 
         private static Dictionary<string, UserData> users = new();
 
@@ -344,7 +344,9 @@ namespace Abuksigun.MRGitUI
                         if (avatar)
                             GUILayout.Box(avatar);
                         if (commitLine != null)
-                            EditorGUILayout.TextField(commitLine.Raw.AfterFirst('-'), CommitInfoStyle.Value, GUILayout.Height(128));
+                        {
+                            EditorGUILayout.TextField(commitLine.Raw.AfterFirst('-'), CommitInfoStyle.Value, GUILayout.Height(GitUserBase.AvatarSize));
+                        }
                         GUILayout.EndHorizontal();
                     }
                     infoPanelScrollPosition = scroll.scrollPosition;
