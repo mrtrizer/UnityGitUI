@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -69,8 +70,10 @@ namespace Abuksigun.MRGitUI
 
     public static class GitUserBase
     {
+        const float AvatarSize = 96;
+
         private static Dictionary<string, UserData> users = new();
-        
+
         public static UserData GetUserData(string email, string name = null)
         {
             if (users.ContainsKey(email))
@@ -89,10 +92,24 @@ namespace Abuksigun.MRGitUI
         private static async void LoadAvatar(string email)
         {
             string hashedEmail = await Task.Run(() => Md5Hash(email.Trim().ToLower()));
-            string url = $"https://www.gravatar.com/avatar/{hashedEmail}?s=128&d=identicon";
+            string avatarPath = Path.Combine(Application.temporaryCachePath, "mr-git-ui", $"{hashedEmail}.png");
+            
+            if (File.Exists(avatarPath))
+            {
+                var data = File.ReadAllBytes(avatarPath);
+                var cachedImage = new Texture2D(2, 2);
+                cachedImage.LoadImage(data);
+                users[email].avatar = cachedImage;
+                return;
+            }
+            
+            string url = $"https://www.gravatar.com/avatar/{hashedEmail}?s={AvatarSize}&d=identicon";
             var avatar = await DownloadTextureAsync(url);
             avatar.name = hashedEmail;
             users[email].avatar = avatar;
+            if (!Directory.Exists(Path.GetDirectoryName(avatarPath)))
+                Directory.CreateDirectory(Path.GetDirectoryName(avatarPath)!);
+            File.WriteAllBytes(avatarPath, avatar.EncodeToPNG());
         }
         
         private static async Task<Texture2D> DownloadTextureAsync(string url)
@@ -108,18 +125,14 @@ namespace Abuksigun.MRGitUI
 
         private static string Md5Hash(string input)
         {
-            using (MD5 md5 = MD5.Create())
-            {
-                byte[] inputBytes = Encoding.ASCII.GetBytes(input);
-                byte[] hashBytes = md5.ComputeHash(inputBytes);
+            using MD5 md5 = MD5.Create();
+            byte[] inputBytes = Encoding.ASCII.GetBytes(input);
+            byte[] hashBytes = md5.ComputeHash(inputBytes);
 
-                StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < hashBytes.Length; i++)
-                {
-                    sb.Append(hashBytes[i].ToString("X2"));
-                }
-                return sb.ToString().ToLower();
-            }
+            var stringBuilder = new StringBuilder();
+            for (int i = 0; i < hashBytes.Length; i++) 
+                stringBuilder.Append(hashBytes[i].ToString("X2"));
+            return stringBuilder.ToString().ToLower();
         }
     }
 
@@ -137,7 +150,6 @@ namespace Abuksigun.MRGitUI
 
         const float TableHeaderHeight = 27;
         const float Space = 16;
-        const float DefaultInfoPanelWidth = 300;
 
         [SerializeField] string guid = "";
 
@@ -164,14 +176,13 @@ namespace Abuksigun.MRGitUI
         bool HideLog => !string.IsNullOrEmpty(LockedHash);
         
         float FilesPanelHeight => HideLog ? position.height : verticalSplitterState.RealSizes[1];
-        float InfoPanelWidth => HideLog ? 0 : DefaultInfoPanelWidth;
+        float InfoPanelWidth => HideLog ? 0 : Screen.width / 2;
 
         [SerializeField] TreeViewState treeViewLogState = new();
         [SerializeField] MultiColumnHeaderState multiColumnHeaderState = new(new MultiColumnHeaderState.Column[] {
             new () { headerContent = new GUIContent("Graph") },
             new () { headerContent = new GUIContent("Hash"), width = 80 },
             new () { headerContent = new GUIContent("Author"), width = 100 },
-            new () { headerContent = new GUIContent("Email"), width = 50 },
             new () { headerContent = new GUIContent("Date"), width = 50 },
             new () { headerContent = new GUIContent("Message"), width = 400 },
         });
@@ -365,10 +376,9 @@ namespace Abuksigun.MRGitUI
                 string userColor = ColorUtility.ToHtmlStringRGB(GitUserBase.GetUserData(commit.LogLine.Email, commit.LogLine.Author).color);
                 EditorGUI.LabelField(rect, columnIndex switch {
                     1 => commit.LogLine.Hash, 
-                    2 => $"<color=#{userColor}>{commit.LogLine.Author}</color>",
-                    3 => $"<color=#{userColor}>{commit.LogLine.Email}</color>",
-                    4 => commit.LogLine.Date,
-                    5 => $"<b><color={color}>{commit.LogLine.Branches.Join(", ")}</color><color=brown>{commit.LogLine.Tags.Join(", ")}</color></b> {commit.LogLine.Comment}",
+                    2 => $"<color=#{userColor}>{commit.LogLine.Author} <{commit.LogLine.Email}></color>",
+                    3 => commit.LogLine.Date,
+                    4 => $"<b><color={color}>{commit.LogLine.Branches.Join(", ")}</color><color=brown>{commit.LogLine.Tags.Join(", ")}</color></b> {commit.LogLine.Comment}",
                     _ => "",
                 }, Style.RichTextLabel.Value);
             }
