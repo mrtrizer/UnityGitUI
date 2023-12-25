@@ -103,7 +103,7 @@ namespace Abuksigun.MRGitUI
                 return;
             }
             
-            string url = $"https://www.gravatar.com/avatar/{hashedEmail}?s={AvatarSize}&d=identicon";
+            string url = $"https://www.gravatar.com/avatar/{hashedEmail}?s={AvatarSize}&d=retro";
             var avatar = await DownloadTextureAsync(url);
             avatar.name = hashedEmail;
             users[email].avatar = avatar;
