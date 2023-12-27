@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
-using UnityEngine.Networking;
 
 namespace Abuksigun.MRGitUI
 {
@@ -49,71 +47,6 @@ namespace Abuksigun.MRGitUI
             window.LockedModules = modules.ToList();
             await GUIUtils.ShowModalWindow(window, new Vector2Int(800, 700));
         }
-    }
-
-    public record UserData(string Email, string Author, Color Color)
-    {
-        public Texture2D Avatar { get; set; }
-        public string FormattedAuthor => $"{Author} <{Email}>";
-        public string FormattedAuthorColored => $"<color=#{ColorUtility.ToHtmlStringRGB(Color)}>{FormattedAuthor}</color>";
-    }
-
-    public static class GitUserBase
-    {
-        public const float AvatarSize = 96;
-
-        private static Dictionary<string, UserData> users = new();
-
-        public static UserData GetUserData(string email, string name = null)
-        {
-            if (users.ContainsKey(email))
-                return users[email];
-
-            if (name == null)
-                return null;
-
-            UnityEngine.Random.InitState(email.Length * name.Length);
-            var userData = new UserData(email, name, UnityEngine.Random.ColorHSV(0f, 0.6f, 0.6f, 0.8f, 0.6f, 0.8f));
-            users.Add(email, userData);
-            LoadAvatar(email);
-            return users[email];
-        }
-
-        private static async void LoadAvatar(string email)
-        {
-            string hashedEmail = await Task.Run(() => Md5Hash(email.Trim().ToLower()));
-            string avatarPath = Path.Combine(Application.temporaryCachePath, "mr-git-ui", $"{hashedEmail}.png");
-            
-            if (File.Exists(avatarPath))
-            {
-                var data = File.ReadAllBytes(avatarPath);
-                var cachedImage = new Texture2D(2, 2);
-                cachedImage.LoadImage(data);
-                users[email].Avatar = cachedImage;
-                return;
-            }
-            
-            string url = $"https://www.gravatar.com/avatar/{hashedEmail}?s={AvatarSize}&d=retro";
-            var avatar = await DownloadTextureAsync(url);
-            avatar.name = hashedEmail;
-            users[email].Avatar = avatar;
-            if (!Directory.Exists(Path.GetDirectoryName(avatarPath)))
-                Directory.CreateDirectory(Path.GetDirectoryName(avatarPath)!);
-            File.WriteAllBytes(avatarPath, avatar.EncodeToPNG());
-        }
-        
-        private static async Task<Texture2D> DownloadTextureAsync(string url)
-        {
-            using UnityWebRequest webRequest = UnityWebRequestTexture.GetTexture(url);
-            var asyncOp = webRequest.SendWebRequest();
-            
-            while (!asyncOp.isDone)
-                await Task.Delay(100);
-            
-            return webRequest.result == UnityWebRequest.Result.Success ? DownloadHandlerTexture.GetContent(webRequest) : null;
-        }
-
-        private static string Md5Hash(string input) => string.Join(null, System.Security.Cryptography.MD5.Create().ComputeHash(System.Text.Encoding.UTF8.GetBytes(input)).Select(x => x.ToString("X2"))).ToLower();
     }
 
     record LogLine(string Raw, string Hash, string Comment, string Author, string Email, string Date, string[] Branches, string[] Tags);
@@ -269,7 +202,7 @@ namespace Abuksigun.MRGitUI
             float currentFilesPanelHeight = showFilesPanel && HideFilesPanel ? 0 : FilesPanelHeight;
 
             treeViewLog.Draw(new Vector2(position.width, position.height - currentFilesPanelHeight), new[] { lastLog },
-                id => ShowCommitContextMenu(module, GetSelectedCommitHash(id), GetSelectedCommitHashes(treeViewLogState.selectedIDs)),
+                id => _ = ShowCommitContextMenu(module, GetSelectedCommitHash(id), GetSelectedCommitHashes(treeViewLogState.selectedIDs)),
                 id => SelectHash(module, GetSelectedCommitHash(id)));
 
             if (!HideGraph && Event.current.type == EventType.Repaint)
@@ -319,9 +252,9 @@ namespace Abuksigun.MRGitUI
                         using (new EditorGUILayout.HorizontalScope())
                         {
                             var commitLine = lines?.FirstOrDefault(x => x.Hash == selectedCommitHash);
-                            var userData = GitUserBase.GetUserData(commitLine.Email, commitLine.Author);
-                            if (userData.Avatar)
-                                GUILayout.Box(userData.Avatar);
+                            var userData = MetaDataUtils.GetUserData(commitLine.Email, commitLine.Author);
+                            if (userData.Avatar.GetResultOrDefault() is { } avatar)
+                                GUILayout.Box(avatar);
                             
                             using (new EditorGUILayout.VerticalScope())
                             {
@@ -359,7 +292,7 @@ namespace Abuksigun.MRGitUI
                 bool head = commit.LogLine.Branches.Any(x => x.StartsWith("HEAD"));
                 string defaultColor = EditorGUIUtility.isProSkin ? "white" : "black";
                 string color = head ? "red" : defaultColor;
-                var userData = GitUserBase.GetUserData(commit.LogLine.Email, commit.LogLine.Author);
+                var userData = MetaDataUtils.GetUserData(commit.LogLine.Email, commit.LogLine.Author);
                 EditorGUI.LabelField(rect, columnIndex switch {
                     1 => commit.LogLine.Hash, 
                     2 => userData.FormattedAuthorColored,
@@ -439,7 +372,7 @@ namespace Abuksigun.MRGitUI
             return cells;
         }
 
-        async void ShowCommitContextMenu(Module module, string selectedCommit, IEnumerable<string> selectedCommits)
+        async Task ShowCommitContextMenu(Module module, string selectedCommit, IEnumerable<string> selectedCommits)
         {
             var menu = new GenericMenu();
             var commitReference = new[] { new Reference(selectedCommit, selectedCommit, selectedCommit) };
