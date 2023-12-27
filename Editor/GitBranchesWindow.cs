@@ -48,6 +48,7 @@ namespace Abuksigun.MRGitUI
         LazyTreeView<Module> simpleTreeViewRepos;
         [SerializeField] TreeViewState treeViewStateRepos;
         [SerializeField] SplitterState splitterState = new(new[] {0.5f, 0.5f});
+        [SerializeField] bool showRepos = false;
 
         protected override void OnGUI()
         {
@@ -67,7 +68,8 @@ namespace Abuksigun.MRGitUI
                 Utils.LockModules(GUILayout.Toggle(lockedModules, lockBranchesContent, EditorStyles.toolbarButton, GUILayout.Width(32)) ? modules.ToList() : null);
             }
 
-            SplitterGUILayout.BeginVerticalSplit(splitterState);
+            if (showRepos)
+                SplitterGUILayout.BeginVerticalSplit(splitterState);
 
 
             var referencesPerRepo = modules.Select(module => module.References.GetResultOrDefault());
@@ -75,7 +77,7 @@ namespace Abuksigun.MRGitUI
             simpleTreeViewBranches ??= new(GenerateItemsBranches, treeViewStateBranches ??= new(), false);
                 
             simpleTreeViewBranches.Draw(
-                new Vector2(position.width - 20, splitterState.RealSizes[0]),
+                new Vector2(position.width - 20, showRepos ? splitterState.RealSizes[0] : position.height - TopPanelHeight - BottomPanelHeight),
                 referencesPerRepo.Where(x => x!= null),
                 contextMenuCallback: id => {
                     if (task == null || task.IsCompleted)
@@ -91,16 +93,19 @@ namespace Abuksigun.MRGitUI
                     }
                 });
 
-            // FIXME: For some reason splitter works only with scroll
-            using (var scroll = new EditorGUILayout.ScrollViewScope(reposScrollPosition)) 
+            if (showRepos)
             {
-                simpleTreeViewRepos ??= new(GenerateItemsRepos, treeViewStateRepos ??= new(), true, drawRowCallback: DrawRepoRow) { RowHeight = 30 };
-                simpleTreeViewRepos.Draw(new Vector2(position.width - 20, splitterState.RealSizes[1] - 2), Utils.GetGitModules(), selectionChangedCallback : OnSelectionChangedRepos);
+                // FIXME: For some reason splitter works only with scroll
+                using (var scroll = new EditorGUILayout.ScrollViewScope(reposScrollPosition))
+                {
+                    simpleTreeViewRepos ??= new(GenerateItemsRepos, treeViewStateRepos ??= new(), true, drawRowCallback: DrawRepoRow) { RowHeight = 30 };
+                    simpleTreeViewRepos.Draw(new Vector2(position.width - 20, splitterState.RealSizes[1] - 2), Utils.GetGitModules(), selectionChangedCallback: OnSelectionChangedRepos);
 
-                reposScrollPosition = scroll.scrollPosition;
+                    reposScrollPosition = scroll.scrollPosition;
+                }
+
+                SplitterGUILayout.EndVerticalSplit();
             }
-
-            SplitterGUILayout.EndVerticalSplit();
 
             using (new EditorGUILayout.HorizontalScope())
             using (new EditorGUIUtility.IconSizeScope(new Vector2(22, 22)))
@@ -112,6 +117,8 @@ namespace Abuksigun.MRGitUI
                     GitRemotes.ShowRemotesSyncWindow(GitRemotes.Mode.Pull);
                 if (GUILayout.Button(EditorGUIUtility.TrIconContent("Update-Available@2x", "Push"), layout))
                     GitRemotes.ShowRemotesSyncWindow(GitRemotes.Mode.Push);
+                GUILayout.Space(30);
+                showRepos = GUILayout.Toggle(showRepos, EditorGUIUtility.TrIconContent("d_VerticalLayoutGroup Icon", "Push"), EditorStyles.miniButton, layout);
                 GUILayout.FlexibleSpace();
                 if (GUILayout.Button(EditorGUIUtility.TrIconContent("SaveAs@2x", "Commit"), layout))
                     GitStaging.Invoke();
@@ -145,12 +152,8 @@ namespace Abuksigun.MRGitUI
             offset += 50;
             if (module.RemoteStatus.GetResultOrDefault() is { } result)
                 GUIUtils.DrawShortRemoteStatus(result, drawRect.Move(drawRect.width - offset, 1.5f), Style.RichTextLabel.Value);
-
             else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
-            {
-                var rect = drawRect.Move(drawRect.width - offset, 7).Resize(drawRect.width, 15);
-                GUIUtils.DrawSpin(ref spinCounter, rect);
-            }
+                GUIUtils.DrawSpin(ref spinCounter, drawRect.Move(drawRect.width - offset, 7).Resize(drawRect.width, 15));
         }
 
         static async void CreateOrRenameBranch(string oldName = null)
@@ -255,10 +258,7 @@ namespace Abuksigun.MRGitUI
 
         List<TreeViewItem> GenerateItemsRepos(IEnumerable<Module> modules)
         {
-            var items = new List<TreeViewItem>();
-            foreach (var module in modules)
-                items.Add(new TreeViewItem(module.Guid.GetHashCode(), 0, module.DisplayName));
-            return items;
+            return modules.Select(module => new TreeViewItem(module.Guid.GetHashCode(), 0, module.DisplayName)).ToList();
         }
 
         List<TreeViewItem> GenerateItemsBranches(IEnumerable<Reference[]> branchesPerRepo)
