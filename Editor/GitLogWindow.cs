@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -53,19 +52,11 @@ namespace Abuksigun.MRGitUI
         }
     }
 
-    public class UserData
+    public record UserData(string Email, string Author, Color Color)
     {
-        public string email;
-        public string author;
-        public Color color;
-        public Texture2D avatar;
-        
-        public UserData(string email, string author, Color color)
-        {
-            this.email = email;
-            this.author = author;
-            this.color = color;
-        }
+        public Texture2D Avatar { get; set; }
+        public string FormattedAuthor => $"{Author} <{Email}>";
+        public string FormattedAuthorColored => $"<color=#{ColorUtility.ToHtmlStringRGB(Color)}>{FormattedAuthor}</color>";
     }
 
     public static class GitUserBase
@@ -99,14 +90,14 @@ namespace Abuksigun.MRGitUI
                 var data = File.ReadAllBytes(avatarPath);
                 var cachedImage = new Texture2D(2, 2);
                 cachedImage.LoadImage(data);
-                users[email].avatar = cachedImage;
+                users[email].Avatar = cachedImage;
                 return;
             }
             
             string url = $"https://www.gravatar.com/avatar/{hashedEmail}?s={AvatarSize}&d=retro";
             var avatar = await DownloadTextureAsync(url);
             avatar.name = hashedEmail;
-            users[email].avatar = avatar;
+            users[email].Avatar = avatar;
             if (!Directory.Exists(Path.GetDirectoryName(avatarPath)))
                 Directory.CreateDirectory(Path.GetDirectoryName(avatarPath)!);
             File.WriteAllBytes(avatarPath, avatar.EncodeToPNG());
@@ -123,17 +114,7 @@ namespace Abuksigun.MRGitUI
             return webRequest.result == UnityWebRequest.Result.Success ? DownloadHandlerTexture.GetContent(webRequest) : null;
         }
 
-        private static string Md5Hash(string input)
-        {
-            using MD5 md5 = MD5.Create();
-            byte[] inputBytes = Encoding.ASCII.GetBytes(input);
-            byte[] hashBytes = md5.ComputeHash(inputBytes);
-
-            var stringBuilder = new StringBuilder();
-            for (int i = 0; i < hashBytes.Length; i++) 
-                stringBuilder.Append(hashBytes[i].ToString("X2"));
-            return stringBuilder.ToString().ToLower();
-        }
+        private static string Md5Hash(string input) => string.Join(null, System.Security.Cryptography.MD5.Create().ComputeHash(Encoding.ASCII.GetBytes(input)).Select(x => x.ToString("X2"))).ToLower();
     }
 
     record LogLine(string Raw, string Hash, string Comment, string Author, string Email, string Date, string[] Branches, string[] Tags);
@@ -182,7 +163,7 @@ namespace Abuksigun.MRGitUI
         [SerializeField] MultiColumnHeaderState multiColumnHeaderState = new(new MultiColumnHeaderState.Column[] {
             new () { headerContent = new GUIContent("Graph") },
             new () { headerContent = new GUIContent("Hash"), width = 80 },
-            new () { headerContent = new GUIContent("Author"), width = 100 },
+            new () { headerContent = new GUIContent("Author <Email>"), width = 100 },
             new () { headerContent = new GUIContent("Date"), width = 50 },
             new () { headerContent = new GUIContent("Message"), width = 400 },
         });
@@ -334,20 +315,24 @@ namespace Abuksigun.MRGitUI
                 using (var scroll = new EditorGUILayout.ScrollViewScope(infoPanelScrollPosition))
                 using (new EditorGUILayout.VerticalScope(GUILayout.Height(FilesPanelHeight)))
                 {
-                    string lastHash = selectedCommitHashes.Count() > 1 ? selectedCommitHashes.Last() : null;
-                    EditorGUILayout.SelectableLabel($"{selectedCommitHashes.First()} {lastHash?.WrapUp("- ", "")}");
                     foreach (var selectedCommitHash in selectedCommitHashes)
                     {
-                        GUILayout.BeginHorizontal();
-                        var commitLine = lines?.FirstOrDefault(x => x.Hash == selectedCommitHash);
-                        var avatar = GitUserBase.GetUserData(commitLine.Email, commitLine.Author).avatar;
-                        if (avatar)
-                            GUILayout.Box(avatar);
-                        if (commitLine != null)
+                        using (new EditorGUILayout.HorizontalScope())
                         {
-                            EditorGUILayout.TextField(commitLine.Raw.AfterFirst('-'), CommitInfoStyle.Value, GUILayout.Height(GitUserBase.AvatarSize));
+                            var commitLine = lines?.FirstOrDefault(x => x.Hash == selectedCommitHash);
+                            var userData = GitUserBase.GetUserData(commitLine.Email, commitLine.Author);
+                            if (userData.Avatar)
+                                GUILayout.Box(userData.Avatar);
+                            
+                            using (new EditorGUILayout.VerticalScope())
+                            {
+                                EditorGUILayout.SelectableLabel(userData.FormattedAuthor, EditorStyles.boldLabel, GUILayout.Height(24));
+                                EditorGUILayout.SelectableLabel(commitLine.Hash, EditorStyles.miniLabel, GUILayout.Height(12));
+                                EditorGUILayout.SelectableLabel(commitLine.Date, EditorStyles.miniLabel, GUILayout.Height(12));
+                                EditorGUILayout.SelectableLabel(commitLine.Comment, GUILayout.Height(16));
+                            }
                         }
-                        GUILayout.EndHorizontal();
+                        EditorGUILayout.Separator();
                     }
                     infoPanelScrollPosition = scroll.scrollPosition;
                 }
@@ -375,10 +360,10 @@ namespace Abuksigun.MRGitUI
                 bool head = commit.LogLine.Branches.Any(x => x.StartsWith("HEAD"));
                 string defaultColor = EditorGUIUtility.isProSkin ? "white" : "black";
                 string color = head ? "red" : defaultColor;
-                string userColor = ColorUtility.ToHtmlStringRGB(GitUserBase.GetUserData(commit.LogLine.Email, commit.LogLine.Author).color);
+                var userData = GitUserBase.GetUserData(commit.LogLine.Email, commit.LogLine.Author);
                 EditorGUI.LabelField(rect, columnIndex switch {
                     1 => commit.LogLine.Hash, 
-                    2 => $"<color=#{userColor}>{commit.LogLine.Author} <{commit.LogLine.Email}></color>",
+                    2 => userData.FormattedAuthorColored,
                     3 => commit.LogLine.Date,
                     4 => $"<b><color={color}>{commit.LogLine.Branches.Join(", ")}</color><color=brown>{commit.LogLine.Tags.Join(", ")}</color></b> {commit.LogLine.Comment}",
                     _ => "",
