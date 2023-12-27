@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace Abuksigun.MRGitUI
 {
@@ -49,6 +51,71 @@ namespace Abuksigun.MRGitUI
         }
     }
 
+    public record UserData(string Email, string Author, Color Color)
+    {
+        public Texture2D Avatar { get; set; }
+        public string FormattedAuthor => $"{Author} <{Email}>";
+        public string FormattedAuthorColored => $"<color=#{ColorUtility.ToHtmlStringRGB(Color)}>{FormattedAuthor}</color>";
+    }
+
+    public static class GitUserBase
+    {
+        public const float AvatarSize = 96;
+
+        private static Dictionary<string, UserData> users = new();
+
+        public static UserData GetUserData(string email, string name = null)
+        {
+            if (users.ContainsKey(email))
+                return users[email];
+
+            if (name == null)
+                return null;
+
+            UnityEngine.Random.InitState(email.Length * name.Length);
+            var userData = new UserData(email, name, UnityEngine.Random.ColorHSV(0f, 0.6f, 0.6f, 0.8f, 0.6f, 0.8f));
+            users.Add(email, userData);
+            LoadAvatar(email);
+            return users[email];
+        }
+
+        private static async void LoadAvatar(string email)
+        {
+            string hashedEmail = await Task.Run(() => Md5Hash(email.Trim().ToLower()));
+            string avatarPath = Path.Combine(Application.temporaryCachePath, "mr-git-ui", $"{hashedEmail}.png");
+            
+            if (File.Exists(avatarPath))
+            {
+                var data = File.ReadAllBytes(avatarPath);
+                var cachedImage = new Texture2D(2, 2);
+                cachedImage.LoadImage(data);
+                users[email].Avatar = cachedImage;
+                return;
+            }
+            
+            string url = $"https://www.gravatar.com/avatar/{hashedEmail}?s={AvatarSize}&d=retro";
+            var avatar = await DownloadTextureAsync(url);
+            avatar.name = hashedEmail;
+            users[email].Avatar = avatar;
+            if (!Directory.Exists(Path.GetDirectoryName(avatarPath)))
+                Directory.CreateDirectory(Path.GetDirectoryName(avatarPath)!);
+            File.WriteAllBytes(avatarPath, avatar.EncodeToPNG());
+        }
+        
+        private static async Task<Texture2D> DownloadTextureAsync(string url)
+        {
+            using UnityWebRequest webRequest = UnityWebRequestTexture.GetTexture(url);
+            var asyncOp = webRequest.SendWebRequest();
+            
+            while (!asyncOp.isDone)
+                await Task.Delay(100);
+            
+            return webRequest.result == UnityWebRequest.Result.Success ? DownloadHandlerTexture.GetContent(webRequest) : null;
+        }
+
+        private static string Md5Hash(string input) => string.Join(null, System.Security.Cryptography.MD5.Create().ComputeHash(System.Text.Encoding.UTF8.GetBytes(input)).Select(x => x.ToString("X2"))).ToLower();
+    }
+
     record LogLine(string Raw, string Hash, string Comment, string Author, string Email, string Date, string[] Branches, string[] Tags);
 
     class CommitTreeViewItem : TreeViewItem
@@ -63,26 +130,9 @@ namespace Abuksigun.MRGitUI
 
         const float TableHeaderHeight = 27;
         const float Space = 16;
-        const float DefaultInfoPanelWidth = 300;
 
         [SerializeField] string guid = "";
 
-        Color[] userColors = new Color[]
-        {
-            new Color(0.98f, 0.36f, 1f),
-            new Color(1f, 0.39f, 0.51f),
-            new Color(1f, 0.63f, 0.42f),
-            new Color(1f, 0.99f, 0.31f),
-            new Color(0.76f, 1f, 0.35f),
-            new Color(0.26f, 1f, 0.23f),
-            new Color(0.38f, 1f, 0.77f),
-            new Color(0.34f, 0.68f, 1f),
-            new Color(0.45f, 0.38f, 1f),
-            new Color(0.71f, 0.38f, 1f),
-        };
-
-        List<string> emails = new();
-        
         struct LogGraphCell
         {
             public bool commit;
@@ -106,14 +156,13 @@ namespace Abuksigun.MRGitUI
         bool HideLog => !string.IsNullOrEmpty(LockedHash);
         
         float FilesPanelHeight => HideLog ? position.height : verticalSplitterState.RealSizes[1];
-        float InfoPanelWidth => HideLog ? 0 : DefaultInfoPanelWidth;
+        float InfoPanelWidth => HideLog ? 0 : Screen.width / 2;
 
         [SerializeField] TreeViewState treeViewLogState = new();
         [SerializeField] MultiColumnHeaderState multiColumnHeaderState = new(new MultiColumnHeaderState.Column[] {
             new () { headerContent = new GUIContent("Graph") },
             new () { headerContent = new GUIContent("Hash"), width = 80 },
-            new () { headerContent = new GUIContent("Author"), width = 100 },
-            new () { headerContent = new GUIContent("Email"), width = 50 },
+            new () { headerContent = new GUIContent("Author <Email>"), width = 100 },
             new () { headerContent = new GUIContent("Date"), width = 50 },
             new () { headerContent = new GUIContent("Message"), width = 400 },
         });
@@ -262,6 +311,30 @@ namespace Abuksigun.MRGitUI
 
             using (new EditorGUILayout.HorizontalScope())
             {
+                using (var scroll = new EditorGUILayout.ScrollViewScope(infoPanelScrollPosition))
+                using (new EditorGUILayout.VerticalScope(GUILayout.Height(FilesPanelHeight)))
+                {
+                    foreach (var selectedCommitHash in selectedCommitHashes)
+                    {
+                        using (new EditorGUILayout.HorizontalScope())
+                        {
+                            var commitLine = lines?.FirstOrDefault(x => x.Hash == selectedCommitHash);
+                            var userData = GitUserBase.GetUserData(commitLine.Email, commitLine.Author);
+                            if (userData.Avatar)
+                                GUILayout.Box(userData.Avatar);
+                            
+                            using (new EditorGUILayout.VerticalScope())
+                            {
+                                EditorGUILayout.SelectableLabel(userData.FormattedAuthor, EditorStyles.boldLabel, GUILayout.Height(24));
+                                EditorGUILayout.SelectableLabel(commitLine.Hash, EditorStyles.miniLabel, GUILayout.Height(12));
+                                EditorGUILayout.SelectableLabel(commitLine.Date, EditorStyles.miniLabel, GUILayout.Height(12));
+                                EditorGUILayout.SelectableLabel(commitLine.Comment, EditorStyles.helpBox);
+                            }
+                        }
+                        EditorGUILayout.Separator();
+                    }
+                    infoPanelScrollPosition = scroll.scrollPosition;
+                }
                 if (selectedFiles != null)
                 {
                     var panelSize = new Vector2(position.width - InfoPanelWidth, FilesPanelHeight);
@@ -270,19 +343,6 @@ namespace Abuksigun.MRGitUI
                 else
                 {
                     GUILayout.Space(position.width - InfoPanelWidth);
-                }
-                using (var scroll = new EditorGUILayout.ScrollViewScope(infoPanelScrollPosition))
-                using (new EditorGUILayout.VerticalScope(GUILayout.Height(FilesPanelHeight)))
-                {
-                    string lastHash = selectedCommitHashes.Count() > 1 ? selectedCommitHashes.Last() : null;
-                    EditorGUILayout.SelectableLabel($"{selectedCommitHashes.First()} {lastHash?.WrapUp("- ", "")}");
-                    foreach (var selectedCommitHash in selectedCommitHashes)
-                    {
-                        LogLine commitLine = lines?.FirstOrDefault(x => x.Hash == selectedCommitHash);
-                        if (commitLine != null)
-                            EditorGUILayout.TextField(commitLine.Raw.AfterFirst('-'), CommitInfoStyle.Value, GUILayout.Height(60));
-                    }
-                    infoPanelScrollPosition = scroll.scrollPosition;
                 }
             }
         }
@@ -296,20 +356,15 @@ namespace Abuksigun.MRGitUI
         {
             if (item is CommitTreeViewItem { } commit)
             {
-                if (!emails.Contains(commit.LogLine.Author))
-                    emails.Add(commit.LogLine.Author);
-                
                 bool head = commit.LogLine.Branches.Any(x => x.StartsWith("HEAD"));
                 string defaultColor = EditorGUIUtility.isProSkin ? "white" : "black";
                 string color = head ? "red" : defaultColor;
-                string userColor = ColorUtility.ToHtmlStringRGBA(userColors[emails.IndexOf(commit.LogLine.Author) % userColors.Length]);
-                
+                var userData = GitUserBase.GetUserData(commit.LogLine.Email, commit.LogLine.Author);
                 EditorGUI.LabelField(rect, columnIndex switch {
-                    1 => commit.LogLine.Hash,
-                    2 => $"<color=#{userColor}>{commit.LogLine.Author}</color>",
-                    3 => $"<color=#{userColor}>{commit.LogLine.Email}</color>",
-                    4 => commit.LogLine.Date,
-                    5 => $"<b><color={color}>{commit.LogLine.Branches.Join(", ")}</color><color=brown>{commit.LogLine.Tags.Join(", ")}</color></b> {commit.LogLine.Comment}",
+                    1 => commit.LogLine.Hash, 
+                    2 => userData.FormattedAuthorColored,
+                    3 => commit.LogLine.Date,
+                    4 => $"<b><color={color}>{commit.LogLine.Branches.Join(", ")}</color><color=brown>{commit.LogLine.Tags.Join(", ")}</color></b> {commit.LogLine.Comment}",
                     _ => "",
                 }, Style.RichTextLabel.Value);
             }
