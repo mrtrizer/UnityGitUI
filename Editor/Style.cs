@@ -73,8 +73,8 @@ namespace Abuksigun.MRGitUI
 
         public static bool VerifyNormalBackground(GUIStyle style) => style.normal.background != null;
 
-        public static Color BackgroundColor => EditorGUIUtility.isProSkin ? new Color(0.22f, 0.22f, 0.22f, 0f) : Color.white;
+        public static Color BackgroundColor => EditorGUIUtility.isProSkin ? new Color(0.11f, 0.11f, 0.11f) : Color.white;
         
-        public static Color TextColor => EditorGUIUtility.isProSkin ? Color.white : Color.black;
+        public static Color TextColor => EditorGUIUtility.isProSkin ? new Color(0.83f, 0.95f, 0.96f) : Color.black;
     }
 }

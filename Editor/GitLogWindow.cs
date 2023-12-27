@@ -63,6 +63,7 @@ namespace Abuksigun.MRGitUI
 
         const float TableHeaderHeight = 27;
         const float Space = 16;
+        const float InfoPanelWidth = 400;
 
         [SerializeField] string guid = "";
 
@@ -89,7 +90,6 @@ namespace Abuksigun.MRGitUI
         bool HideLog => !string.IsNullOrEmpty(LockedHash);
         
         float FilesPanelHeight => HideLog ? position.height : verticalSplitterState.RealSizes[1];
-        float InfoPanelWidth => HideLog ? 0 : Screen.width / 2;
 
         [SerializeField] TreeViewState treeViewLogState = new();
         [SerializeField] MultiColumnHeaderState multiColumnHeaderState = new(new MultiColumnHeaderState.Column[] {
@@ -175,7 +175,6 @@ namespace Abuksigun.MRGitUI
             multiColumnHeaderState.visibleColumns = Enumerable.Range(HideGraph ? 1 : 0, multiColumnHeaderState.columns.Length - (HideGraph ? 1 : 0)).ToArray();
 
             var selectedCommitHashes = GetSelectedCommitHashes(treeViewLogState.selectedIDs);
-            var selectedCommitHash = selectedCommitHashes.FirstOrDefault();
 
             if (!HideFilesPanel && selectedCommitHashes.Any())
                 SplitterGUILayout.BeginVerticalSplit(verticalSplitterState);
