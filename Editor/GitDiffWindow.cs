@@ -224,8 +224,8 @@ namespace Abuksigun.MRGitUI
                     showLongDiff = true;
                 return;
             }
-            int longestLine = diffLines.Max(x => x.Length);
-            float width = Mathf.Max(diffUnchanged.Value.CalcSize(new GUIContent(new string(' ', longestLine))).x, size.x) + 100;
+            string longestLine = diffLines.OrderByDescending(x => x.Length).First();
+            float width = Mathf.Max(diffUnchanged.Value.CalcSize(new GUIContent(longestLine)).x, size.x) + 100;
             int currentAddedLine = 1;
             int currentRemovedLine = 1;
             int currentLine = 1;
@@ -252,7 +252,7 @@ namespace Abuksigun.MRGitUI
                 }
                 else if (diffLines[i][0] == 'd')
                 {
-                    if (diffLines[i + 2].StartsWith("Binary"))
+                    if (diffLines[i + 2].StartsWith("Binary") || diffLines[i + 3].StartsWith("Binary"))
                     {
                         EditorGUI.SelectableLabel(new Rect(0, currentOffset, width, headerHeight), diffLines[i + 2], Style.FileName.Value);
                         break;
