@@ -556,6 +556,11 @@ namespace Abuksigun.MRGitUI
             return RunGit($"commit {args}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         }
 
+        public Task<CommandResult> AmendAuthor(string authorName, string authorEmail)
+        {
+            return RunGit($"commit --amend --author=\"{authorName} <{authorEmail}>\" --no-edit").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+        }
+
         public async Task<CommandResult[]> DiscardFiles(IEnumerable<string> files)
         {
             var status = await GitStatus;

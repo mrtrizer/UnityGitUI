@@ -63,7 +63,7 @@ namespace Abuksigun.MRGitUI
             var modulesWithStagedFiles = moduleNotInMergeState.Where(x => x.GitStatus.GetResultOrDefault()?.Staged?.Count() > 0);
             int modulesWithStagedFilesN = modulesWithStagedFiles.Count();
             bool commitAvailable = modulesWithStagedFilesN > 0 && !string.IsNullOrWhiteSpace(commitMessage) && !tasksInProgress.Any();
-            bool amendAvailable = (modulesWithStagedFilesN > 0 || !string.IsNullOrWhiteSpace(commitMessage)) && !tasksInProgress.Any();
+            bool amendAvailable = !tasksInProgress.Any();
             bool stashAvailable = amendAvailable && moduleNotInMergeState.Any(x => x.GitStatus.GetResultOrDefault()?.Files.Any() ?? false);
 
             var statuses = modules.Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null);
@@ -85,10 +85,7 @@ namespace Abuksigun.MRGitUI
                 using (new EditorGUI.DisabledGroupScope(!amendAvailable))
                 {
                     if (GUILayout.Button($"Amend", GUILayout.Width(150)))
-                    {
-                        tasksInProgress.AddRange(moduleNotInMergeState.Select(module => module.Commit(commitMessage.Length == 0 ? null : commitMessage, true)));
-                        commitMessage = "";
-                    }
+                        ShowAmendMenu(moduleNotInMergeState);
                 }
                 using (new EditorGUI.DisabledGroupScope(!stashAvailable))
                 {
@@ -196,6 +193,33 @@ namespace Abuksigun.MRGitUI
             var selectedAsset = GetStausById(id);
             if (selectedAsset != null)
                 GUIUtils.SelectAsset(selectedAsset.FullProjectPath);
+        }
+
+        private void ShowAmendMenu(IEnumerable<Module> modules)
+        {
+            var menu = new GenericMenu();
+
+            menu.AddItem(new GUIContent("Amend changes"), false, () => {
+                tasksInProgress.AddRange(modules.Select(module => module.Commit(commitMessage.Length == 0 ? null : commitMessage, true)));
+                commitMessage = "";
+            });
+
+            menu.AddItem(new GUIContent("Amend author"), false, async () => {
+                string authorName = modules.First().ConfigValue("user.name").GetResultOrDefault();
+                string authorEmail = modules.First().ConfigValue("user.email").GetResultOrDefault();
+                await GUIUtils.ShowModalWindow("Author", new(300, 100), (EditorWindow window) => {
+                    authorName = EditorGUILayout.TextField("Name", authorName);
+                    authorEmail = EditorGUILayout.TextField("Email", authorEmail);
+                    if (GUILayout.Button("Amend"))
+                    {
+                        window.Close();
+                        tasksInProgress.AddRange(modules.Select(module => module.AmendAuthor(authorName, authorEmail)));
+                    }
+                    if (GUILayout.Button("Cancel"))
+                        window.Close();
+                });
+            });
+            menu.ShowAsContext();
         }
 
         void ShowStashMenu(IEnumerable<Module> modules, IEnumerable<FileStatus> files)
