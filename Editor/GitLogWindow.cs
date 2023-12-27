@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
@@ -114,7 +113,7 @@ namespace Abuksigun.MRGitUI
             return webRequest.result == UnityWebRequest.Result.Success ? DownloadHandlerTexture.GetContent(webRequest) : null;
         }
 
-        private static string Md5Hash(string input) => string.Join(null, System.Security.Cryptography.MD5.Create().ComputeHash(Encoding.ASCII.GetBytes(input)).Select(x => x.ToString("X2"))).ToLower();
+        private static string Md5Hash(string input) => string.Join(null, System.Security.Cryptography.MD5.Create().ComputeHash(System.Text.Encoding.UTF8.GetBytes(input)).Select(x => x.ToString("X2"))).ToLower();
     }
 
     record LogLine(string Raw, string Hash, string Comment, string Author, string Email, string Date, string[] Branches, string[] Tags);
@@ -329,7 +328,7 @@ namespace Abuksigun.MRGitUI
                                 EditorGUILayout.SelectableLabel(userData.FormattedAuthor, EditorStyles.boldLabel, GUILayout.Height(24));
                                 EditorGUILayout.SelectableLabel(commitLine.Hash, EditorStyles.miniLabel, GUILayout.Height(12));
                                 EditorGUILayout.SelectableLabel(commitLine.Date, EditorStyles.miniLabel, GUILayout.Height(12));
-                                EditorGUILayout.SelectableLabel(commitLine.Comment, GUILayout.Height(16));
+                                EditorGUILayout.SelectableLabel(commitLine.Comment, EditorStyles.helpBox);
                             }
                         }
                         EditorGUILayout.Separator();
