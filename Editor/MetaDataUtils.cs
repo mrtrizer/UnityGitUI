@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using UnityEditor;
 using UnityEngine;
 
 namespace Abuksigun.MRGitUI
@@ -29,8 +28,8 @@ namespace Abuksigun.MRGitUI
             if (name == null)
                 return null;
 
-            UnityEngine.Random.InitState((email + name).GetHashCode());
-            userData = new MetaData(email, name, UnityEngine.Random.ColorHSV(0f, 0.6f, 0.6f, 0.8f, 0.6f, 0.8f), LoadAvatar(email));
+            Random.InitState((email + name).GetHashCode());
+            userData = new MetaData(email, name, Random.ColorHSV(0f, 0.6f, 0.6f, 0.8f, 0.6f, 0.8f), LoadAvatar(email));
             users.Add(email, userData);
             return userData;
         }
@@ -59,9 +58,8 @@ namespace Abuksigun.MRGitUI
         
         private static async Task<Texture2D> DownloadTextureAsync(string url)
         {
-            using HttpClient client = new HttpClient();
-            Texture2D texture = new Texture2D(2, 2);
-            var bytes = await client.GetByteArrayAsync(url);
+            var bytes = await new HttpClient().GetByteArrayAsync(url);
+            var texture = new Texture2D(2, 2);
             texture.LoadImage(bytes);
             return texture;
         }
