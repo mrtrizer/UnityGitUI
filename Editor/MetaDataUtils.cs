@@ -58,7 +58,8 @@ namespace Abuksigun.MRGitUI
         
         private static async Task<Texture2D> DownloadTextureAsync(string url)
         {
-            var bytes = await new HttpClient().GetByteArrayAsync(url);
+            using HttpClient client = new HttpClient();
+            var bytes = await client.GetByteArrayAsync(url);
             var texture = new Texture2D(2, 2);
             texture.LoadImage(bytes);
             return texture;
