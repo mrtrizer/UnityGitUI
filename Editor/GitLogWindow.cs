@@ -159,7 +159,20 @@ namespace Abuksigun.MRGitUI
         {
             var module = GUIUtils.ModuleGuidToolbar(LockedModules ?? Utils.GetSelectedGitModules().ToList(), guid);
             if (module == null)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.FlexibleSpace();
+                    using (new EditorGUILayout.VerticalScope())
+                    {
+                        GUILayout.FlexibleSpace();
+                        EditorGUILayout.HelpBox("No repository selected.\n\nYou can select repository in \'Project\' or \'Git Branches' windows", MessageType.Info);
+                        GUILayout.FlexibleSpace();
+                    }
+                    GUILayout.FlexibleSpace();
+                }
                 return;
+            }
             guid = module.Guid;
             var log = (ShowStash ? module.Stashes : module.LogFiles(LogFiles)).GetResultOrDefault();
             if (log == null)
