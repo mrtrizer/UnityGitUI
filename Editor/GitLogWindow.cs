@@ -256,29 +256,32 @@ namespace Abuksigun.MRGitUI
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                using (var scroll = new EditorGUILayout.ScrollViewScope(infoPanelScrollPosition))
-                using (new EditorGUILayout.VerticalScope(GUILayout.Height(FilesPanelHeight)))
+                if (!ShowStash)
                 {
-                    foreach (var selectedCommitHash in selectedCommitHashes)
+                    using (var scroll = new EditorGUILayout.ScrollViewScope(infoPanelScrollPosition))
+                    using (new EditorGUILayout.VerticalScope(GUILayout.Height(FilesPanelHeight)))
                     {
-                        using (new EditorGUILayout.HorizontalScope())
+                        foreach (var selectedCommitHash in selectedCommitHashes)
                         {
-                            var commitLine = lines?.FirstOrDefault(x => x.Hash == selectedCommitHash);
-                            var userData = MetaDataUtils.GetUserData(commitLine.Email, commitLine.Author);
-                            if (userData.Avatar.GetResultOrDefault() is { } avatar)
-                                GUILayout.Box(avatar);
-                            
-                            using (new EditorGUILayout.VerticalScope())
+                            using (new EditorGUILayout.HorizontalScope())
                             {
-                                EditorGUILayout.SelectableLabel(userData.FormattedAuthor, EditorStyles.boldLabel, GUILayout.Height(24));
-                                EditorGUILayout.SelectableLabel(commitLine.Hash, EditorStyles.miniLabel, GUILayout.Height(12));
-                                EditorGUILayout.SelectableLabel(commitLine.Date, EditorStyles.miniLabel, GUILayout.Height(12));
-                                EditorGUILayout.SelectableLabel(commitLine.Comment, EditorStyles.helpBox);
+                                var commitLine = lines?.FirstOrDefault(x => x.Hash == selectedCommitHash);
+                                var userData = MetaDataUtils.GetUserData(commitLine.Email, commitLine.Author);
+                                if (userData.Avatar.GetResultOrDefault() is { } avatar)
+                                    GUILayout.Box(avatar);
+
+                                using (new EditorGUILayout.VerticalScope())
+                                {
+                                    EditorGUILayout.SelectableLabel(userData.FormattedAuthor, EditorStyles.boldLabel, GUILayout.Height(24));
+                                    EditorGUILayout.SelectableLabel(commitLine.Hash, EditorStyles.miniLabel, GUILayout.Height(12));
+                                    EditorGUILayout.SelectableLabel(commitLine.Date, EditorStyles.miniLabel, GUILayout.Height(12));
+                                    EditorGUILayout.SelectableLabel(commitLine.Comment, EditorStyles.helpBox);
+                                }
                             }
+                            EditorGUILayout.Separator();
                         }
-                        EditorGUILayout.Separator();
+                        infoPanelScrollPosition = scroll.scrollPosition;
                     }
-                    infoPanelScrollPosition = scroll.scrollPosition;
                 }
                 if (selectedFiles != null)
                 {
