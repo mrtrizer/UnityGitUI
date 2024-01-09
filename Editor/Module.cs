@@ -565,19 +565,19 @@ namespace Abuksigun.MRGitUI
         public async Task<CommandResult[]> DiscardFiles(IEnumerable<string> files)
         {
             var status = await GitStatus;
-            var unresolvedFiles = status.Unresolved.Where(file => files.Contains(file.FullPath)).Select(x => x.FullPath);
+            var unresolvedFiles = status.Unresolved.Where(file => files.Contains(file.FullPath) || files.Contains(file.FullProjectPath)).Select(x => x.FullPath);
             if (unresolvedFiles.Any())
             {
                 await StageInternal(unresolvedFiles); // can't discard unresolved files, so we resolve them first
                 status = await GetGitStatus();
             }
-            var stagedFiles = status.Staged.Where(file => files.Contains(file.FullPath)).Select(x => x.FullPath);
+            var stagedFiles = status.Staged.Where(file => files.Contains(file.FullPath) || files.Contains(file.FullProjectPath)).Select(x => x.FullPath);
             if (stagedFiles.Any())
             {
                 await UnstageInternal(stagedFiles); // can't discard staged files, so we unstage them first
                 status = await GetGitStatus();
             }
-            var indexedFiles = status.IndexedUnstaged.Where(file => files.Contains(file.FullPath)).Select(x => x.FullPath).ToList();
+            var indexedFiles = status.IndexedUnstaged.Where(file => files.Contains(file.FullPath) || files.Contains(file.FullProjectPath)).Select(x => x.FullPath).ToList();
             return await Utils.RunSequence(Utils.BatchFiles(indexedFiles), batch => RunGit($"checkout -q -- {batch}")).AfterCompletion(RefreshFilesStatus);
         }
 
