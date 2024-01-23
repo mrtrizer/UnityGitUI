@@ -231,20 +231,23 @@ namespace Abuksigun.MRGitUI
 
             if (selectedReference is Branch)
             {
-                string affectedModules = modules.Select(x => $"{x.DisplayName}: {selectedReference.Name} into {x.CurrentBranch.GetResultOrDefault()}").Join('\n');
-
-                menu.AddSeparator("");
-                menu.AddItem(new GUIContent($"Reset HARD [{branchName}]"), false, () => {
-                    if (EditorUtility.DisplayDialog($"Are you sure you want RESET HARD to BRANCH/TAG {branchName}", affectedModules, "Yes", "No"))
-                        task = GUIUtils.RunSafe(modules, x => x.Reset(selectedReference.QualifiedName, true));
-                });
+                string mergeDescription = modules.Select(x => $"Are you sure you want to MERGE \n\n{x.DisplayName}:{selectedReference.Name} into {x.CurrentBranch.GetResultOrDefault()} ?").Join('\n');
                 menu.AddSeparator("");
                 menu.AddItem(new GUIContent($"Merge [{branchName}]"), false, () => {
-                    if (EditorUtility.DisplayDialog("Are you sure you want MERGE branch", affectedModules, "Yes", "No"))
+                if (EditorUtility.DisplayDialog($"MERGE", mergeDescription, "Yes", "No"))
                         task = GUIUtils.RunSafe(modules, x => x.Merge(selectedReference.QualifiedName));
                 });
+
+                string resetHardDescription = modules.Select(x => $"Are you sure you want to RESET HARD \n\n{x.CurrentBranch.GetResultOrDefault()} to {x.DisplayName}:{selectedReference.Name} ?").Join('\n');
+                menu.AddSeparator("");
+                menu.AddItem(new GUIContent($"Reset HARD [{branchName}]"), false, () => {
+                    if (EditorUtility.DisplayDialog($"RESET HARD", resetHardDescription, "Yes", "No"))
+                        task = GUIUtils.RunSafe(modules, x => x.Reset(selectedReference.QualifiedName, true));
+                });
+
+                string rebaseModules = modules.Select(x => $"Are you sure you want to REBASE \n\n{x.CurrentBranch.GetResultOrDefault()} on {x.DisplayName}:{selectedReference.Name} ?").Join('\n');
                 menu.AddItem(new GUIContent($"Rebase [{branchName}]"), false, () => {
-                    if (EditorUtility.DisplayDialog("Are you sure you want REBASE branch", affectedModules, "Yes", "No"))
+                    if (EditorUtility.DisplayDialog("REBASE", rebaseModules, "Yes", "No"))
                         task = GUIUtils.RunSafe(modules, x => x.Rebase(selectedReference.QualifiedName));
                 });
             }
