@@ -29,32 +29,39 @@ public static class GitBameWindow
 
     public static async Task ShowBlame(Module module, string fullPath, string commit = null)
     {
-        var blame = await module.BlameFile(fullPath, commit);
-        if (blame == null)
-            return;
+        try
+        {
+            var blame = await module.BlameFile(fullPath, commit);
+            if (blame == null)
+                return;
 
-        var multiColumnHeaderState = new MultiColumnHeaderState(new MultiColumnHeaderState.Column[] {
+            var multiColumnHeaderState = new MultiColumnHeaderState(new MultiColumnHeaderState.Column[] {
             new () { headerContent = new GUIContent("Hash") },
             new () { headerContent = new GUIContent("Author"), width = 100 },
             new () { headerContent = new GUIContent("Date"), width = 150 },
             new () { headerContent = new GUIContent("Text"), width = 400 },
         });
 
-        var treeViewLogState = new TreeViewState();
-        var multiColumnHeader = new MultiColumnHeader(multiColumnHeaderState);
-        var treeView = new LazyTreeView<BlameLine>(statuses => GenerateBlameItems(statuses), treeViewLogState, false, multiColumnHeader, DrawCell);
+            var treeViewLogState = new TreeViewState();
+            var multiColumnHeader = new MultiColumnHeader(multiColumnHeaderState);
+            var treeView = new LazyTreeView<BlameLine>(statuses => GenerateBlameItems(statuses), treeViewLogState, false, multiColumnHeader, DrawCell);
 
-        _ = GUIUtils.ShowModalWindow("Blame", new Vector2Int(800, 700), (window) => {
-            treeView.Draw(window.position.size, blame,
-                contextMenuCallback: (id) => {
-                    var menu = new GenericMenu();
-                    menu.AddItem(new GUIContent("Show in Log"), false, () => GitLogWindow.SelectHash(module, blame.FirstOrDefault(x => x.GetHashCode() == id)?.Hash));
-                    menu.ShowAsContext();
-                },
-                doubleClickCallback: (id) => {
-                    GitLogWindow.SelectHash(module, blame.FirstOrDefault(x => x.GetHashCode() == id)?.Hash);
-                });
-        });
+            _ = GUIUtils.ShowModalWindow("Blame", new Vector2Int(800, 700), (window) => {
+                treeView.Draw(window.position.size, blame,
+                    contextMenuCallback: (id) => {
+                        var menu = new GenericMenu();
+                        menu.AddItem(new GUIContent("Show in Log"), false, () => GitLogWindow.SelectHash(module, blame.FirstOrDefault(x => x.GetHashCode() == id)?.Hash));
+                        menu.ShowAsContext();
+                    },
+                    doubleClickCallback: (id) => {
+                        GitLogWindow.SelectHash(module, blame.FirstOrDefault(x => x.GetHashCode() == id)?.Hash);
+                    });
+            });
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogException(ex);
+        }
     }
 
     static void DrawCell(TreeViewItem item, int columnIndex, Rect rect)
@@ -67,7 +74,7 @@ public static class GitBameWindow
                 2 => blameLineItem.BlameLine.Date.ToString(),
                 3 => blameLineItem.BlameLine.Text,
                 _ => "",
-            }, Style.RichTextLabel.Value);
+            });
         }
     }
 
