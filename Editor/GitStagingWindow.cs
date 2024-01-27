@@ -150,13 +150,13 @@ namespace Abuksigun.MRGitUI
                     GUILayout.Space(50);
                     if (GUILayout.Button(EditorGUIUtility.IconContent("tab_next@2x"), GUILayout.Width(MiddlePanelWidth)))
                     {
-                        var selectionPerModule = modules.Select(module => (module, unstagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray()));
+                        var selectionPerModule = modules.Select(module => (module, unstagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullProjectPath).ToArray()));
                         tasksInProgress.Add(GUIUtils.Stage(selectionPerModule));
                         treeViewStateUnstaged.selectedIDs.Clear();
                     }
                     if (GUILayout.Button(EditorGUIUtility.IconContent("tab_prev@2x"), GUILayout.Width(MiddlePanelWidth)))
                     {
-                        var selectionPerModule = modules.Select(module => (module, stagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray()));
+                        var selectionPerModule = modules.Select(module => (module, stagedSelection.Where(x => x.ModuleGuid == module.Guid).Select(x => x.FullProjectPath).ToArray()));
                         tasksInProgress.Add(GUIUtils.Unstage(selectionPerModule));
                         treeViewStateStaged.selectedIDs.Clear();
                     }

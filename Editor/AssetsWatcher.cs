@@ -113,6 +113,7 @@ namespace Abuksigun.MRGitUI
             var allFilePaths = importedAssets.Concat(deletedAssets).Concat(movedAssets).Concat(movedFromAssetPaths);
             foreach (var filePath in allFilePaths)
             {
+                Utils.ResetGitFileInfoCache(filePath);
                 var module = Utils.FindModuleContainingPath(filePath);
                 module?.RefreshFilesStatus();
             }

@@ -114,7 +114,8 @@ namespace Abuksigun.MRGitUI
             var status = await module.GitStatus;
             if (status.Unindexed.Any(x => x.FullPath == file.FullPath))
             {
-                var content = File.ReadAllLines(file.FullPath);
+                const int maxSize = 1 * 1024* 1024;
+                var content = new FileInfo(file.FullPath).Length > maxSize ? File.ReadLines(file.FullPath).Take(MaxChangesDisplay).ToArray() : File.ReadAllLines(file.FullPath);
                 string relativePath = Path.GetRelativePath(module.GitRepoPath.GetResultOrDefault(), file.FullPath);
                 return $"new {relativePath}\n" + $"@@ -0,0 +1,{content.Length} @@\n+" + content.Join("\n+");
             }

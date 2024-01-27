@@ -55,6 +55,7 @@ namespace Abuksigun.MRGitUI
     {
         public const string EmptyTreeIdConst = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
         static Dictionary<string, Module> modules = new();
+        static Dictionary<string, Task<AssetGitInfo>> assetGitInfoCache = new();
         static object processLock = new();
 
         [SerializeField] int lastLocalProcessId = 0;
@@ -98,6 +99,7 @@ namespace Abuksigun.MRGitUI
         {
             foreach (var module in modules)
                 ResetModule(module);
+            assetGitInfoCache.Clear();
         }
 
         static bool IsModule(string guid)
@@ -155,7 +157,7 @@ namespace Abuksigun.MRGitUI
             if (instance.lockedModules.Count > 0)
                 return instance.lockedModules.Select(x => GetModule(x));
             // Selection.selectionChanged is not called when selecting a package, this is a workaround
-            var browserSelectedModules = Selection.assetGUIDs.Where(IsModule);
+            var browserSelectedModules = Selection.assetGUIDs.Where(x => modules.ContainsKey(x));
             if (browserSelectedModules.Any())
             {
                 if (instance.lastModulesSelection == null || (!browserSelectedModules.SequenceEqual(instance.lastModulesSelection)))
@@ -189,10 +191,11 @@ namespace Abuksigun.MRGitUI
 
         public static Module FindModuleContainingPath(string path)
         {
-            string normalizedPath = GetFullPathFromUnityLogicalPath(path.Trim().NormalizeSlashes());
-            if (string.IsNullOrEmpty(normalizedPath))
+            string logicalPath = GetUnityLogicalPath(path);
+            if (string.IsNullOrEmpty(logicalPath))
                 return null;
-            return modules.Values.Where(x => x?.ProjectDirPath != null).OrderByDescending(x => x.ProjectDirPath.Length).FirstOrDefault(x => normalizedPath.Contains(x.ProjectDirPath));
+            var packagePath = PackageInfo.FindForAssetPath(logicalPath)?.assetPath ?? "Assets";
+            return GetModule(AssetDatabase.AssetPathToGUID(packagePath));
         }
 
         public static string GetFullPathFromGuid(string guid)
@@ -223,12 +226,25 @@ namespace Abuksigun.MRGitUI
             return commandResults.ToArray();
         }
 
+        public static void ResetGitFileInfoCache(string filePath)
+        {
+            assetGitInfoCache.Remove(filePath);
+        }
+
         public static AssetGitInfo GetFileGitInfo(string filePath)
         {
-            var gitModules = GetGitModules();
             if (string.IsNullOrEmpty(filePath))
                 return null;
-            var allFiles = gitModules.Select(x => x.GitStatus.GetResultOrDefault()).Where(x => x != null).SelectMany(x => x.Files);
+            return (assetGitInfoCache.GetValueOrDefault(filePath) ?? (assetGitInfoCache[filePath] = FindFileGitInfo(filePath))).GetResultOrDefault();
+        }
+
+        public static async Task<AssetGitInfo> FindFileGitInfo(string filePath)
+        {
+            var module = FindModuleContainingPath(filePath);
+            if (module == null || !await module.IsGitRepo)
+                return null;
+            var status = await module.GitStatus;
+            var allFiles = status.Files;
             var fileStatuses = allFiles.Where(x => x.FullProjectPath == filePath || x.FullProjectPath == filePath + ".meta");
             if (fileStatuses.Any())
                 return new AssetGitInfo(GetModule(fileStatuses.First().ModuleGuid), filePath, fileStatuses.ToArray(), false);

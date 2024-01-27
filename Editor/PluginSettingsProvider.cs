@@ -13,11 +13,13 @@ namespace Abuksigun.MRGitUI
         static readonly string LocalRepoPathsKey = "LocalRepoPaths";
         static readonly string GitPathKey = "GitPath";
         static readonly string DisableWhileProjectRunningKey = "DisableWhileProjectRunning";
+        static readonly string EnableInProjectBrowserKey = "EnableInProjectBrowser";
         static readonly string WatchRefsDirKey = "WatchRefsDir";
 
         public static string LocalRepoPaths => PlayerPrefs.GetString(LocalRepoPathsKey, "../");
         public static string GitPath => PlayerPrefs.GetString(GitPathKey, "git");
         public static bool DisableWhileProjectRunning => PlayerPrefs.GetInt(DisableWhileProjectRunningKey, 1) == 1;
+        public static bool EnableInProjectBrowser => PlayerPrefs.GetInt(EnableInProjectBrowserKey, 1) == 1;
         public static bool WatchRefsDir => PlayerPrefs.GetInt(WatchRefsDirKey, 1) == 1;
 
         [SettingsProvider]
@@ -29,6 +31,7 @@ namespace Abuksigun.MRGitUI
         static void OnGUI()
         {
             PlayerPrefs.SetInt(DisableWhileProjectRunningKey, EditorGUILayout.Toggle("Disable while playing", DisableWhileProjectRunning) ? 1 : 0);
+            PlayerPrefs.SetInt(EnableInProjectBrowserKey, EditorGUILayout.Toggle("Enable in Project Browser", EnableInProjectBrowser) ? 1 : 0);
             PlayerPrefs.SetInt(WatchRefsDirKey, EditorGUILayout.Toggle("Watch .git/refs changes", WatchRefsDir) ? 1 : 0);
             PlayerPrefs.SetString(GitPathKey, EditorGUILayout.TextField("Git path:", GitPath));
             GUILayout.Space(10);

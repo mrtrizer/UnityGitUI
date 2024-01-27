@@ -331,7 +331,7 @@ namespace Abuksigun.MRGitUI
 
         async Task<BlameLine[]> GetBlame(string filePath, string commit = null)
         {
-            var blameLineRegex = new Regex(@"^([a-f0-9]+) .*?\(([^)]+) (\d+) ([+-]\d{4})\s+\d+\) (.*)$", RegexOptions.Multiline);
+            var blameLineRegex = new Regex(@"^\^?([a-f0-9]+) .*?\(([^)]+) (\d+) ([+-]\d{4})\s+\d+\) (.*)$", RegexOptions.Multiline);
             var result = await RunGit($"blame {commit} --date=raw -- {filePath.WrapUp()}");
             return result.Output.SplitLines().Select((x, i) => {
                 var match = blameLineRegex.Match(x);

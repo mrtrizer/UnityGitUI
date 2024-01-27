@@ -112,7 +112,7 @@ namespace Abuksigun.MRGitUI
                 var processIds = new int[] { result.LocalProcessId };
                 string guid = "";
                 var window = ScriptableObject.CreateInstance<DefaultWindow>();
-                window.titleContent = new GUIContent("Error");
+                window.titleContent = new GUIContent($"Errors in repo {module.LogicalPath}");
                 var task = ShowModalWindow(window, new Vector2Int(500, 400), (window) => {
                     try
                     {
@@ -284,7 +284,8 @@ namespace Abuksigun.MRGitUI
 
         public static async Task Stage(IEnumerable<(Module module, string[] files)> selectionPerModule)
         {
-            var fileStatuses = selectionPerModule.SelectMany(x => x.files).Select(x => Utils.GetFileGitInfo(x).FileStatuses).Where(x => x != null).SelectMany(x => x).ToList();
+            var fileInfo = await Task.WhenAll(selectionPerModule.SelectMany(x => x.files).Select(x => Utils.FindFileGitInfo(x)));
+            var fileStatuses = fileInfo.Select(x => x.FileStatuses).Where(x => x != null).SelectMany(x => x).ToList();
             var unresolvedFiles = fileStatuses.Where(x => x.IsUnresolved).Select(x => x.FullPath).ToList();
             if (unresolvedFiles.Any())
             {
@@ -315,7 +316,8 @@ namespace Abuksigun.MRGitUI
         public static void DrawShortStatus(GitStatus gitStatus, Rect rect, GUIStyle labelStyle)
         {
             string staged = gitStatus.Staged.Any() ? $"<color={Colors.CyanBlue}>{gitStatus.Staged.Count()}</color>" : gitStatus.Staged.Count().ToString();
-            string unstaged = gitStatus.Unstaged.Any() ? $"<color={Colors.CyanBlue}>{gitStatus.Unstaged.Count()}</color>" : gitStatus.Unstaged.Count().ToString();
+            int unstagesCount = gitStatus.Unstaged.Count() - gitStatus.Unindexed.Count();
+            string unstaged = gitStatus.Unstaged.Any() ? $"<color={Colors.CyanBlue}>{unstagesCount}</color>" : unstagesCount.ToString();
             string unindexed = gitStatus.Unindexed.Any() ? $"<color={Colors.Purple}>{gitStatus.Unindexed.Count()}</color>" : gitStatus.Unindexed.Count().ToString();
             int stagedCount = gitStatus.Staged.Count();
             string stagedCountStr = stagedCount > 0 ? staged + "/" : null;

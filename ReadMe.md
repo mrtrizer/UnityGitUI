@@ -29,8 +29,9 @@ This tool is useful even if you have a single repository and use another GitUI a
 - **Merge** (choose theirs/mine)
 - View **Diff**
 - **Hunk Stage/Unstage/Discard**
-- **Blame**
+- **Amend** (author/message/content)
 - **Fetch/Pull/Push**
+- **Git LFS** (see files managed by lfs, view patterns and add new patterns)
 - Project Browser extension
     - Display current status of repositories, current branch, and remote status
     - Show file statuses and highlight directories containing modified files
@@ -42,8 +43,9 @@ This tool is useful even if you have a single repository and use another GitUI a
 - Configure **Remote settings**
 - View **Process Log**, showing the exact git commands executed and their output
 - **Stash**
-- (WIP) **Git Config**
+- (WIP) **Git Config** (Change name and email globally or locally)
 - **Remote Settings** and multiple remotes support
+- **Blame**
 
 ### Not implemented yet ###
 - **Extentions support**
