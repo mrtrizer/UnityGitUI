@@ -21,14 +21,14 @@ namespace Abuksigun.UnityGitUI
         [MenuItem("Assets/Git Package/Link Local Repo", priority = 110)]
         public static async void LinkLocalRepo()
         {
-            List<PackageInfo> packagesToClone = new();
+            List<Module> packagesToClone = new();
             var modules = GetSelectedGitPackages();
             foreach (var module in modules)
             {
                 var list = Utils.ListLocalPackageDirectories();
                 var packageDir = list.FirstOrDefault(x => x.Name == module.Name);
                 if (packageDir == null)
-                    packagesToClone.Add(module.PackageInfo);
+                    packagesToClone.Add(module);
                 else
                     SwitchToLocal(module.Name, packageDir.Path);
             }
@@ -70,7 +70,7 @@ namespace Abuksigun.UnityGitUI
 
         static IEnumerable<Module> GetSelectedGitPackages()
         {
-            return Utils.GetSelectedModules().Where(x => x?.PackageInfo?.source == UnityEditor.PackageManager.PackageSource.Git);
+            return Utils.GetSelectedModules().Where(x => x?.IsGitPackage ?? false);
         }
 
         static IEnumerable<Module> GetSelectedSymLinkPackages()
@@ -78,7 +78,7 @@ namespace Abuksigun.UnityGitUI
             return Utils.GetSelectedModules().Where(x => File.GetAttributes(x.PhysicalPath).HasFlag(FileAttributes.ReparsePoint));
         }
 
-        static Task ShowCloneWindow(List<PackageInfo> packagesToClone)
+        static Task ShowCloneWindow(List<Module> packagesToClone)
         {
             Vector2 scrollPosition = default;
             var packageStatus = new Dictionary<string, (string url, string clonePath, string branch, Task<CommandResult> task, List<IOData> log, bool linked)>();
@@ -89,14 +89,13 @@ namespace Abuksigun.UnityGitUI
                     EditorGUILayout.LabelField("If they were previously cloned, make sure, you have defined search dir in Preferences/External Tools/Git UI");
                     EditorGUILayout.LabelField($"Current list of search directories: {PluginSettingsProvider.LocalRepoPaths}");
                     EditorGUILayout.Space(10);
-                    foreach (var package in packagesToClone)
+                    foreach (var module in packagesToClone)
                     {
-                        var match = Regex.Match(package.packageId, @"@(.*?)(\?.*#|\?.*|#|$)(.*)?");
-                        string url = match.Groups[1].Value;
-                        string branch = match.Groups[3].Success && !string.IsNullOrEmpty(match.Groups[3].Value) ? match.Groups[3].Value : "master";
+                        var package = module.PackageInfo;
+                        var gitPackage = module.GitPackageInfo;
                         string searchDirectory = Utils.GetPackageSearchDirectories().FirstOrDefault() ?? "../";
                         string clonePath = Path.GetFullPath(Path.Combine(searchDirectory, package.displayName));
-                        var status = packageStatus.GetValueOrDefault(package.name, (url, clonePath, branch, null, new(128), false));
+                        var status = packageStatus.GetValueOrDefault(package.name, (gitPackage.Url, clonePath, gitPackage.Revision, null, new(128), false));
                         EditorGUILayout.LabelField($"<b>{package.name}</b>", Style.RichTextLabel.Value);
                         status.url = EditorGUILayout.TextField("Url", status.url);
                         status.clonePath = EditorGUILayout.TextField("Clone Directory", status.clonePath);
@@ -124,7 +123,7 @@ namespace Abuksigun.UnityGitUI
                     foreach (var packageName in packageStatus.Keys.ToList())
                     {
                         var status = packageStatus[packageName];
-                        string url = status.url.StartsWith("git+") ? status.url[4..] : status.url;
+                        string url = status.url;
                         string args = $"clone -b {status.branch} {url.WrapUp()} {status.clonePath.WrapUp()}";
                         status.task = Utils.RunCommand(Directory.GetCurrentDirectory(), PluginSettingsProvider.GitPath, args, (_, data) => HandleCloneOutput(data, status.log)).task;
                         status.log.Add(new IOData { Data = $">> git {args}" });

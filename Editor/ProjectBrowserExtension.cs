@@ -25,16 +25,31 @@ namespace Abuksigun.UnityGitUI
 
         const string ShowBranchesMenuPath = "Assets/Show Git Branches";
 
-        [MenuItem(ShowBranchesMenuPath, priority = 110)]
-        private static void ToggleAction()
+        [MenuItem(ShowBranchesMenuPath, priority = 115)]
+        private static void ToggleShowGitBranches()
         {
             PluginSettingsProvider.ShowBranchesInProjectBrowser = !PluginSettingsProvider.ShowBranchesInProjectBrowser;
         }
 
         [MenuItem(ShowBranchesMenuPath, true)]
-        private static bool ToggleActionValidate()
+        private static bool ToggleShowGitBranchesValidate()
         {
             Menu.SetChecked(ShowBranchesMenuPath, PluginSettingsProvider.ShowBranchesInProjectBrowser);
+            return true;
+        }
+
+        const string ShowStatusMenuPath = "Assets/Show Git Status";
+
+        [MenuItem(ShowStatusMenuPath, priority = 115)]
+        private static void ToggleGitStatus()
+        {
+            PluginSettingsProvider.ShowStatusInProjectBrowser = !PluginSettingsProvider.ShowStatusInProjectBrowser;
+        }
+
+        [MenuItem(ShowStatusMenuPath, true)]
+        private static bool ToggleGitStatusValidate()
+        {
+            Menu.SetChecked(ShowStatusMenuPath, PluginSettingsProvider.ShowStatusInProjectBrowser);
             return true;
         }
 
@@ -70,47 +85,76 @@ namespace Abuksigun.UnityGitUI
             EditorApplication.RepaintProjectWindow();
 
             bool showBranch = PluginSettingsProvider.ShowBranchesInProjectBrowser;
+            bool showStatus = PluginSettingsProvider.ShowStatusInProjectBrowser;
+            bool twoLines = showBranch && showStatus;
 
             var module = GetModule(guid);
+            if (module != null && module.IsGitPackage)
+            {
+                if (module.IsUpdateAvailable.GetResultOrDefault())
+                    GUI.Label(drawRect.Move(drawRect.width - 20, 0), EditorGUIUtility.IconContent("CollabPull"), SmallLabelStyle.Value);
+            }
             if (drawRect.height <= 20 && module != null && module.IsGitRepo.GetResultOrDefault())
             {
                 drawRect.height = 20;
 
+                var labelStyle = twoLines ? SmallLabelStyle.Value : LabelStyle.Value;
+                float offset = 0;
+                float statusYOffset = twoLines ? 1.5f : -2.5f;
+                float branchYOffset = twoLines ? -6.5f : -2.5f;
+                float scale = twoLines ? 1 : 1.3f;
+
                 if (showBranch && (module.CurrentBranch.GetResultOrDefault() ?? module.CurrentCommit.GetResultOrDefault()) is { } currentHead)
                 {
+                    int simplifiedStatusOffset = showStatus ? 0 : 42;
                     string currentBranchClamp = currentHead[..Math.Min(20, currentHead.Length)];
-                    var rect = drawRect.Move(drawRect.width - (int)SmallLabelStyle.Value.CalcSize(new GUIContent(currentBranchClamp)).x - 5, - 6.5f);
-                    GUI.Label(rect, currentBranchClamp.WrapUp("<b>", "</b>"), SmallLabelStyle.Value);
+                    var rect = drawRect.Move(drawRect.width - (int)labelStyle.CalcSize(new GUIContent(currentBranchClamp)).x - 5 - simplifiedStatusOffset, branchYOffset);
+                    GUI.Label(rect, currentBranchClamp.WrapUp("<b>", "</b>"), labelStyle);
                 }
 
-                var labelStyle = showBranch ? SmallLabelStyle.Value : LabelStyle.Value;
-                float offset = 0;
-                float yOffset = showBranch ? 1.5f : -2.5f;
-                float scale = showBranch ? 1 : 1.3f;
+                if (showStatus)
+                {
+                    if (module.GitStatus.GetResultOrDefault() is { } gitStatus)
+                    {
+                        offset += 40 * scale;
+                        var rect = drawRect.Move(drawRect.width - offset, statusYOffset);
+                        GUIUtils.DrawShortStatus(gitStatus, rect, labelStyle);
+                    }
 
-                if (module.GitStatus.GetResultOrDefault() is { } gitStatus)
-                {
-                    offset += 40 * scale;
-                    var rect = drawRect.Move(drawRect.width - offset, yOffset);
-                    GUIUtils.DrawShortStatus(gitStatus, rect, labelStyle);
+                    if (module.RemoteStatus.GetResultOrDefault() is { } remoteStatus)
+                    {
+                        offset += 30 * scale;
+                        var rect = drawRect.Move(drawRect.width - offset, statusYOffset);
+                        GUIUtils.DrawShortRemoteStatus(remoteStatus, rect, labelStyle);
+                    }
+                    else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
+                    {
+                        var rect = drawRect.Move(drawRect.width - 70 * scale, 0).Resize(drawRect.width, 15);
+                        GUIUtils.DrawSpin(ref spinCounter, rect);
+                    }
                 }
-
-                if (module.RemoteStatus.GetResultOrDefault() is { } result)
+                else
                 {
-                    offset += 30 * scale;
-                    var rect = drawRect.Move(drawRect.width - offset, yOffset);
-                    GUIUtils.DrawShortRemoteStatus(result, rect, labelStyle);
-                }
-                else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
-                {
-                    var rect = drawRect.Move(drawRect.width - 70 * scale, 0).Resize(drawRect.width, 15);
-                    GUIUtils.DrawSpin(ref spinCounter, rect);
+                    if (module.GitStatus.GetResultOrDefault() is { } gitStatus && gitStatus.Files.Length > 0)
+                        GUI.Label(drawRect.Move(drawRect.width - 45, -2).Resize(17.5f, 17.5f), EditorGUIUtility.IconContent("d_CollabEdit Icon"), SmallLabelStyle.Value);
+                    if (module.RemoteStatus.GetResultOrDefault() is { } remoteStatus)
+                    {
+                        if (remoteStatus.Ahead > 0)
+                            GUI.Label(drawRect.Move(drawRect.width - 30, 0).Resize(15, 15), EditorGUIUtility.IconContent("CollabPush"), SmallLabelStyle.Value);
+                        if (remoteStatus.Behind > 0)
+                            GUI.Label(drawRect.Move(drawRect.width - 15, 0).Resize(15, 15), EditorGUIUtility.IconContent("CollabPull"), SmallLabelStyle.Value);
+                    }
+                    else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
+                    {
+                        var rect = drawRect.Move(drawRect.width - 25, 0).Resize(15, 15);
+                        GUIUtils.DrawSpin(ref spinCounter, rect);
+                    }
                 }
 
                 if (module.GitParentRepoPath.GetResultOrDefault() != null)
                 {
                     offset += 20 * scale;
-                    var rect = drawRect.Move(drawRect.width - offset, yOffset);
+                    var rect = drawRect.Move(drawRect.width - offset, statusYOffset);
                     GUI.Label(rect, "<color=green>sub</color>", LabelStyle.Value);
                 }
             }

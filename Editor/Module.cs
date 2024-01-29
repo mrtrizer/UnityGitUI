@@ -27,6 +27,7 @@ namespace Abuksigun.UnityGitUI
     public record RemoteStatus(string Remote, int Ahead, int Behind);
     public record LfsFileInfo(string FileName, string ObjectId, string DownloadStatus);
     public record SubmoduleInfo(string Path, string FullPath, string CurrentCommit);
+    public record GitPackageInfo(string Url, string Revision, string Hash);
 
     public struct NumStat
     {
@@ -60,6 +61,8 @@ namespace Abuksigun.UnityGitUI
         readonly RefreshStatusHandler refreshStatusHandler;
 
         Task<bool> isGitRepo;
+        Task<bool> isUpdateAvalibale;
+        GitPackageInfo gitPackageInfo;
         Task<int> gitVersion;
         Task<string> gitRepoPath;
         Task<string> gitParentRepoPath;
@@ -88,6 +91,8 @@ namespace Abuksigun.UnityGitUI
         readonly List<IOData> processLogConcurent = new();
         public bool IsLinkedPackage { get; }
         public bool IsProject => PhysicalPath == Application.dataPath;
+        public bool IsGitPackage => PackageInfo?.source == UnityEditor.PackageManager.PackageSource.Git && PackageInfo?.git != null;
+        public Task<bool> IsUpdateAvailable => isUpdateAvalibale ??= GetIsUpdateAvailable();
 
         public string Guid { get; }
         public string DisplayName { get; }
@@ -97,6 +102,7 @@ namespace Abuksigun.UnityGitUI
         public string UnreferencedPath { get; } // For case when package is referenced by symbolic link it will show where symlink points
         public string ProjectDirPath => PhysicalPath == Application.dataPath ? Directory.GetParent(PhysicalPath).FullName.NormalizeSlashes() : PhysicalPath;
         public PackageInfo PackageInfo { get; }
+        public GitPackageInfo GitPackageInfo => gitPackageInfo ??= GetGitPackageInfo();
         public Task<bool> IsGitRepo => isGitRepo ??= GetIsGitRepo();
         public Task<int> GitVersion => gitVersion ??= GetGitVersion();
         public Task<string> GitRepoPath => gitRepoPath ??= GetRepoPath();
@@ -217,6 +223,8 @@ namespace Abuksigun.UnityGitUI
             defaultRemote = null;
             remoteStatus = null;
             RefreshTimestamp = DateTime.Now;
+            isUpdateAvalibale = null;
+            gitPackageInfo = null;
         }
 
         public void RefreshFilesStatus()
@@ -277,6 +285,30 @@ namespace Abuksigun.UnityGitUI
             if (result.ExitCode != 0 || string.IsNullOrEmpty(result.Output))
                 return false;
             return Path.GetFullPath(result.Output.Trim()) != Directory.GetCurrentDirectory() || Path.GetFullPath(PhysicalPath) == Path.GetFullPath(Application.dataPath);
+        }
+
+        GitPackageInfo GetGitPackageInfo()
+        {
+            if (PackageInfo == null || PackageInfo.git == null)
+                return null;
+            var match = Regex.Match(PackageInfo.packageId, @"@(.*?)(\?.*#|\?.*|#|$)(.*)?");
+            string url = match.Groups[1].Value.StartsWith("git+") ? match.Groups[1].Value[4..] : match.Groups[1].Value;
+            string branch = match.Groups[3].Success && !string.IsNullOrEmpty(match.Groups[3].Value) ? match.Groups[3].Value : "master";
+            return new GitPackageInfo(url, branch, PackageInfo.git.hash);
+        }
+
+        async Task<bool> GetIsUpdateAvailable()
+        {
+            if (await IsGitRepo)
+                return true;
+            if (IsGitPackage)
+            {
+                var revisions = await RunGit($"ls-remote {GitPackageInfo.Url}", true);
+                if (revisions.ExitCode != 0)
+                    return false;
+                return !revisions.Output.Contains(GitPackageInfo.Hash);
+            }
+            return false;
         }
 
         async Task<int> GetGitVersion()
@@ -511,6 +543,18 @@ namespace Abuksigun.UnityGitUI
             foreach (var parts in partsPerLine)
                 dict[parts[2]] = new NumStat { Added = int.Parse(parts[0]), Removed = int.Parse(parts[1]) };
             return dict;
+        }
+        #endregion
+
+        #region Git Package Managment
+        public async Task<CommandResult> UpdateGitPackage()
+        {
+            var request = UnityEditor.PackageManager.Client.Add(PackageInfo.packageId);
+            while (!request.IsCompleted)
+                await Task.Delay(100);
+            bool success = request.Status == UnityEditor.PackageManager.StatusCode.Success;
+            RefreshRemoteStatus();
+            return new CommandResult(success ? 0 : (int)request.Error.errorCode, "", success ? "Success" : request.Error.message, -1);
         }
         #endregion
 

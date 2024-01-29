@@ -15,6 +15,7 @@ namespace Abuksigun.UnityGitUI
         public static bool DisableWhileProjectRunning { get => PlayerPrefs.GetInt(nameof(DisableWhileProjectRunning), 1) == 1; set => PlayerPrefs.SetInt(nameof(DisableWhileProjectRunning), value ? 1 : 0);}
         public static bool EnableInProjectBrowser { get => PlayerPrefs.GetInt(nameof(EnableInProjectBrowser), 1) == 1; set => PlayerPrefs.SetInt(nameof(EnableInProjectBrowser), value ? 1 : 0);}
         public static bool ShowBranchesInProjectBrowser { get => PlayerPrefs.GetInt(nameof(ShowBranchesInProjectBrowser), 1) == 1; set => PlayerPrefs.SetInt(nameof(ShowBranchesInProjectBrowser), value ? 1 : 0); }
+        public static bool ShowStatusInProjectBrowser { get => PlayerPrefs.GetInt(nameof(ShowStatusInProjectBrowser), 1) == 1; set => PlayerPrefs.SetInt(nameof(ShowStatusInProjectBrowser), value ? 1 : 0); }
         public static bool WatchRefsDir { get => PlayerPrefs.GetInt(nameof(WatchRefsDir), 1) == 1; set => PlayerPrefs.SetInt(nameof(WatchRefsDir), value ? 1 : 0); }
 
         [SettingsProvider]
@@ -28,6 +29,7 @@ namespace Abuksigun.UnityGitUI
             DisableWhileProjectRunning = EditorGUILayout.Toggle("Disable while playing", DisableWhileProjectRunning);
             EnableInProjectBrowser = EditorGUILayout.Toggle("Enable in Project Browser", EnableInProjectBrowser);
             ShowBranchesInProjectBrowser = EditorGUILayout.Toggle("Show branches in Project Browser", ShowBranchesInProjectBrowser);
+            ShowStatusInProjectBrowser = EditorGUILayout.Toggle("Show status in Project Browser", ShowStatusInProjectBrowser);
             WatchRefsDir = EditorGUILayout.Toggle("Watch .git/refs changes", WatchRefsDir);
             GitPath = EditorGUILayout.TextField("Git path:", GitPath);
             GUILayout.Space(10);

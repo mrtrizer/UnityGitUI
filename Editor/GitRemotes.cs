@@ -24,7 +24,7 @@ namespace Abuksigun.UnityGitUI
         public static bool PushCheck() => Utils.GetSelectedGitModules().Any();
 
         [MenuItem("Assets/Git/Push", priority = 110, secondaryPriority = 20)]
-        public static void PushInvoke() =>ShowRemotesSyncWindow(Mode.Push);
+        public static void PushInvoke() => ShowRemotesSyncWindow(Mode.Push);
 
         public static async void ShowRemotesSyncWindow(Mode mode)
         {
