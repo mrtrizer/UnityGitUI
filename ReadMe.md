@@ -4,14 +4,14 @@
 Tested with Git 2.38.1 + Unity 2021.3.10f1
 1. Install git client first https://git-scm.com/downloads. **I also highly recommend installing GCM** (should be installed automatically on Windows), it will show an auth window when you try to pull or push without authorization. **Git should be added to PATH** environment variable. Restart Unity and Unity Hub after you install Git and add it to PATH.
 2. Window -> Package Manager -> "+" -> Add package from git URL -> https://github.com/mrtrizer/MRUnityGitUI.git
-3. (Optional, Only Mac/Linux/Win on NTFS) You can link MRGitUI without adding to manifest! Just right click on MRGitUI in Project Browser -> Git -> Link Local Repo, it will suggest you clone the repo, click "Clone", after it will be linked to your Packages dir.
+3. (Optional, Only Mac/Linux/Win on NTFS) You can link UnityGitUI without adding to manifest! Just right click on UnityGitUI in Project Browser -> Git -> Link Local Repo, it will suggest you clone the repo, click "Clone", after it will be linked to your Packages dir.
 
 ## How to use ##
 1. Prepare layout. **Window -> Git UI -> Select window you want -> Drag somewhere**. Do this for every window.
 2. When you select Directory in Project Browser, the state of related git repo will be displayed in Git UI windows respectively.
 3. In the **Branches** window you can lock selected packages by clicking **"Lock"** button in the top panel, so, you won't need to select packages again, useful if you have tons of packages.
 4. **Branches** window also has a bottom panel with quick access buttons to **Fetch/Pull/Push** and **Staging/Log/Stash**
-5. Use **Process Log** window to see what actual commands does MR Git UI run on your repo
+5. Use **Process Log** window to see what actual commands does Unity Git UI run on your repo
 
 That's how my layout looks:
 ![Screenshot](Docs~/Staging.png)

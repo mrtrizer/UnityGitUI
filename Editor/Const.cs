@@ -1,6 +1,6 @@
 using System;
 
-namespace Abuksigun.MRGitUI
+namespace Abuksigun.UnityGitUI
 {
     public static class Const
     {

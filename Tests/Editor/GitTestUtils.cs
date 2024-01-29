@@ -6,7 +6,7 @@ using System.Text;
 using UnityEditor;
 using UnityEngine;
 
-namespace Abuksigun.MRGitUI.Tests.Editor
+namespace Abuksigun.UnityGitUI.Tests.Editor
 {
     public class GitTestUtils : MonoBehaviour
     {

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-namespace Abuksigun.MRGitUI
+namespace Abuksigun.UnityGitUI
 {
     public record LazyStyle(Func<GUIStyle> StyleFunc, Func<GUIStyle, bool> VerifyFunc = null)
     {

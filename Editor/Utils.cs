@@ -15,7 +15,7 @@ using ProcessStartInfo = System.Diagnostics.ProcessStartInfo;
 
 namespace System.Runtime.CompilerServices { class IsExternalInit { } }
 
-namespace Abuksigun.MRGitUI
+namespace Abuksigun.UnityGitUI
 {
     using static Const;
 

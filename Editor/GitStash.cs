@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
-namespace Abuksigun.MRGitUI
+namespace Abuksigun.UnityGitUI
 {
     public static class GitStash
     {

@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace Abuksigun.MRGitUI
+namespace Abuksigun.UnityGitUI
 {
     class ProcessLogWindow : DefaultWindow
     {

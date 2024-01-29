@@ -7,7 +7,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace Abuksigun.MRGitUI.Tests.Editor
+namespace Abuksigun.UnityGitUI.Tests.Editor
 {
     public class GitTest : IPrebuildSetup, IPostBuildCleanup
     {

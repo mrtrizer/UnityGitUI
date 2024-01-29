@@ -7,7 +7,7 @@ using Unity.CodeEditor;
 using UnityEditor;
 using UnityEngine;
 
-namespace Abuksigun.MRGitUI
+namespace Abuksigun.UnityGitUI
 {
     using static Const;
 

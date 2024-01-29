@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Abuksigun.MRGitUI
+namespace Abuksigun.UnityGitUI
 {
     public static class MyersDiff
     {

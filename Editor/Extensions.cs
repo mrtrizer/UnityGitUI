@@ -4,7 +4,7 @@ using UnityEngine;
 using System.Threading.Tasks;
 using System.Linq;
 
-namespace Abuksigun.MRGitUI
+namespace Abuksigun.UnityGitUI
 {
     using static Const;
     public static class Extensions

@@ -1,7 +1,7 @@
 {
-    "name": "com.abuksigun.mrgitui",
-    "version": "0.1.0",
-    "displayName": "MRGitUI",
-    "description": "Multi-Repository Git UI for Unity. Manage multiple repositories like it's one repo",
+    "name": "com.abuksigun.unitygitui",
+    "version": "0.7.0",
+    "displayName": "UnityGitUI",
+    "description": "Git UI for Unity with multi-repository support. Manage multiple repositories like it's one repo",
     "unity": "2021.2"
 }

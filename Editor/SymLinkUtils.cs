@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.ComponentModel;
-using Abuksigun.MRGitUI;
+using Abuksigun.UnityGitUI;
 
 public static class SymLinkUtils
 {

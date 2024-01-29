@@ -8,7 +8,7 @@ using UnityEditor;
 using UnityEngine;
 
 
-namespace Abuksigun.MRGitUI
+namespace Abuksigun.UnityGitUI
 {
     [InitializeOnLoad]
     public class AssetsWatcher : AssetPostprocessor

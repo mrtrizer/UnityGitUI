@@ -5,7 +5,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace Abuksigun.MRGitUI
+namespace Abuksigun.UnityGitUI
 {
     public static class MetaDataUtils
     {
@@ -37,7 +37,7 @@ namespace Abuksigun.MRGitUI
         static async Task<Texture2D> LoadAvatar(string email)
         {
             string userHash = await Task.Run(() => Md5Hash(email.Trim().ToLower()));
-            string avatarsDir = Path.Combine(Application.temporaryCachePath, "MRGitUI");
+            string avatarsDir = Path.Combine(Application.temporaryCachePath, "UnityGitUI");
             string avatarPath = Path.Combine(avatarsDir, $"{userHash}.png");
             
             if (File.Exists(avatarPath))
