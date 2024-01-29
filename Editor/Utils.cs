@@ -71,12 +71,12 @@ namespace Abuksigun.UnityGitUI
         {
             modules = new();
             string assetsGuid = AssetDatabase.AssetPathToGUID("Assets");
-            modules.Add(assetsGuid, new Module(assetsGuid, GUIUtils.HandleError));
+            modules.Add(assetsGuid, new Module(assetsGuid, GUIUtils.HandleError, ResetGitFileInfoCache));
             foreach (var package in PackageInfo.GetAllRegisteredPackages())
             {
                 string guid = AssetDatabase.AssetPathToGUID(package.assetPath);
                 if (guid != null)
-                    modules.Add(guid, new Module(guid, GUIUtils.HandleError));
+                    modules.Add(guid, new Module(guid, GUIUtils.HandleError, ResetGitFileInfoCache));
             }
         }
 
@@ -87,7 +87,7 @@ namespace Abuksigun.UnityGitUI
 
         public static Module GetModule(string guid)
         {
-            return modules.GetValueOrDefault(guid) ?? (modules[guid] = IsModule(guid) ? new Module(guid, GUIUtils.HandleError) : null);
+            return modules.GetValueOrDefault(guid) ?? (modules[guid] = IsModule(guid) ? new Module(guid, GUIUtils.HandleError, ResetGitFileInfoCache) : null);
         }
 
         public static void ResetModule(Module module)
@@ -229,6 +229,11 @@ namespace Abuksigun.UnityGitUI
         public static void ResetGitFileInfoCache(string filePath)
         {
             assetGitInfoCache.Remove(filePath);
+        }
+
+        public static void ResetGitFileInfoCache(Module module)
+        {
+            assetGitInfoCache.Clear();
         }
 
         public static AssetGitInfo GetFileGitInfo(string filePath)

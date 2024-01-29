@@ -204,7 +204,7 @@ namespace Abuksigun.UnityGitUI
                 return null;
             int tab = 0;
             for (int i = 0; i < modules.Count; i++)
-                tab = modules[i].Guid == guid ? i : tab;
+                tab = modules[i]?.Guid == guid ? i : tab;
             tab = modules.Count() > 1 ? GUILayout.Toolbar(tab, modules.Select(x => x.DisplayName).ToArray()) : 0;
             return modules[tab];
         }
@@ -284,8 +284,8 @@ namespace Abuksigun.UnityGitUI
 
         public static async Task Stage(IEnumerable<(Module module, string[] files)> selectionPerModule)
         {
-            var fileInfo = await Task.WhenAll(selectionPerModule.SelectMany(x => x.files).Select(x => Utils.FindFileGitInfo(x)));
-            var fileStatuses = fileInfo.Select(x => x.FileStatuses).Where(x => x != null).SelectMany(x => x).ToList();
+            var filesInfo = await Task.WhenAll(selectionPerModule.SelectMany(x => x.files).Select(x => Utils.FindFileGitInfo(x)));
+            var fileStatuses = filesInfo.Select(x => x.FileStatuses).Where(x => x != null).SelectMany(x => x).ToList();
             var unresolvedFiles = fileStatuses.Where(x => x.IsUnresolved).Select(x => x.FullPath).ToList();
             if (unresolvedFiles.Any())
             {

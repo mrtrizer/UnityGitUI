@@ -54,7 +54,10 @@ namespace Abuksigun.UnityGitUI
     public class Module
     {
         public delegate Task ErrorHandler(Module module, CommandResult result);
+        public delegate void RefreshStatusHandler(Module module);
+        
         readonly ErrorHandler errorHandler;
+        readonly RefreshStatusHandler refreshStatusHandler;
 
         Task<bool> isGitRepo;
         Task<int> gitVersion;
@@ -118,10 +121,11 @@ namespace Abuksigun.UnityGitUI
         public IReadOnlyList<IOData> ProcessLog => GetProcessLog();
         public DateTime RefreshTimestamp { get; private set; }
 
-        public Module(string guid, ErrorHandler errorHandler = null)
+        public Module(string guid, ErrorHandler errorHandler = null, RefreshStatusHandler refreshStatusHandler = null)
         {
             Guid = guid;
             this.errorHandler = errorHandler;
+            this.refreshStatusHandler = refreshStatusHandler;
             string path = LogicalPath = AssetDatabase.GUIDToAssetPath(guid);
             PhysicalPath = Path.GetFullPath(FileUtil.GetPhysicalPath(LogicalPath)).NormalizeSlashes();
             UnreferencedPath = SymLinkUtils.ResolveLink(PhysicalPath);
@@ -227,6 +231,7 @@ namespace Abuksigun.UnityGitUI
             lfsTrackedPaths = null;
             submodules = null;
             AssetDatabase.Refresh();
+            refreshStatusHandler?.Invoke(this);
         }
         #endregion
 
