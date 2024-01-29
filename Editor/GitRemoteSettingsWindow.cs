@@ -11,7 +11,7 @@ namespace Abuksigun.MRGitUI
         [MenuItem("Assets/Git/Remote Settings", true)]
         public static bool Check() => Utils.GetSelectedGitModules().Any();
 
-        [MenuItem("Assets/Git/Remote Settings", priority = 100)]
+        [MenuItem("Assets/Git/Remote Settings")]
         public static async void Invoke()
         {
             var window = EditorWindow.CreateInstance<GitRemoteSettingsWindow>();

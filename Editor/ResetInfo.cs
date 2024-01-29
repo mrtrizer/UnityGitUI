@@ -5,10 +5,10 @@ namespace Abuksigun.MRGitUI
 {
     public class ResetInfo
     {
-        [MenuItem("Assets/Git Refresh", true)]
+        [MenuItem("Assets/Git/Refresh", true)]
         public static bool Check() => Utils.GetSelectedModules().Any();
 
-        [MenuItem("Assets/Git Refresh", priority = 100)]
+        [MenuItem("Assets/Git/Refresh", priority = 120, secondaryPriority = 30)]
         public static void Invoke() => Utils.ResetModules(Utils.GetSelectedModules());
     }
 }

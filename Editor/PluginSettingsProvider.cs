@@ -10,17 +10,12 @@ namespace Abuksigun.MRGitUI
     {
         static Vector2 scrollPosition = default;
 
-        static readonly string LocalRepoPathsKey = "LocalRepoPaths";
-        static readonly string GitPathKey = "GitPath";
-        static readonly string DisableWhileProjectRunningKey = "DisableWhileProjectRunning";
-        static readonly string EnableInProjectBrowserKey = "EnableInProjectBrowser";
-        static readonly string WatchRefsDirKey = "WatchRefsDir";
-
-        public static string LocalRepoPaths => PlayerPrefs.GetString(LocalRepoPathsKey, "../");
-        public static string GitPath => PlayerPrefs.GetString(GitPathKey, "git");
-        public static bool DisableWhileProjectRunning => PlayerPrefs.GetInt(DisableWhileProjectRunningKey, 1) == 1;
-        public static bool EnableInProjectBrowser => PlayerPrefs.GetInt(EnableInProjectBrowserKey, 1) == 1;
-        public static bool WatchRefsDir => PlayerPrefs.GetInt(WatchRefsDirKey, 1) == 1;
+        public static string LocalRepoPaths { get => PlayerPrefs.GetString(nameof(LocalRepoPaths), "../"); set => PlayerPrefs.SetString(nameof(LocalRepoPaths), value);}
+        public static string GitPath { get => PlayerPrefs.GetString(nameof(GitPath), "git"); set => PlayerPrefs.SetString(nameof(GitPath), value);}
+        public static bool DisableWhileProjectRunning { get => PlayerPrefs.GetInt(nameof(DisableWhileProjectRunning), 1) == 1; set => PlayerPrefs.SetInt(nameof(DisableWhileProjectRunning), value ? 1 : 0);}
+        public static bool EnableInProjectBrowser { get => PlayerPrefs.GetInt(nameof(EnableInProjectBrowser), 1) == 1; set => PlayerPrefs.SetInt(nameof(EnableInProjectBrowser), value ? 1 : 0);}
+        public static bool ShowBranchesInProjectBrowser { get => PlayerPrefs.GetInt(nameof(ShowBranchesInProjectBrowser), 1) == 1; set => PlayerPrefs.SetInt(nameof(ShowBranchesInProjectBrowser), value ? 1 : 0); }
+        public static bool WatchRefsDir { get => PlayerPrefs.GetInt(nameof(WatchRefsDir), 1) == 1; set => PlayerPrefs.SetInt(nameof(WatchRefsDir), value ? 1 : 0); }
 
         [SettingsProvider]
         public static SettingsProvider CreateMyCustomSettingsProvider() => new("Preferences/External Tools/MR Unity Git UI", SettingsScope.User) {
@@ -30,13 +25,14 @@ namespace Abuksigun.MRGitUI
 
         static void OnGUI()
         {
-            PlayerPrefs.SetInt(DisableWhileProjectRunningKey, EditorGUILayout.Toggle("Disable while playing", DisableWhileProjectRunning) ? 1 : 0);
-            PlayerPrefs.SetInt(EnableInProjectBrowserKey, EditorGUILayout.Toggle("Enable in Project Browser", EnableInProjectBrowser) ? 1 : 0);
-            PlayerPrefs.SetInt(WatchRefsDirKey, EditorGUILayout.Toggle("Watch .git/refs changes", WatchRefsDir) ? 1 : 0);
-            PlayerPrefs.SetString(GitPathKey, EditorGUILayout.TextField("Git path:", GitPath));
+            DisableWhileProjectRunning = EditorGUILayout.Toggle("Disable while playing", DisableWhileProjectRunning);
+            EnableInProjectBrowser = EditorGUILayout.Toggle("Enable in Project Browser", EnableInProjectBrowser);
+            ShowBranchesInProjectBrowser = EditorGUILayout.Toggle("Show branches in Project Browser", ShowBranchesInProjectBrowser);
+            WatchRefsDir = EditorGUILayout.Toggle("Watch .git/refs changes", WatchRefsDir);
+            GitPath = EditorGUILayout.TextField("Git path:", GitPath);
             GUILayout.Space(10);
             GUILayout.Label("Dependencies search paths:");
-            PlayerPrefs.SetString(LocalRepoPathsKey, EditorGUILayout.TextField(LocalRepoPaths));
+            LocalRepoPaths = EditorGUILayout.TextField(LocalRepoPaths);
             GUILayout.Label("<b>Visible packages:</b>", Style.RichTextLabel.Value);
             using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, GUILayout.Width(600), GUILayout.Height(300)))
             {

@@ -15,10 +15,10 @@ namespace Abuksigun.MRGitUI
     {
         const string ExcludeFilePath = ".git/info/exclude";
 
-        [MenuItem("Assets/Git/Link Local Repo", true)]
+        [MenuItem("Assets/Git Package/Link Local Repo", true)]
         public static bool LinkLocalRepoCheck() => GetSelectedGitPackages().Any();
 
-        [MenuItem("Assets/Git/Link Local Repo")]
+        [MenuItem("Assets/Git Package/Link Local Repo", priority = 110)]
         public static async void LinkLocalRepo()
         {
             List<PackageInfo> packagesToClone = new();
@@ -41,10 +41,10 @@ namespace Abuksigun.MRGitUI
             UnityEditor.PackageManager.Client.Resolve();
         }
 
-        [MenuItem("Assets/Git/Unlink Local Repo", true)]
+        [MenuItem("Assets/Git Package/Unlink Local Repo", true)]
         public static bool UnlinkLocalRepoCheck() => GetSelectedSymLinkPackages().Any();
 
-        [MenuItem("Assets/Git/Unlink Local Repo")]
+        [MenuItem("Assets/Git Package/Unlink Local Repo", priority = 110)]
         public static void UnlinkLocalRepo()
         {
             foreach (var module in GetSelectedSymLinkPackages())
@@ -55,7 +55,7 @@ namespace Abuksigun.MRGitUI
             UnityEditor.PackageManager.Client.Resolve();
         }
 
-        [MenuItem("Assets/Git/Add Local Repo")]
+        [MenuItem("Assets/Git Package/Add Local Repo", priority = 110)]
         public static void AddLocalRepo()
         {
             string path = EditorUtility.OpenFilePanel("Select package.json", "", "json");

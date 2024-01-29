@@ -15,7 +15,7 @@ namespace Abuksigun.MRGitUI
         [MenuItem("Assets/Git/Config", true)]
         public static bool Check() => Utils.GetSelectedGitModules().Count() == 1;
 
-        [MenuItem("Assets/Git/Config", priority = 100)]
+        [MenuItem("Assets/Git/Config")]
         public static async Task Invoke()
         {
             var module = Utils.GetSelectedGitModules().FirstOrDefault();

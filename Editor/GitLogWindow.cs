@@ -11,10 +11,7 @@ namespace Abuksigun.MRGitUI
 {
     public static class GitLog
     {
-        [MenuItem("Assets/Git/Log", true)]
-        public static bool Check() => Utils.GetSelectedGitModules().Any();
-
-        [MenuItem("Assets/Git/Log", priority = 100), MenuItem("Window/Git GUI/Log")]
+        [MenuItem("Window/Git GUI/Log")]
         public static void Invoke()
         {
             if (EditorWindow.GetWindow<GitLogWindow>() is { } window && window)
@@ -27,10 +24,10 @@ namespace Abuksigun.MRGitUI
 
     public static class GitFileLog
     {
-        [MenuItem("Assets/Git File Log", true)]
+        [MenuItem("Assets/Git File/Log", true)]
         public static bool Check() => true; // FIXME: Add check that file selected and indexed in git
 
-        [MenuItem("Assets/Git File Log", priority = 200)]
+        [MenuItem("Assets/Git File/Log", priority = 110)]
         public static void Invoke()
         {
             var assetsInfo = Selection.assetGUIDs.Select(x => Utils.GetAssetGitInfo(x)).Where(x => x != null);

@@ -10,10 +10,7 @@ namespace Abuksigun.MRGitUI
 {
     public static class GitStaging
     {
-        [MenuItem("Assets/Git Staging", true)]
-        public static bool Check() => Utils.GetSelectedGitModules().Any();
         [MenuItem("Window/Git GUI/Staging")]
-        [MenuItem("Assets/Git/Staging", priority = 100)]
         public static void Invoke()
         {
             if (EditorWindow.GetWindow<GitStagingWindow>() is { } window && window)

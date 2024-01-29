@@ -14,16 +14,16 @@ namespace Abuksigun.MRGitUI
 
         public enum Mode { Pull, Push};
 
-        [MenuItem("Assets/Git Pull", true)]
+        [MenuItem("Assets/Git/Pull", true)]
         public static bool PullCheck() => Utils.GetSelectedGitModules().Any();
 
-        [MenuItem("Assets/Git Pull", priority = 100)]
+        [MenuItem("Assets/Git/Pull", priority = 110, secondaryPriority = 10)]
         public static void PullInvoke() => ShowRemotesSyncWindow(Mode.Pull);
 
-        [MenuItem("Assets/Git Push", true)]
+        [MenuItem("Assets/Git/Push", true)]
         public static bool PushCheck() => Utils.GetSelectedGitModules().Any();
 
-        [MenuItem("Assets/Git Push", priority = 100)]
+        [MenuItem("Assets/Git/Push", priority = 110, secondaryPriority = 20)]
         public static void PushInvoke() =>ShowRemotesSyncWindow(Mode.Push);
 
         public static async void ShowRemotesSyncWindow(Mode mode)

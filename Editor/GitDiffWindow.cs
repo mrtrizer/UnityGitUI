@@ -13,10 +13,10 @@ namespace Abuksigun.MRGitUI
 
     public static class GitDiff
     {
-        [MenuItem("Assets/Git File Diff", true)]
+        [MenuItem("Assets/Git File/Diff", true)]
         public static bool Check() => Selection.assetGUIDs.Any(x => Utils.GetAssetGitInfo(x) != null);
 
-        [MenuItem("Assets/Git File Diff", priority = 200), MenuItem("Window/Git GUI/Diff")]
+        [MenuItem("Assets/Git File/Diff", priority = 110), MenuItem("Window/Git GUI/Diff")]
         public static void Invoke()
         {
             ShowDiff();

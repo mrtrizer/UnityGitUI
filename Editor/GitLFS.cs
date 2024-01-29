@@ -11,7 +11,7 @@ namespace Abuksigun.MRGitUI
         [MenuItem("Assets/Git/LFS", true)]
         public static bool Check() => Utils.GetSelectedGitModules().Any();
 
-        [MenuItem("Assets/Git/LFS", priority = 100)]
+        [MenuItem("Assets/Git/LFS")]
         public static void Invoke()
         {
             if (EditorWindow.GetWindow<GitLFSWindow>() is { } window && window)

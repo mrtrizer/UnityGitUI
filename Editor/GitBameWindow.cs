@@ -13,10 +13,10 @@ public static class GitBameWindow
         public BlameLine BlameLine { get; set; }
     }
 
-    [MenuItem("Assets/Git File Blame", true)]
+    [MenuItem("Assets/Git File/Blame", true)]
     public static bool Check() => true;
 
-    [MenuItem("Assets/Git File Blame", priority = 200)]
+    [MenuItem("Assets/Git File/Blame", priority = 110)]
     public static async void Invoke()
     {
         var scrollPosition = Vector2.zero;

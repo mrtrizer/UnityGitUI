@@ -10,10 +10,7 @@ namespace Abuksigun.MRGitUI
 {
     public static class GitBranches
     {
-        [MenuItem("Assets/Git/Branches", true)]
-        public static bool Check() => Utils.GetSelectedGitModules().Any();
         [MenuItem("Window/Git GUI/Branches")]
-        [MenuItem("Assets/Git/Branches", priority = 100)]
         public static void Invoke()
         {
             if (EditorWindow.GetWindow<GitBranchesWindow>() is { } window && window)
