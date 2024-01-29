@@ -157,7 +157,7 @@ namespace Abuksigun.UnityGitUI
             if (instance.lockedModules.Count > 0)
                 return instance.lockedModules.Select(x => GetModule(x));
             // Selection.selectionChanged is not called when selecting a package, this is a workaround
-            var browserSelectedModules = Selection.assetGUIDs.Where(x => modules.ContainsKey(x));
+            var browserSelectedModules = Selection.assetGUIDs.Where(x => modules.ContainsKey(x)).Concat(Selection.assetGUIDs.Select(x => GetAssetGitInfo(x)?.Module?.Guid).Where(x => x != null)).Distinct();
             if (browserSelectedModules.Any())
             {
                 if (instance.lastModulesSelection == null || (!browserSelectedModules.SequenceEqual(instance.lastModulesSelection)))
