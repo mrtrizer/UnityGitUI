@@ -92,7 +92,7 @@ namespace Abuksigun.UnityGitUI
             if (module != null && module.IsGitPackage)
             {
                 if (module.IsUpdateAvailable.GetResultOrDefault())
-                    GUI.Label(drawRect.Move(drawRect.width - 20, 0), EditorGUIUtility.IconContent("CollabPull"), SmallLabelStyle.Value);
+                    GUI.Label(drawRect.Move(drawRect.width - 15, 0), EditorGUIUtility.IconContent("CollabPull"), SmallLabelStyle.Value);
             }
             if (drawRect.height <= 20 && module != null && module.IsGitRepo.GetResultOrDefault())
             {

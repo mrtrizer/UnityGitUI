@@ -15,7 +15,7 @@ namespace Abuksigun.UnityGitUI
         public static bool DisableWhileProjectRunning { get => PlayerPrefs.GetInt(nameof(DisableWhileProjectRunning), 1) == 1; set => PlayerPrefs.SetInt(nameof(DisableWhileProjectRunning), value ? 1 : 0);}
         public static bool EnableInProjectBrowser { get => PlayerPrefs.GetInt(nameof(EnableInProjectBrowser), 1) == 1; set => PlayerPrefs.SetInt(nameof(EnableInProjectBrowser), value ? 1 : 0);}
         public static bool ShowBranchesInProjectBrowser { get => PlayerPrefs.GetInt(nameof(ShowBranchesInProjectBrowser), 1) == 1; set => PlayerPrefs.SetInt(nameof(ShowBranchesInProjectBrowser), value ? 1 : 0); }
-        public static bool ShowStatusInProjectBrowser { get => PlayerPrefs.GetInt(nameof(ShowStatusInProjectBrowser), 1) == 1; set => PlayerPrefs.SetInt(nameof(ShowStatusInProjectBrowser), value ? 1 : 0); }
+        public static bool ShowStatusInProjectBrowser { get => PlayerPrefs.GetInt(nameof(ShowStatusInProjectBrowser), 0) == 1; set => PlayerPrefs.SetInt(nameof(ShowStatusInProjectBrowser), value ? 1 : 0); }
         public static bool WatchRefsDir { get => PlayerPrefs.GetInt(nameof(WatchRefsDir), 1) == 1; set => PlayerPrefs.SetInt(nameof(WatchRefsDir), value ? 1 : 0); }
 
         [SettingsProvider]
