@@ -91,8 +91,16 @@ namespace Abuksigun.UnityGitUI
             var module = GetModule(guid);
             if (module != null && module.IsGitPackage)
             {
-                if (module.IsUpdateAvailable.GetResultOrDefault())
-                    GUI.Label(drawRect.Move(drawRect.width - 15, 0), EditorGUIUtility.IconContent("CollabPull"), SmallLabelStyle.Value);
+                if (!module.IsUpdateAvailable.IsCompleted)
+                {
+                    var rect = drawRect.Move(drawRect.width - 25, 0).Resize(15, 15);
+                    GUIUtils.DrawSpin(ref spinCounter, rect);
+                }
+                else
+                {
+                    if (module.IsUpdateAvailable.GetResultOrDefault())
+                        GUI.Label(drawRect.Move(drawRect.width - 15, 0), EditorGUIUtility.IconContent("CollabPull"), SmallLabelStyle.Value);
+                }
             }
             if (drawRect.height <= 20 && module != null && module.IsGitRepo.GetResultOrDefault())
             {

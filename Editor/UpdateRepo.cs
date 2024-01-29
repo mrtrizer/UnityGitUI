@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -16,11 +17,16 @@ namespace Abuksigun.UnityGitUI
         public static bool PullCheck() => Utils.GetSelectedModules().Any(x => x.IsGitPackage || x.IsGitRepo.GetResultOrDefault());
 
         [MenuItem("Assets/Git Package/Update", priority = 110)]
-        public static async void UpdatePackage()
+        public static void UpdatePackage()
         {
-            await ShowUpdateRepoWindow();
-            UnityEditor.PackageManager.Client.Resolve();
+            _ = ShowUpdateRepoWindow();
         }
+
+        [MenuItem("Assets/Git Package/Refresh", true)]
+        public static bool Check() => Utils.GetSelectedModules().Any();
+
+        [MenuItem("Assets/Git Package/Refresh", priority = 120, secondaryPriority = 30)]
+        public static void Invoke() => Utils.ResetModules(Utils.GetSelectedModules());
 
         public static async Task ShowUpdateRepoWindow()
         {
@@ -30,14 +36,22 @@ namespace Abuksigun.UnityGitUI
             string currentLogGuid = null;
             Queue<Module> packageUpdateQueue = new();
             Task<CommandResult> currentPackageUpdate = null;
+            using CancellationTokenSource ctSource = new();
+            int spinCounter = 0;
 
             async Task<CommandResult> Update(Module module)
             {
+                if (!await module.IsUpdateAvailable)
+                    return null;
                 if (module.IsGitPackage)
                 {
                     packageUpdateQueue.Enqueue(module);
                     while (currentPackageUpdate != null && !currentPackageUpdate.IsCompleted)
+                    {
                         await currentPackageUpdate;
+                        if (ctSource.Token.IsCancellationRequested)
+                            return null;
+                    }
                     return await (currentPackageUpdate = packageUpdateQueue.Dequeue().UpdateGitPackage());
                 }
                 else if (await module.IsGitRepo)
@@ -56,20 +70,27 @@ namespace Abuksigun.UnityGitUI
             await GUIUtils.ShowModalWindow("Update", new Vector2Int(600, 400), (window) => {
                 var width = GUILayout.Width(window.position.width);
                 var height = GUILayout.Height(window.position.height);
+                window.Repaint();
                 using (var scroll = new GUILayout.ScrollViewScope(scrollPosition, false, false, width, height))
                 {
                     foreach (var module in modules)
                     {
                         using (new GUILayout.HorizontalScope())
                         {
-                            GUILayout.Label($"{module.DisplayName} [{module.CurrentBranch.GetResultOrDefault()}]", GUILayout.Width(300));
+                            GUILayout.Label($"{module.DisplayName} [{module.CurrentBranch.GetResultOrDefault()}]", GUILayout.Width(400));
                             var task = tasks.GetValueOrDefault(module.Guid);
                             if (task != null)
                             {
-                                string status = !task.IsCompleted ? !module.IsGitPackage || !packageUpdateQueue.Contains(module) ? "In progress" : "In queue"
+                                string status =
+                                      task.IsCompletedSuccessfully && task.Result == null ? "<color=orange><b>Nothing to update</b></color>"
                                     : task.IsCompletedSuccessfully && task.Result.ExitCode == 0 ? "<color=green><b>Done</b></color>"
+                                    : module.IsGitPackage && packageUpdateQueue.Contains(module) ? "<b>In queue</b>"
+                                    : !task.IsCompleted ? null
                                     : "<color=red><b>Errored</b></color>";
-                                GUILayout.Label(status, Style.RichTextLabel.Value, GUILayout.Width(100));
+                                if (status == null)
+                                    GUIUtils.DrawSpin(ref spinCounter, EditorGUILayout.GetControlRect(GUILayout.Width(17), GUILayout.Height(17)));
+                                else
+                                    GUILayout.Label(status, Style.RichTextLabel.Value, GUILayout.Width(150));
                                 if (task.GetResultOrDefault() is {} result && result.ExitCode != 0)
                                     EditorGUILayout.HelpBox(task.Result.Output, MessageType.Error);
                             }
@@ -79,7 +100,12 @@ namespace Abuksigun.UnityGitUI
                 }
             });
 
-            await Task.WhenAll(tasks.Select(x => x.Value).Where(x => x != null));
+            ctSource.Cancel();
+
+            await Task.WhenAll(tasks.Values);
+
+            foreach (var module in modules)
+                module?.RefreshRemoteStatus();
         }
     }
 }

@@ -40,6 +40,8 @@ namespace Abuksigun.UnityGitUI
             var remotes = new Dictionary<Module, Remote>();
             string currentLogGuid = null;
 
+            int spinCounter = 0;
+
             void AddFollowingProcessId(Module module)
             {
                 var currentProcessIds = processIds.GetValueOrDefault(module.Guid) ?? new int[0];
@@ -65,9 +67,9 @@ namespace Abuksigun.UnityGitUI
                 return module.Push(pushTags, force, remote);
             }
 
-            await GUIUtils.ShowModalWindow("Remotes", new Vector2Int(600, 400), (window) => {
+            await GUIUtils.ShowModalWindow("Remotes", new Vector2Int(600, 600), (window) => {
                 var modules = Utils.GetSelectedGitModules().ToArray();
-
+                window.Repaint();
                 using (new EditorGUI.DisabledGroupScope(tasks.Any(x => x.Value != null && !x.Value.IsCompleted)))
                 using (new GUILayout.HorizontalScope())
                 {
@@ -114,10 +116,14 @@ namespace Abuksigun.UnityGitUI
                             var task = tasks.GetValueOrDefault(module.Guid);
                             if (task != null)
                             {
-                                string status = !task.IsCompleted ? "In progress"
+                                string status = !task.IsCompleted ? null
                                     : task.IsCompletedSuccessfully && task.Result.ExitCode == 0 ? "<color=green><b>Done</b></color>"
                                     : "<color=red><b>Errored</b></color>";
-                                GUILayout.Label(status, Style.RichTextLabel.Value, GUILayout.Width(100));
+
+                                if (status == null)
+                                    GUIUtils.DrawSpin(ref spinCounter, EditorGUILayout.GetControlRect(GUILayout.Width(17), GUILayout.Height(17)));
+                                else
+                                    GUILayout.Label(status, Style.RichTextLabel.Value, GUILayout.Width(150));
                             }
                         }
                     }
