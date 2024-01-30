@@ -88,6 +88,9 @@ namespace Abuksigun.UnityGitUI
             bool showStatus = PluginSettingsProvider.ShowStatusInProjectBrowser;
             bool twoLines = showBranch && showStatus;
 
+            if (drawRect.width > 400)
+                drawRect.width = 400;
+
             var module = GetModule(guid);
             if (module != null && module.IsGitPackage)
             {
