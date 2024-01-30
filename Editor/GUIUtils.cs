@@ -205,7 +205,7 @@ namespace Abuksigun.UnityGitUI
             int tab = 0;
             for (int i = 0; i < modules.Count; i++)
                 tab = modules[i]?.Guid == guid ? i : tab;
-            tab = modules.Count() > 1 ? GUILayout.Toolbar(tab, modules.Select(x => x.DisplayName).ToArray()) : 0;
+            tab = modules.Count() > 1 ? GUILayout.Toolbar(tab, modules.Where(x => x != null).Select(x => x.DisplayName).ToArray()) : 0;
             return modules[tab];
         }
 
