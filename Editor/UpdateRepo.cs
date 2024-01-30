@@ -16,7 +16,7 @@ namespace Abuksigun.UnityGitUI
         [MenuItem("Assets/Git Package/Update", true)]
         public static bool PullCheck() => Utils.GetSelectedModules().Any(x => x.IsGitPackage || x.IsGitRepo.GetResultOrDefault());
 
-        [MenuItem("Assets/Git Package/Update", priority = 110)]
+        [MenuItem("Assets/Git Package/Update", priority = 110, secondaryPriority = 110)]
         public static void UpdatePackage()
         {
             _ = ShowUpdateRepoWindow();
@@ -25,7 +25,7 @@ namespace Abuksigun.UnityGitUI
         [MenuItem("Assets/Git Package/Refresh", true)]
         public static bool Check() => Utils.GetSelectedModules().Any();
 
-        [MenuItem("Assets/Git Package/Refresh", priority = 120, secondaryPriority = 30)]
+        [MenuItem("Assets/Git Package/Refresh", priority = 110, secondaryPriority = 120)]
         public static void Invoke() => Utils.ResetModules(Utils.GetSelectedModules());
 
         public static async Task ShowUpdateRepoWindow()

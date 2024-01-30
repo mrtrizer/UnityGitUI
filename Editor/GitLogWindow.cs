@@ -11,7 +11,7 @@ namespace Abuksigun.UnityGitUI
 {
     public static class GitLog
     {
-        [MenuItem("Window/Git GUI/Log")]
+        [MenuItem("Window/Git UI/Log")]
         public static void Invoke()
         {
             if (EditorWindow.GetWindow<GitLogWindow>() is { } window && window)

@@ -16,7 +16,7 @@ namespace Abuksigun.UnityGitUI
         [MenuItem("Assets/Git File/Diff", true)]
         public static bool Check() => Selection.assetGUIDs.Any(x => Utils.GetAssetGitInfo(x) != null);
 
-        [MenuItem("Assets/Git File/Diff", priority = 110), MenuItem("Window/Git GUI/Diff")]
+        [MenuItem("Assets/Git File/Diff", priority = 110), MenuItem("Window/Git UI/Diff")]
         public static void Invoke()
         {
             ShowDiff();

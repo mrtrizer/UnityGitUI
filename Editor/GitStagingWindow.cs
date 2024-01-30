@@ -10,7 +10,7 @@ namespace Abuksigun.UnityGitUI
 {
     public static class GitStaging
     {
-        [MenuItem("Window/Git GUI/Staging")]
+        [MenuItem("Window/Git UI/Staging")]
         public static void Invoke()
         {
             if (EditorWindow.GetWindow<GitStagingWindow>() is { } window && window)

@@ -34,7 +34,7 @@ namespace Abuksigun.UnityGitUI
 
     public static class ProcessLog
     {
-        [MenuItem("Window/Git GUI/Process Log")]
+        [MenuItem("Window/Git UI/Process Log")]
         public static void Invoke()
         {
             var window = ScriptableObject.CreateInstance<ProcessLogWindow>();

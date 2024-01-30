@@ -25,7 +25,7 @@ namespace Abuksigun.UnityGitUI
 
         const string ShowBranchesMenuPath = "Assets/Show Git Branches";
 
-        [MenuItem(ShowBranchesMenuPath, priority = 115)]
+        [MenuItem(ShowBranchesMenuPath, priority = 150)]
         private static void ToggleShowGitBranches()
         {
             PluginSettingsProvider.ShowBranchesInProjectBrowser = !PluginSettingsProvider.ShowBranchesInProjectBrowser;
@@ -40,7 +40,7 @@ namespace Abuksigun.UnityGitUI
 
         const string ShowStatusMenuPath = "Assets/Show Git Status";
 
-        [MenuItem(ShowStatusMenuPath, priority = 115)]
+        [MenuItem(ShowStatusMenuPath, priority = 150)]
         private static void ToggleGitStatus()
         {
             PluginSettingsProvider.ShowStatusInProjectBrowser = !PluginSettingsProvider.ShowStatusInProjectBrowser;

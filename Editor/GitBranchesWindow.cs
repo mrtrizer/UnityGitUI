@@ -10,7 +10,7 @@ namespace Abuksigun.UnityGitUI
 {
     public static class GitBranches
     {
-        [MenuItem("Window/Git GUI/Branches")]
+        [MenuItem("Window/Git UI/Branches")]
         public static void Invoke()
         {
             if (EditorWindow.GetWindow<GitBranchesWindow>() is { } window && window)

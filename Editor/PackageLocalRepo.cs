@@ -18,7 +18,7 @@ namespace Abuksigun.UnityGitUI
         [MenuItem("Assets/Git Package/Link Local Repo", true)]
         public static bool LinkLocalRepoCheck() => GetSelectedGitPackages().Any();
 
-        [MenuItem("Assets/Git Package/Link Local Repo", priority = 110)]
+        [MenuItem("Assets/Git Package/Link Local Repo")]
         public static async void LinkLocalRepo()
         {
             List<Module> packagesToClone = new();
@@ -44,7 +44,7 @@ namespace Abuksigun.UnityGitUI
         [MenuItem("Assets/Git Package/Unlink Local Repo", true)]
         public static bool UnlinkLocalRepoCheck() => GetSelectedSymLinkPackages().Any();
 
-        [MenuItem("Assets/Git Package/Unlink Local Repo", priority = 110)]
+        [MenuItem("Assets/Git Package/Unlink Local Repo")]
         public static void UnlinkLocalRepo()
         {
             foreach (var module in GetSelectedSymLinkPackages())
@@ -55,7 +55,7 @@ namespace Abuksigun.UnityGitUI
             UnityEditor.PackageManager.Client.Resolve();
         }
 
-        [MenuItem("Assets/Git Package/Add Local Repo", priority = 110)]
+        [MenuItem("Assets/Git Package/Add Local Repo")]
         public static void AddLocalRepo()
         {
             string path = EditorUtility.OpenFilePanel("Select package.json", "", "json");
