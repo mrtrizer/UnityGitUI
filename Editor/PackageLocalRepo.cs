@@ -75,7 +75,7 @@ namespace Abuksigun.UnityGitUI
 
         static IEnumerable<Module> GetSelectedSymLinkPackages()
         {
-            return Utils.GetSelectedModules().Where(x => File.GetAttributes(x.PhysicalPath).HasFlag(FileAttributes.ReparsePoint));
+            return Utils.GetSelectedModules().Where(x => x != null && File.GetAttributes(x.PhysicalPath).HasFlag(FileAttributes.ReparsePoint));
         }
 
         static Task ShowCloneWindow(List<Module> packagesToClone)

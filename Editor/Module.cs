@@ -24,11 +24,25 @@ namespace Abuksigun.UnityGitUI
     public record LocalBranch(string Name, string Hash, string TrackingBranch) : Branch(Name, Name, Hash);
     public record RemoteBranch(string Name, string Hash, string RemoteAlias) : Branch(Name, RemoteAlias + '/' +Name, Hash);
     public record Remote(string Alias, string Url);
-    public record RemoteStatus(string Remote, int Ahead, int Behind);
+    public record RemoteStatus(string Remote, int Ahead, int Behind, string AccessError);
     public record LfsFileInfo(string FileName, string ObjectId, string DownloadStatus);
     public record SubmoduleInfo(string Path, string FullPath, string CurrentCommit);
     public record GitPackageInfo(string Url, string Revision, string Hash);
 
+    public class TimedCache<T>
+    {
+        long nextResetTime;
+        Task<T> task;
+
+        public Task<T> Task { 
+            get => nextResetTime < DateTimeOffset.Now.ToUnixTimeSeconds() ? null : task; 
+            set {
+                task = value;
+                nextResetTime = DateTimeOffset.Now.ToUnixTimeSeconds() + (long)PluginSettingsProvider.RemoteRefreshIntervalSec + UnityEngine.Random.Range(0, 60);
+            }
+        }
+        public void Reset() => task = null;
+    }
     public struct NumStat
     {
         public int Added;
@@ -74,7 +88,7 @@ namespace Abuksigun.UnityGitUI
         Task<bool> isCherryPickInProgress;
         Task<Remote[]> remotes;
         Task<Remote> defaultRemote;
-        Task<RemoteStatus> remoteStatus;
+        TimedCache<RemoteStatus> remoteStatus = new();
         Task<GitStatus> gitStatus;
         Task<bool> isLfsAvailable;
         Task<bool> isLfsInstalled;
@@ -91,7 +105,7 @@ namespace Abuksigun.UnityGitUI
         readonly List<IOData> processLogConcurent = new();
         public bool IsLinkedPackage { get; }
         public bool IsProject => PhysicalPath == Application.dataPath;
-        public bool IsGitPackage => PackageInfo?.source == UnityEditor.PackageManager.PackageSource.Git && PackageInfo?.git != null;
+        public bool IsGitPackage => !IsGitRepo.GetResultOrDefault() && PackageInfo?.source == UnityEditor.PackageManager.PackageSource.Git && PackageInfo?.git != null;
         public Task<bool> IsUpdateAvailable => isUpdateAvalibale ??= GetIsUpdateAvailable();
 
         public string Guid { get; }
@@ -116,7 +130,7 @@ namespace Abuksigun.UnityGitUI
         public Task<bool> IsCherryPickInProgress => isCherryPickInProgress ??= GetIsCherryPickInProgress();
         public Task<Remote[]> Remotes => remotes ??= GetRemotes();
         public Task<Remote> DefaultRemote => defaultRemote ??= GetDefaultRemote();
-        public Task<RemoteStatus> RemoteStatus => remoteStatus ??= GetRemoteStatus();
+        public Task<RemoteStatus> RemoteStatus => remoteStatus.Task ??= GetRemoteStatus();
         public Task<GitStatus> GitStatus => gitStatus ??= GetGitStatus();
 
         public Task<bool> IsLfsAvailable => isLfsAvailable ??= GetIsLfsAvailable();
@@ -221,7 +235,7 @@ namespace Abuksigun.UnityGitUI
             RefreshReferences();
             remotes = null;
             defaultRemote = null;
-            remoteStatus = null;
+            remoteStatus.Reset();
             RefreshTimestamp = DateTime.Now;
             isUpdateAvalibale = null;
             gitPackageInfo = null;
@@ -418,7 +432,9 @@ namespace Abuksigun.UnityGitUI
             if (remotes.Length == 0)
                 return null;
             string currentBranch = await CurrentBranch;
-            await RunGit($"fetch --prune");
+            var fetchResult = await RunGit($"fetch --prune", true);
+            if (fetchResult.ExitCode != 0)
+                return new RemoteStatus(null, 0, 0, fetchResult.Output);
             string remoteAlias = (await DefaultRemote).Alias;
             var branches = await References;
             if (!branches.Any(x => x is RemoteBranch remoteBranch && remoteBranch.RemoteAlias == remoteAlias && remoteBranch.Name == currentBranch))
@@ -427,7 +443,7 @@ namespace Abuksigun.UnityGitUI
             {
                 int ahead = int.Parse((await RunGit($"rev-list --count {remoteAlias}/{currentBranch}..{currentBranch}")).Output.Trim());
                 int behind = int.Parse((await RunGit($"rev-list --count {currentBranch}..{remoteAlias}/{currentBranch}")).Output.Trim());
-                return new RemoteStatus(remotes[0].Alias, ahead, behind);
+                return new RemoteStatus(remotes[0].Alias, ahead, behind, null);
             }
             catch (Exception e)
             {
