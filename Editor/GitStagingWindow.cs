@@ -10,12 +10,17 @@ namespace Abuksigun.UnityGitUI
 {
     public static class GitStaging
     {
+        [MenuItem("Assets/Git/Commit", true)]
+        public static bool InvokeCheck() => Utils.GetSelectedGitModules().Any();
+
+        [MenuItem("Assets/Git/Commit", priority = 120, secondaryPriority = 25)]
         [MenuItem("Window/Git UI/Staging")]
         public static void Invoke()
         {
             if (EditorWindow.GetWindow<GitStagingWindow>() is { } window && window)
             {
                 window.titleContent = new GUIContent("Git Staging");
+                window.position = new Rect(150, 200, 800, 600);
                 window.Show();
             }
         }
