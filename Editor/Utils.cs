@@ -56,6 +56,7 @@ namespace Abuksigun.UnityGitUI
         public const string EmptyTreeIdConst = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
         static Dictionary<string, Module> modules = new();
         static Dictionary<string, Task<AssetGitInfo>> assetGitInfoCache = new();
+        static Dictionary<string, string> guidToPathCache = new();
         static object processLock = new();
 
         [SerializeField] int lastLocalProcessId = 0;
@@ -102,6 +103,7 @@ namespace Abuksigun.UnityGitUI
             foreach (var module in modules)
                 ResetModule(module);
             assetGitInfoCache.Clear();
+            guidToPathCache.Clear();
         }
 
         static bool IsModule(string guid)
@@ -231,11 +233,15 @@ namespace Abuksigun.UnityGitUI
         public static void ResetGitFileInfoCache(string filePath)
         {
             assetGitInfoCache.Remove(filePath);
+            string guid = guidToPathCache.FirstOrDefault(x => x.Value == filePath).Key;
+            if (guid != null)
+                assetGitInfoCache.Remove(guid);
         }
 
         public static void ResetGitFileInfoCache(Module module)
         {
             assetGitInfoCache.Clear();
+            guidToPathCache.Clear();
         }
 
         public static AssetGitInfo GetFileGitInfo(string filePath)
@@ -265,7 +271,7 @@ namespace Abuksigun.UnityGitUI
         {
             if (guid == null)
                 return null;
-            string filePath = GetFullPathFromGuid(guid);
+            string filePath = guidToPathCache.GetValueOrDefault(guid) ?? (guidToPathCache[guid] = GetFullPathFromGuid(guid));
             return GetFileGitInfo(filePath);
         }
 
