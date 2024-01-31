@@ -150,10 +150,17 @@ namespace Abuksigun.UnityGitUI
                         GUI.Label(drawRect.Move(drawRect.width - 45, -2).Resize(17.5f, 17.5f), EditorGUIUtility.IconContent("d_CollabEdit Icon"), SmallLabelStyle.Value);
                     if (module.RemoteStatus.GetResultOrDefault() is { } remoteStatus)
                     {
-                        if (remoteStatus.Ahead > 0)
-                            GUI.Label(drawRect.Move(drawRect.width - 30, 0).Resize(15, 15), EditorGUIUtility.IconContent("CollabPush"), SmallLabelStyle.Value);
-                        if (remoteStatus.Behind > 0)
-                            GUI.Label(drawRect.Move(drawRect.width - 15, 0).Resize(15, 15), EditorGUIUtility.IconContent("CollabPull"), SmallLabelStyle.Value);
+                        if (remoteStatus.AccessError != null)
+                        {
+                            GUI.Label(drawRect.Move(drawRect.width - 17, -2).Resize(17.5f, 17.5f), EditorGUIUtility.IconContent("d_CollabConflict Icon"), SmallLabelStyle.Value);
+                        }
+                        else
+                        {
+                            if (remoteStatus.Ahead > 0)
+                                GUI.Label(drawRect.Move(drawRect.width - 30, 0).Resize(15, 15), EditorGUIUtility.IconContent("CollabPush"), SmallLabelStyle.Value);
+                            if (remoteStatus.Behind > 0)
+                                GUI.Label(drawRect.Move(drawRect.width - 15, 0).Resize(15, 15), EditorGUIUtility.IconContent("CollabPull"), SmallLabelStyle.Value);
+                        }
                     }
                     else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
                     {
@@ -193,7 +200,7 @@ namespace Abuksigun.UnityGitUI
                     GUI.Label(rect.Move(0, 7), "<color=brown>F</color>", LFSLabelStyle.Value);
                 }
             }
-            if (module == null && assetInfo != null && !assetInfo.NestedFileModified && drawRect.height < 20)
+            if (module == null && assetInfo != null && !assetInfo.NestedFileModified && drawRect.height < 20 && PluginSettingsProvider.ShowLinesChangeInProjectBrowser)
             {
                 var rect = drawRect;
                 var unstagedNumStat = assetInfo.FileStatuses?.FirstOrDefault()?.UnstagedNumStat;

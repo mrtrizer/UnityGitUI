@@ -219,6 +219,8 @@ namespace Abuksigun.UnityGitUI
             if (modules.Count == 0)
                 return;
             var module = ModuleGuidToolbar(modules, guid);
+            if (module == null)
+                return;
             guid = module.Guid;
             var filtered = predicate != null ? module.ProcessLog.Where(predicate) : module.ProcessLog;
             DrawProcessLog(guid, size, filtered, letFocus);
@@ -308,9 +310,16 @@ namespace Abuksigun.UnityGitUI
 
         public static void DrawShortRemoteStatus(RemoteStatus result, Rect rect, GUIStyle labelStyle)
         {
-            string behind = result.Behind > 0 ? $"<color={Colors.Orange}>{result.Behind}</color>" : result.Behind.ToString();
-            string ahead = result.Ahead > 0 ? $"<color={Colors.CyanBlue}>{result.Ahead}</color>" : result.Ahead.ToString();
-            GUI.Label(rect, $"{behind}↓{ahead}↑", labelStyle);
+            if (result.AccessError != null)
+            {
+                GUI.Label(rect, new GUIContent($"<color={Colors.Red}>Error</color>", result.AccessError), labelStyle);
+            }
+            else
+            {
+                string behind = result.Behind > 0 ? $"<color={Colors.Orange}>{result.Behind}</color>" : result.Behind.ToString();
+                string ahead = result.Ahead > 0 ? $"<color={Colors.CyanBlue}>{result.Ahead}</color>" : result.Ahead.ToString();
+                GUI.Label(rect, $"{behind}↓{ahead}↑", labelStyle);
+            }
         }
 
         public static void DrawShortStatus(GitStatus gitStatus, Rect rect, GUIStyle labelStyle)
