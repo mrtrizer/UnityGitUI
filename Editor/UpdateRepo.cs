@@ -83,7 +83,7 @@ namespace Abuksigun.UnityGitUI
                                     : task.IsCompletedSuccessfully && task.Result.ExitCode == 0 ? "<color=green><b>Done</b></color>"
                                     : module.IsGitPackage && packageUpdateQueue.Contains(module) ? "<b>In queue</b>"
                                     : !task.IsCompleted ? null
-                                    : "<color=red><b>Errored</b></color>";
+                                    : "<color=red><b>Failed</b></color>";
                                 if (status == null)
                                     GUIUtils.DrawSpin(ref spinCounter, EditorGUILayout.GetControlRect(GUILayout.Width(17), GUILayout.Height(17)));
                                 else
