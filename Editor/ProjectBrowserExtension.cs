@@ -79,14 +79,8 @@ namespace Abuksigun.UnityGitUI
 
         static void Draw(string guid, Rect drawRect)
         {
-            if ((Application.isPlaying && PluginSettingsProvider.DisableWhileProjectRunning) || !PluginSettingsProvider.EnableInProjectBrowser)
+            if (!PluginSettingsProvider.EnableInProjectBrowser || (Application.isPlaying && PluginSettingsProvider.DisableWhileProjectRunning))
                 return;
-
-            EditorApplication.RepaintProjectWindow();
-
-            bool showBranch = PluginSettingsProvider.ShowBranchesInProjectBrowser;
-            bool showStatus = PluginSettingsProvider.ShowStatusInProjectBrowser;
-            bool twoLines = showBranch && showStatus;
 
             if (drawRect.width > 400)
                 drawRect.width = 400;
@@ -107,6 +101,10 @@ namespace Abuksigun.UnityGitUI
             }
             if (drawRect.height <= 20 && module != null && module.IsGitRepo.GetResultOrDefault())
             {
+                bool showBranch = PluginSettingsProvider.ShowBranchesInProjectBrowser;
+                bool showStatus = PluginSettingsProvider.ShowStatusInProjectBrowser;
+                bool twoLines = showBranch && showStatus;
+
                 drawRect.height = 20;
 
                 var labelStyle = twoLines ? SmallLabelStyle.Value : LabelStyle.Value;
@@ -138,10 +136,11 @@ namespace Abuksigun.UnityGitUI
                         var rect = drawRect.Move(drawRect.width - offset, statusYOffset);
                         GUIUtils.DrawShortRemoteStatus(remoteStatus, rect, labelStyle);
                     }
-                    else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
+                    else
                     {
                         var rect = drawRect.Move(drawRect.width - 70 * scale, 0).Resize(drawRect.width, 15);
                         GUIUtils.DrawSpin(ref spinCounter, rect);
+                        EditorApplication.RepaintProjectWindow();
                     }
                 }
                 else
@@ -162,10 +161,11 @@ namespace Abuksigun.UnityGitUI
                                 GUI.Label(drawRect.Move(drawRect.width - 15, 0).Resize(15, 15), EditorGUIUtility.IconContent("CollabPull"), SmallLabelStyle.Value);
                         }
                     }
-                    else if (module.References.GetResultOrDefault()?.Any(x => x is RemoteBranch && x.Name == module.CurrentBranch.GetResultOrDefault()) ?? false)
+                    else
                     {
                         var rect = drawRect.Move(drawRect.width - 25, 0).Resize(15, 15);
                         GUIUtils.DrawSpin(ref spinCounter, rect);
+                        EditorApplication.RepaintProjectWindow();
                     }
                 }
 
@@ -186,15 +186,16 @@ namespace Abuksigun.UnityGitUI
                     var iconRect = squareRect ? rect.Move(drawRect.height / 10, drawRect.height / 10).Resize(20, 20) : rect.Move(7, -5).Resize(15, 15);
                     GUI.Label(iconRect, EditorGUIUtility.IconContent("d_CollabEdit Icon"));
                 }
-                else if (assetInfo.FileStatuses.Any(x => x.IsUnstaged))
-                    GUI.Label(rect, GUIUtils.MakePrintableStatus(assetInfo.FileStatuses.First().Y), LabelStyle.Value);
-                else if (assetInfo.FileStatuses.Any(x => x.IsStaged))
+                else if (Array.Exists(assetInfo.FileStatuses, x => x.IsUnstaged))
+                    GUI.Label(rect, GUIUtils.MakePrintableStatus(assetInfo.FileStatuses[0].Y), LabelStyle.Value);
+                else if (Array.Exists(assetInfo.FileStatuses, x => x.IsStaged))
                     GUI.Label(rect, "<color=green>✓</color>", LabelStyle.Value);
             }
             if (module == null && assetInfo != null)
             {
                 var rect = drawRect.Move(-13, -4.5f).Resize(drawRect.width, 15);
-                if (assetInfo.Module.LfsFiles.GetResultOrDefault()?.Any(x => x.FileName == assetInfo.FullPath) ?? false)
+                var lfsFiles = assetInfo.Module.LfsFiles.GetResultOrDefault();
+                if (lfsFiles != null && Array.Exists(lfsFiles, x => x.FileName == assetInfo.FullPath))
                 {
                     GUI.Label(rect, "<color=brown>L</color>", LFSLabelStyle.Value);
                     GUI.Label(rect.Move(0, 7), "<color=brown>F</color>", LFSLabelStyle.Value);
