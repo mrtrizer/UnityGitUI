@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -16,7 +15,10 @@ namespace Abuksigun.UnityGitUI
         public static bool EnableInProjectBrowser { get => PlayerPrefs.GetInt(nameof(EnableInProjectBrowser), 1) == 1; set => PlayerPrefs.SetInt(nameof(EnableInProjectBrowser), value ? 1 : 0);}
         public static bool ShowBranchesInProjectBrowser { get => PlayerPrefs.GetInt(nameof(ShowBranchesInProjectBrowser), 1) == 1; set => PlayerPrefs.SetInt(nameof(ShowBranchesInProjectBrowser), value ? 1 : 0); }
         public static bool ShowStatusInProjectBrowser { get => PlayerPrefs.GetInt(nameof(ShowStatusInProjectBrowser), 0) == 1; set => PlayerPrefs.SetInt(nameof(ShowStatusInProjectBrowser), value ? 1 : 0); }
+        public static bool ShowLinesChangeInProjectBrowser { get => PlayerPrefs.GetInt(nameof(ShowLinesChangeInProjectBrowser), 0) == 1; set => PlayerPrefs.SetInt(nameof(ShowLinesChangeInProjectBrowser), value ? 1 : 0); }
         public static bool WatchRefsDir { get => PlayerPrefs.GetInt(nameof(WatchRefsDir), 1) == 1; set => PlayerPrefs.SetInt(nameof(WatchRefsDir), value ? 1 : 0); }
+        public static int RemoteRefreshIntervalSec { get => Mathf.Max(30, PlayerPrefs.GetInt(nameof(RemoteRefreshIntervalSec)), 5 * 60); set => PlayerPrefs.SetInt(nameof(RemoteRefreshIntervalSec), value); }
+        public static int MaxParallelProcesses { get => Mathf.Max(1, PlayerPrefs.GetInt(nameof(MaxParallelProcesses), 10)); set => PlayerPrefs.SetInt(nameof(MaxParallelProcesses), value); }
 
         [SettingsProvider]
         public static SettingsProvider CreateMyCustomSettingsProvider() => new("Preferences/External Tools/MR Unity Git UI", SettingsScope.User) {
@@ -30,7 +32,10 @@ namespace Abuksigun.UnityGitUI
             EnableInProjectBrowser = EditorGUILayout.Toggle("Enable in Project Browser", EnableInProjectBrowser);
             ShowBranchesInProjectBrowser = EditorGUILayout.Toggle("Show branches in Project Browser", ShowBranchesInProjectBrowser);
             ShowStatusInProjectBrowser = EditorGUILayout.Toggle("Show status in Project Browser", ShowStatusInProjectBrowser);
+            ShowLinesChangeInProjectBrowser = EditorGUILayout.Toggle("Show lines in Project Browser", ShowLinesChangeInProjectBrowser);
             WatchRefsDir = EditorGUILayout.Toggle("Watch .git/refs changes", WatchRefsDir);
+            RemoteRefreshIntervalSec = EditorGUILayout.IntField("Remote refresh interval", RemoteRefreshIntervalSec);
+            MaxParallelProcesses = EditorGUILayout.IntField("Max parallel processes", MaxParallelProcesses);
             GitPath = EditorGUILayout.TextField("Git path:", GitPath);
             GUILayout.Space(10);
             GUILayout.Label("Dependencies search paths:");

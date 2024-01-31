@@ -92,6 +92,8 @@ namespace Abuksigun.UnityGitUI
 
         public static void ResetModule(Module module)
         {
+            if (module == null)
+                return;
             modules.Remove(module.Guid);
         }
 
