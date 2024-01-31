@@ -10,9 +10,6 @@ namespace Abuksigun.UnityGitUI
 {
     public static class UpdateRepo
     {
-        const int TopPanelHeight = 40;
-        const int LogHeight = 300;
-
         [MenuItem("Assets/Git Package/Update", true)]
         public static bool PullCheck() => Utils.GetSelectedModules().Any(x => x.IsGitPackage || x.IsGitRepo.GetResultOrDefault());
 
@@ -75,10 +72,10 @@ namespace Abuksigun.UnityGitUI
                 {
                     foreach (var module in modules)
                     {
+                        var task = tasks.GetValueOrDefault(module.Guid);
                         using (new GUILayout.HorizontalScope())
                         {
                             GUILayout.Label($"{module.DisplayName} [{module.CurrentBranch.GetResultOrDefault()}]", GUILayout.Width(400));
-                            var task = tasks.GetValueOrDefault(module.Guid);
                             if (task != null)
                             {
                                 string status =
@@ -91,10 +88,11 @@ namespace Abuksigun.UnityGitUI
                                     GUIUtils.DrawSpin(ref spinCounter, EditorGUILayout.GetControlRect(GUILayout.Width(17), GUILayout.Height(17)));
                                 else
                                     GUILayout.Label(status, Style.RichTextLabel.Value, GUILayout.Width(150));
-                                if (task.GetResultOrDefault() is {} result && result.ExitCode != 0)
-                                    EditorGUILayout.HelpBox(task.Result.Output, MessageType.Error);
+                                
                             }
                         }
+                        if (task.GetResultOrDefault() is { } result && result.ExitCode != 0)
+                            EditorGUILayout.HelpBox(task.Result.Output, MessageType.Error);
                     }
                     scrollPosition = scroll.scrollPosition;
                 }
