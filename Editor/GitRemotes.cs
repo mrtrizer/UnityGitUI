@@ -118,7 +118,7 @@ namespace Abuksigun.UnityGitUI
                             {
                                 string status = !task.IsCompleted ? null
                                     : task.IsCompletedSuccessfully && task.Result.ExitCode == 0 ? "<color=green><b>Done</b></color>"
-                                    : "<color=red><b>Errored</b></color>";
+                                    : "<color=red><b>Failed</b></color>";
 
                                 if (status == null)
                                     GUIUtils.DrawSpin(ref spinCounter, EditorGUILayout.GetControlRect(GUILayout.Width(17), GUILayout.Height(17)));

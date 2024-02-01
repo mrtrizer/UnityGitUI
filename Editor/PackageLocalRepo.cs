@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -103,9 +102,9 @@ namespace Abuksigun.UnityGitUI
                         if (status.task != null)
                         {
                             EditorGUILayout.LabelField(
-                                  status.task.IsFaulted ? "<b><color=red>Errored</color></b>"
+                                  status.task.IsFaulted ? "<b><color=red>Failed</color></b>"
                                 : status.task.IsCompleted && status.task.Result.ExitCode == 0 ? "<b><color=green>Completed</color></b>"
-                                : status.task.IsCompleted && status.task.Result.ExitCode != 0 ? $"<b><color=red>Errored Code {status.task.Result.ExitCode}</color></b>"
+                                : status.task.IsCompleted && status.task.Result.ExitCode != 0 ? $"<b><color=red>Error Code {status.task.Result.ExitCode}</color></b>"
                                 : "<b><color=yellow>Cloning...</color></b>", Style.RichTextLabel.Value);
                             lock (status.log)
                                 GUIUtils.DrawProcessLog(package.packageId, new Vector2(window.position.width, 100), status.log);

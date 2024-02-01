@@ -142,9 +142,9 @@ namespace Abuksigun.UnityGitUI
         public static async Task ShowOutputWindow(Dictionary<Module, Task<CommandResult>> taskPerModule)
         {
             string guid = "";
-            var erroredModules = taskPerModule.Where(x => x.Value.Result.ExitCode != 0).Select(x => x.Key).ToList();
+            var failedModules = taskPerModule.Where(x => x.Value.Result.ExitCode != 0).Select(x => x.Key).ToList();
             await ShowModalWindow("Error", new Vector2Int(500, 400), (window) => {
-                DrawProcessLogs(erroredModules, ref guid, window.position.size, taskPerModule.ToDictionary(x => x.Key.Guid, x => new[] { x.Value.Result.LocalProcessId }));
+                DrawProcessLogs(failedModules, ref guid, window.position.size, taskPerModule.ToDictionary(x => x.Key.Guid, x => new[] { x.Value.Result.LocalProcessId }));
             });
         }
 
