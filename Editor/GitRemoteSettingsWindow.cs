@@ -54,7 +54,7 @@ namespace Abuksigun.UnityGitUI
                         drawElementCallback = (rect, index, isActive, isFocused) => DrawListItems(rect, index, editableRemotes),
                         onAddCallback = (list) => {
                             list.serializedProperty.arraySize++;
-                            editableRemotes.Add(new EditableRecord());
+                            editableRemotes.Add(new EditableRecord(editableRemotes.Count == 0 ? "origin" : "", ""));
                         },
                         onRemoveCallback = (list) => {
                             list.serializedProperty.DeleteArrayElementAtIndex(list.index);

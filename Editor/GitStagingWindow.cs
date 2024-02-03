@@ -13,7 +13,7 @@ namespace Abuksigun.UnityGitUI
         [MenuItem("Assets/Git/Commit", true)]
         public static bool InvokeCheck() => Utils.GetSelectedGitModules().Any();
 
-        [MenuItem("Assets/Git/Commit", priority = 120, secondaryPriority = 25)]
+        [MenuItem("Assets/Git/Commit", priority = 120)]
         [MenuItem("Window/Git UI/Staging")]
         public static void Invoke()
         {

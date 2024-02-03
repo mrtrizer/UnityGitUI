@@ -17,13 +17,13 @@ namespace Abuksigun.UnityGitUI
         [MenuItem("Assets/Git/Pull", true)]
         public static bool PullCheck() => Utils.GetSelectedGitModules().Any();
 
-        [MenuItem("Assets/Git/Pull", priority = 110, secondaryPriority = 10)]
+        [MenuItem("Assets/Git/Pull", priority = 110)]
         public static void PullInvoke() => ShowRemotesSyncWindow(Mode.Pull);
 
         [MenuItem("Assets/Git/Push", true)]
         public static bool PushCheck() => Utils.GetSelectedGitModules().Any();
 
-        [MenuItem("Assets/Git/Push", priority = 110, secondaryPriority = 20)]
+        [MenuItem("Assets/Git/Push", priority = 110)]
         public static void PushInvoke() => ShowRemotesSyncWindow(Mode.Push);
 
         public static async void ShowRemotesSyncWindow(Mode mode)
