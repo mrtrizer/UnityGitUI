@@ -141,7 +141,7 @@ namespace Abuksigun.UnityGitUI
             SetSelectedFiles(filePaths.Select(x => new GitFileReference(moduleGuid, x, staged) { FirstCommit = firstCommit, LastCommit = lastCommit }));
         }
 
-        public static IEnumerable<GitFileReference> GetSelectedFiles()
+        public static GitFileReference[] GetSelectedFiles()
         {
             return instance.lastGitFilesSelected ?? Array.Empty<GitFileReference>();
         }

@@ -46,6 +46,7 @@ namespace Abuksigun.UnityGitUI
         GUIContent[] toolbarContent;
         string[] diffLines;
         HashSet<int> selectedLines;
+        Dictionary<string, string> unindexedFilesCache = new();
         Module lastSelectedModule = null;
         string lastSelectedFile = null;
         int lastSelectedIndex = -1;
@@ -114,16 +115,19 @@ namespace Abuksigun.UnityGitUI
             var status = await module.GitStatus;
             if (status.Unindexed.Any(x => x.FullPath == file.FullPath))
             {
+                if (unindexedFilesCache.GetValueOrDefault(file.FullPath) is { } diff)
+                    return diff;
                 const int maxSize = 1 * 1024* 1024;
                 var content = new FileInfo(file.FullPath).Length > maxSize ? File.ReadLines(file.FullPath).Take(MaxChangesDisplay).ToArray() : File.ReadAllLines(file.FullPath);
                 string relativePath = Path.GetRelativePath(module.GitRepoPath.GetResultOrDefault(), file.FullPath);
-                return $"new {relativePath}\n" + $"@@ -0,0 +1,{content.Length} @@\n+" + content.Join("\n+");
+                return unindexedFilesCache[file.FullPath] = $"new {relativePath}\n" + $"@@ -0,0 +1,{content.Length} @@\n+" + content.Join("\n+");
             }
             return await module.FileDiff(file);
         }
 
         protected override void OnGUI()
         {
+            int maxSelectedFiles = 10;
             var selectedFiles = Utils.GetSelectedFiles();
             if (!selectedFiles.Any())
                 return;
@@ -131,11 +135,14 @@ namespace Abuksigun.UnityGitUI
             bool hideButtons = viewingLog;
             bool viewingAsset = selectedFiles.Any(x => !x.Staged.HasValue && string.IsNullOrEmpty(x.FirstCommit));
 
-            var diffs = selectedFiles.Select(x => (module: x.Module, fullPath: x.FullPath, diff: Diff(x.Module, x), x.Staged));
-            var loadedDiffs = diffs.Select(x => (x.module, x.fullPath, diff: x.diff.GetResultOrDefault(), x.Staged)).Where(x => x.diff != null);
+            if (selectedFiles.Length > maxSelectedFiles)
+                GUILayout.Label($"Can't display diff for more then {maxSelectedFiles} without performance drop. Showing only first {maxSelectedFiles} files. (WIP)");
 
-            var stagedDiffs = loadedDiffs.Where(x => x.Staged.GetValueOrDefault()).ToList();
-            var unstagedDiffs = loadedDiffs.Where(x => !x.Staged.GetValueOrDefault()).ToList();
+            var diffs = selectedFiles.Select(x => (module: x.Module, fullPath: x.FullPath, diff: Diff(x.Module, x), x.Staged));
+            var loadedDiffs = diffs.Select(x => (x.module, x.fullPath, diff: x.diff.GetResultOrDefault(), x.Staged)).Where(x => x.diff != null).Take(maxSelectedFiles);
+
+            var stagedDiffs = loadedDiffs.Where(x => x.Staged.GetValueOrDefault());
+            var unstagedDiffs = loadedDiffs.Where(x => !x.Staged.GetValueOrDefault());
 
             using (new GUILayout.HorizontalScope())
             {
@@ -143,16 +150,17 @@ namespace Abuksigun.UnityGitUI
                         new GUIContent("Unstaged", EditorGUIUtility.IconContent("d_winbtn_mac_min@2x").image),
                         new GUIContent("Staged", EditorGUIUtility.IconContent("d_winbtn_mac_max@2x").image)
                     };
-                staged = stagedDiffs.Count > 0 && (unstagedDiffs.Count == 0 || GUILayout.Toolbar(staged ? 1 : 0, toolbarContent, EditorStyles.toolbarButton, GUILayout.Width(160)) == 1);
+                staged = stagedDiffs.Any() && (!unstagedDiffs.Any() || GUILayout.Toolbar(staged ? 1 : 0, toolbarContent, EditorStyles.toolbarButton, GUILayout.Width(160)) == 1);
 
                 GUILayout.FlexibleSpace();
                 if (!hideButtons)
                 {
                     if (staged)
                     {
+                        int count = stagedDiffs.Count();
                         var modules = stagedDiffs.Select(x => x.module).Distinct();
                         var filesPerModule = modules.Select(module => (module, stagedDiffs.Where(x => x.module == module).Select(x => x.fullPath).ToArray()));
-                        if (GUILayout.Button($"Unstage All ({stagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
+                        if (GUILayout.Button($"Unstage All ({count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
                         {
                             GUIUtils.Unstage(filesPerModule);
                             UpdateSelection(modules.ToArray());
@@ -160,14 +168,15 @@ namespace Abuksigun.UnityGitUI
                     }
                     else
                     {
+                        int count = unstagedDiffs.Count();
                         var modules = unstagedDiffs.Select(x => x.module).Distinct();
                         var filesPerModule = modules.Select(module => (module, unstagedDiffs.Where(x => x.module == module).Select(x => x.fullPath).ToArray()));
-                        if (GUILayout.Button($"Stage All ({unstagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
+                        if (GUILayout.Button($"Stage All ({count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
                         {
                             _ = GUIUtils.Stage(filesPerModule);
                             UpdateSelection(modules.ToArray());
                         }
-                        if (GUILayout.Button($"Discard All ({unstagedDiffs.Count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
+                        if (GUILayout.Button($"Discard All ({count})", EditorStyles.toolbarButton, GUILayout.Width(130)))
                         {
                             GUIUtils.DiscardFiles(filesPerModule);
                             UpdateSelection(modules.ToArray());
@@ -183,6 +192,7 @@ namespace Abuksigun.UnityGitUI
                 diffLines = diffStrings.SelectMany(x => GUIUtils.EscapeAngleBrackets(x).Split('\n', RemoveEmptyEntries)).ToArray();
                 selectedLines = new();
                 lastSelectedIndex = -1;
+                unindexedFilesCache.Clear();
                 lastHashCode = hashCode;
             }
 
