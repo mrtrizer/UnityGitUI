@@ -67,6 +67,21 @@ namespace Abuksigun.UnityGitUI
             }
         }
 
+        [MenuItem("Assets/Git Package/Open In Browser", true)]
+        public static bool OpenBrowserCheck() => Utils.GetSelectedModules().Any(x => x.IsGitPackage || x.IsGitRepo.GetResultOrDefault());
+
+        [MenuItem("Assets/Git Package/Open In Browser")]
+        public async static void OpenBrowser()
+        {
+            foreach (var module in Utils.GetSelectedModules())
+            {
+                if (module.IsGitPackage)
+                    Application.OpenURL(module.GitPackageInfo.Url);
+                else if (module.IsGitRepo.GetResultOrDefault() && (await module.DefaultRemote)?.Url is { } url)
+                    Application.OpenURL(url);
+            }
+        }
+
         static IEnumerable<Module> GetSelectedGitPackages()
         {
             return Utils.GetSelectedModules().Where(x => x?.IsGitPackage ?? false);
