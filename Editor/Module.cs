@@ -85,6 +85,7 @@ namespace Abuksigun.UnityGitUI
         Task<string> currentBranch;
         Task<string> currentCommit;
         Task<bool> isMergeInProgress;
+        Task<bool> isRebaseInProgress;
         Task<bool> isCherryPickInProgress;
         Task<Remote[]> remotes;
         Task<Remote> defaultRemote;
@@ -127,6 +128,7 @@ namespace Abuksigun.UnityGitUI
         public Task<string> CurrentBranch => currentBranch ??= GetCurrentBranch();
         public Task<string> CurrentCommit => currentCommit ??= GetCommit();
         public Task<bool> IsMergeInProgress => isMergeInProgress ??= GetIsMergeInProgress();
+        public Task<bool> IsRebaseInProgress => isRebaseInProgress ??= GetIsRebaseInProgress();
         public Task<bool> IsCherryPickInProgress => isCherryPickInProgress ??= GetIsCherryPickInProgress();
         public Task<Remote[]> Remotes => remotes ??= GetRemotes();
         public Task<Remote> DefaultRemote => defaultRemote ??= GetDefaultRemote();
@@ -244,6 +246,7 @@ namespace Abuksigun.UnityGitUI
         public void RefreshFilesStatus()
         {
             isMergeInProgress = null;
+            isRebaseInProgress = null;
             isCherryPickInProgress = null;
             gitStatus = null;
             fileDiffCache = null;
@@ -337,21 +340,15 @@ namespace Abuksigun.UnityGitUI
             return (await RunGit("rev-parse --short --verify HEAD", true)).Output.Trim();
         }
 
-        async Task<bool> GetIsMergeInProgress()
-        {
-            return File.Exists(Path.Combine(await GitRepoPath, ".git", "MERGE_HEAD"));
-        }
-
-        async Task<bool> GetIsCherryPickInProgress()
-        {
-            return File.Exists(Path.Combine(await GitRepoPath, ".git", "CHERRY_PICK_HEAD"));
-        }
+        async Task<bool> GetIsMergeInProgress() => File.Exists(Path.Combine(await GitRepoPath, ".git", "MERGE_HEAD"));
+        async Task<bool> GetIsRebaseInProgress() =>File.Exists(Path.Combine(await GitRepoPath, ".git", "rebase-merge", "done"));
+        async Task<bool> GetIsCherryPickInProgress() => File.Exists(Path.Combine(await GitRepoPath, ".git", "CHERRY_PICK_HEAD"));
 
         async Task<Reference[]> GetReferences()
         {
             var branchesResult = await RunGit($"branch -a --format=\"%(refname)\t%(objectname)\t%(upstream)\"");
             var branches = branchesResult.Output.SplitLines()
-                .Where(x => !x.StartsWith("(HEAD detached"))
+                .Where(x => x.StartsWith("refs"))
                 .Select(x => x.Split('\t', RemoveEmptyEntries))
                 .Select<string[], Branch>(x => {
                     string[] split = x[0].Split('/');
@@ -673,6 +670,11 @@ namespace Abuksigun.UnityGitUI
             return RunGit($"merge --abort").AfterCompletion(RefreshFilesStatus);
         }
 
+        public Task<CommandResult> AbortRebase()
+        {
+            return RunGit($"rebase --abort").AfterCompletion(RefreshFilesStatus);
+        }
+
         public async Task<CommandResult[]> TakeOurs(IEnumerable<string> files)
         {
             var result = await Utils.RunSequence(Utils.BatchFiles(files), batch => RunGit($"checkout --ours  -- {batch}")).AfterCompletion(RefreshFilesStatus);
@@ -688,6 +690,8 @@ namespace Abuksigun.UnityGitUI
             RefreshFilesStatus();
             return result;
         }
+
+        public Task<CommandResult> ContinueRebase() => RunGit($"rebase --continue").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
 
         public Task<CommandResult> ContinueCherryPick() => RunGit($"cherry-pick --continue").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         public Task<CommandResult> AbortCherryPick() => RunGit($"cherry-pick --abort").AfterCompletion(RefreshFilesStatus);

@@ -59,9 +59,11 @@ namespace Abuksigun.UnityGitUI
 
             tasksInProgress.RemoveAll(x => x.IsCompleted);
 
-            var modulesInCherryPickState = modules.Where(x => x.IsCherryPickInProgress.GetResultOrDefault());
             var modulesInMergingState = modules.Where(x => x.IsMergeInProgress.GetResultOrDefault());
-            var moduleNotInMergeState = modules.Where(x => !x.IsMergeInProgress.GetResultOrDefault() && !x.IsCherryPickInProgress.GetResultOrDefault());
+            var modulesInRebaseState = modules.Where(x => x.IsRebaseInProgress.GetResultOrDefault());
+            var modulesInCherryPickState = modules.Where(x => x.IsCherryPickInProgress.GetResultOrDefault());
+
+            var moduleNotInMergeState = modules.Where(x => !x.IsMergeInProgress.GetResultOrDefault() && !x.IsCherryPickInProgress.GetResultOrDefault() && !x.IsRebaseInProgress.GetResultOrDefault());
             var modulesWithStagedFiles = moduleNotInMergeState.Where(x => x.GitStatus.GetResultOrDefault()?.Staged?.Count() > 0);
             int modulesWithStagedFilesN = modulesWithStagedFiles.Count();
             bool commitAvailable = modulesWithStagedFilesN > 0 && !string.IsNullOrWhiteSpace(commitMessage) && !tasksInProgress.Any();
@@ -120,6 +122,14 @@ namespace Abuksigun.UnityGitUI
                     && EditorUtility.DisplayDialog($"Are you sure you want ABORT merge?", modulesInCherryPickState.Select(x => x.DisplayName).Join(", "), "Yes", "No"))
                 {
                     tasksInProgress.AddRange(modules.Select(module => module.AbortMerge()));
+                }
+                if (modulesInRebaseState.Any() && GUILayout.Button($"Continue rebase in {modulesInRebaseState.Count()}/{modules.Count}", GUILayout.Width(200)))
+                {
+                    tasksInProgress.Add(GUIUtils.RunSafe(modules, module => module.ContinueRebase()));
+                }
+                if (modulesInRebaseState.Any() && GUILayout.Button($"Abort rebase in {modulesInRebaseState.Count()}/{modules.Count}", GUILayout.Width(200)))
+                {
+                    tasksInProgress.AddRange(modules.Select(module => module.AbortRebase()));
                 }
                 if (modulesInCherryPickState.Any() && GUILayout.Button($"Continue cherry-pick in {modulesInCherryPickState.Count()}/{modules.Count}", GUILayout.Width(200)))
                 {
