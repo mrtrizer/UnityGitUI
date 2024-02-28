@@ -46,8 +46,12 @@ namespace Abuksigun.UnityGitUI
                 var knownHeadFiles = new Dictionary<string, long>();
                 try
                 {
-                    foreach (var headFile in Directory.GetFiles(Path.Join(gitRepoPath, headsPath), "*", SearchOption.AllDirectories))
-                        knownHeadFiles[Path.GetFileName(headFile)] = GetFileTimestamp(headFile);
+                    string refsDir = Path.Join(gitRepoPath, headsPath);
+                    if (Directory.Exists(refsDir))
+                    {
+                        foreach (var headFile in Directory.GetFiles(refsDir, "*", SearchOption.AllDirectories))
+                            knownHeadFiles[Path.GetFileName(headFile)] = GetFileTimestamp(headFile);
+                    }
                 }
                 catch
                 {
