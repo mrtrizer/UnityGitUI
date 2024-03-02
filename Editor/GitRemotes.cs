@@ -50,15 +50,24 @@ namespace Abuksigun.UnityGitUI
 
             async Task<CommandResult> Pull(Module module, Remote remote = null, bool force = false, bool rebase = false, bool clean = false)
             {
-                if (clean)
+                try
                 {
+                    if (clean)
+                    {
+                        AssetDatabase.StartAssetEditing();
+                        AddFollowingProcessId(module);
+                        await module.RunGit($"clean -fd");
+                        AddFollowingProcessId(module);
+                        await module.Reset("", true);
+                    }
                     AddFollowingProcessId(module);
-                    await module.RunGit($"clean -fd");
-                    AddFollowingProcessId(module);
-                    await module.Reset("", true);
+                    return await module.Pull(remote, force, rebase);
                 }
-                AddFollowingProcessId(module);
-                return await module.Pull(remote, force, rebase);
+                finally
+                {
+                    if (clean)
+                        AssetDatabase.StopAssetEditing();
+                }
             }
 
             Task<CommandResult> Push(Module module, bool pushTags = false, bool force = false, Remote remote = null)
