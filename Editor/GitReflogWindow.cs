@@ -23,7 +23,7 @@ namespace Abuksigun.UnityGitUI
             }
         }
 
-        private void InitializeTreeView()
+        private LazyTreeView<ReflogEntry> InitializeTreeView()
         {
             var state = new TreeViewState();
             var columns = new MultiColumnHeaderState.Column[]
@@ -35,15 +35,22 @@ namespace Abuksigun.UnityGitUI
             };
             var multiColumnHeader = new MultiColumnHeader(new MultiColumnHeaderState(columns));
 
-            treeView = new LazyTreeView<ReflogEntry>(GenerateReflogItems, state, false, multiColumnHeader, DrawCell);
+            return new LazyTreeView<ReflogEntry>(GenerateReflogItems, state, false, multiColumnHeader, DrawCell);
         }
 
         private void OnGUI()
         {
+            Repaint();
             var module = GUIUtils.ModuleGuidToolbar(Utils.GetSelectedGitModules().ToList(), guid);
             guid = module?.Guid ?? guid;
             var refLogEntries = module.RefLogEntries.GetResultOrDefault();
-            treeView?.Draw(position.size, refLogEntries, contextMenuCallback: id => ShowContextMenu(module, refLogEntries.FirstOrDefault(x => x.GetHashCode() == id)));
+            if (refLogEntries != null)
+            {
+                treeView ??= InitializeTreeView();
+                treeView.Draw(position.size, refLogEntries,
+                    contextMenuCallback: id => ShowContextMenu(module, refLogEntries.FirstOrDefault(x => x.GetHashCode() == id)),
+                    doubleClickCallback: id => GitLogWindow.SelectHash(module, refLogEntries.FirstOrDefault(x => x.GetHashCode() == id)?.Hash));
+            }
         }
 
         private List<TreeViewItem> GenerateReflogItems(IEnumerable<ReflogEntry> reflogEntries)
@@ -87,7 +94,7 @@ namespace Abuksigun.UnityGitUI
         private void CreateBranchFrom(Module module, ReflogEntry entry)
         {
             bool checkout = false;
-            string branchName = "reflog-branch";
+            string branchName = $"reflog-branch-{entry.Hash}";
             _ = GUIUtils.ShowModalWindow("Create Branch", new Vector2Int(300, 150), (window) =>
             {
                 GUILayout.Label("New Branch Name: ");
@@ -97,7 +104,7 @@ namespace Abuksigun.UnityGitUI
                 if (GUILayout.Button("Ok", GUILayout.Width(200)))
                 {
                     var modules = Utils.GetSelectedGitModules();
-                    _ = Task.WhenAll(modules.Select(module => module.CreateBranchFrom(branchName, entry.Hash)));
+                    _ = Task.WhenAll(modules.Select(module => module.CreateBranchFrom(entry.Hash, branchName)));
                     window.Close();
                 }
             });

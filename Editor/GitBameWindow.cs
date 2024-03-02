@@ -36,11 +36,11 @@ public static class GitBameWindow
                 return;
 
             var multiColumnHeaderState = new MultiColumnHeaderState(new MultiColumnHeaderState.Column[] {
-            new () { headerContent = new GUIContent("Hash") },
-            new () { headerContent = new GUIContent("Author"), width = 100 },
-            new () { headerContent = new GUIContent("Date"), width = 150 },
-            new () { headerContent = new GUIContent("Text"), width = 400 },
-        });
+                new () { headerContent = new GUIContent("Hash") },
+                new () { headerContent = new GUIContent("Author"), width = 100 },
+                new () { headerContent = new GUIContent("Date"), width = 150 },
+                new () { headerContent = new GUIContent("Text"), width = 400 },
+            });
 
             var treeViewLogState = new TreeViewState();
             var multiColumnHeader = new MultiColumnHeader(multiColumnHeaderState);
