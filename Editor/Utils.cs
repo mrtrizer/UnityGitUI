@@ -159,18 +159,18 @@ namespace Abuksigun.UnityGitUI
         public static IEnumerable<Module> GetSelectedModules()
         {
             if (instance.lockedModules.Count > 0)
-                return instance.lockedModules.Select(x => GetModule(x));
+                return instance.lockedModules.Select(x => GetModule(x)).Where(x => x != null);
             // Selection.selectionChanged is not called when selecting a package, this is a workaround
             var browserSelectedModules = Selection.assetGUIDs.Where(x => modules.ContainsKey(x)).Concat(Selection.assetGUIDs.Select(x => GetAssetGitInfo(x)?.Module?.Guid).Where(x => x != null)).Distinct();
             if (browserSelectedModules.Any())
             {
                 if (instance.lastModulesSelection == null || (!browserSelectedModules.SequenceEqual(instance.lastModulesSelection)))
                     instance.selectedModules = instance.lastModulesSelection = browserSelectedModules.ToList();
-                return instance.selectedModules.Select(guid => GetModule(guid));
+                return instance.selectedModules.Select(guid => GetModule(guid)).Where(x => x != null);
             }
             else
             {
-                return instance.selectedModules.Select(guid => GetModule(guid));
+                return instance.selectedModules.Select(guid => GetModule(guid)).Where(x => x != null);
             }
         }
 
