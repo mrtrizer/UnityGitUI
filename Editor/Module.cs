@@ -28,6 +28,7 @@ namespace Abuksigun.UnityGitUI
     public record LfsFileInfo(string FileName, string ObjectId, string DownloadStatus);
     public record SubmoduleInfo(string Path, string FullPath, string CurrentCommit);
     public record GitPackageInfo(string Url, string Revision, string Hash);
+    public record ReflogEntry(string Hash, string Time, string EntryType, string Comment);
 
     public class TimedCache<T>
     {
@@ -81,6 +82,7 @@ namespace Abuksigun.UnityGitUI
         Task<string> gitRepoPath;
         Task<string> gitParentRepoPath;
         Task<Reference[]> references;
+        Task<ReflogEntry[]> reflogEntries;
         Task<string[]> stashes;
         Task<string> currentBranch;
         Task<string> currentCommit;
@@ -123,6 +125,7 @@ namespace Abuksigun.UnityGitUI
         public Task<string> GitRepoPath => gitRepoPath ??= GetRepoPath();
         public Task<string> GitParentRepoPath => gitParentRepoPath ??= GetParentRepoPath();
         public Task<Reference[]> References => references ??= GetReferences();
+        public Task<ReflogEntry[]> RefLogEntries => reflogEntries ??= GetReflogEntries();
         public Task<string[]> Log => LogFiles(null);
         public Task<string[]> Stashes => stashes ??= GetStashes();
         public Task<string> CurrentBranch => currentBranch ??= GetCurrentBranch();
@@ -557,6 +560,19 @@ namespace Abuksigun.UnityGitUI
                 dict[parts[2]] = new NumStat { Added = int.Parse(parts[0]), Removed = int.Parse(parts[1]) };
             return dict;
         }
+
+        async Task<ReflogEntry[]> GetReflogEntries()
+        {
+            var commandResult = await RunGit("reflog --date=iso");
+            var regex = new Regex(@"^([a-f0-9]+) .*?\{(.*?)\}: ([\w\s\(\)]+): (.+)$");
+
+            return commandResult.Output
+                .Split('\n')
+                .Select(line => regex.Match(line))
+                .Where(match => match.Success)
+                .Select(match => new ReflogEntry(match.Groups[1].Value, match.Groups[2].Value, match.Groups[3].Value, match.Groups[4].Value))
+                .ToArray();
+        }
         #endregion
 
         #region Git Package Managment
@@ -594,6 +610,11 @@ namespace Abuksigun.UnityGitUI
         #endregion
 
         #region Branches
+        public Task<CommandResult> CreateBranchFrom(string hash, string branchName, bool checkout = false)
+        {
+            return RunGit(checkout ? $"checkout -b {branchName} {hash}" : $"branch {branchName} {hash}").AfterCompletion(RefreshReferences);
+        }
+
         public Task<CommandResult> Checkout(string localBranchName, IEnumerable<string> files = null)
         {
             return RunGit($"checkout {localBranchName} {files?.Join()?.WrapUp("-- ", "")}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
