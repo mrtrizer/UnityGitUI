@@ -95,7 +95,7 @@ namespace Abuksigun.UnityGitUI
                 // FIXME: For some reason splitter works only with scroll
                 using (var scroll = new EditorGUILayout.ScrollViewScope(reposScrollPosition))
                 {
-                    simpleTreeViewRepos ??= new(GenerateItemsRepos, treeViewStateRepos ??= new(), true, drawRowCallback: DrawRepoRow) { RowHeight = 30 };
+                    simpleTreeViewRepos ??= new(GenerateItemsRepos, treeViewStateRepos ??= new(), true, drawRowCallback: DrawRepoRow) { RowHeight = 25 };
                     simpleTreeViewRepos.Draw(new Vector2(position.width - 20, splitterState.RealSizes[1] - 2), Utils.GetGitModules(), selectionChangedCallback: OnSelectionChangedRepos);
 
                     reposScrollPosition = scroll.scrollPosition;
@@ -138,13 +138,19 @@ namespace Abuksigun.UnityGitUI
             GUI.Label(drawRect.Resize(32, 32), EditorGUIUtility.IconContent(module.IsProject ? "UnityLogo" : module.IsLinkedPackage ? "Linked@2x" : "d_Folder Icon"));
             if (Utils.LockedModules?.Contains(module) ?? false)
                 GUI.Label(drawRect.Move(4, 12).Resize(16, 16), EditorGUIUtility.IconContent("P4_LockedLocal", "Locked"));
-            GUI.Label(drawRect.Move(20, 0), module.DisplayName);
+            GUI.Label(drawRect.Move(20, -5), module.DisplayName);
 
             float offset = 0;
 
             offset += 70;
             if (module.GitStatus.GetResultOrDefault() is { } gitStatus)
                 GUIUtils.DrawShortStatus(gitStatus, drawRect.Move(drawRect.width - offset, 1.5f), Style.RichTextLabel.Value);
+
+            if ((module.CurrentBranch.GetResultOrDefault() ?? module.CurrentCommit.GetResultOrDefault()) is { } currentHead)
+            {
+                var rect = drawRect.Move(20, 6);
+                GUI.Label(rect, currentHead.WrapUp("<b>", "</b>"), Style.RichTextLabel.Value);
+            }
 
             offset += 50;
             if (module.RemoteStatus.GetResultOrDefault() is { } result)
