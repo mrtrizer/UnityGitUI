@@ -397,9 +397,9 @@ namespace Abuksigun.UnityGitUI
                 menu.AddItem(new GUIContent($"Checkout {filesLableString}/{contextMenuname}"), false, () =>
                 {
                     if (EditorUtility.DisplayDialog($"Are you sure you want CHECKOUT {filesLableString} to COMMIT", $"{reference.QualifiedName}\n{filesList}", "Yes", "No"))
-                        _ = reference is LocalBranch ? 
-                              GUIUtils.RunSafe(new[] { module }, x => x.Checkout(reference.QualifiedName, LogFiles))
-                            : GUIUtils.RunSafe(new[] { module }, x => x.CheckoutRemote(reference.Name));
+                        _ = reference is RemoteBranch ?
+                              GUIUtils.RunSafe(new[] { module }, x => x.CheckoutRemote(reference.Name))
+                            : GUIUtils.RunSafe(new[] { module }, x => x.Checkout(reference.QualifiedName, LogFiles));
                 });
                 if (LogFiles == null || !LogFiles.Any())
                 {
