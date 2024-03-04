@@ -203,6 +203,7 @@ namespace Abuksigun.UnityGitUI
                 if (Event.current.type == EventType.MouseDown && Event.current.button == 1)
                 {
                     var menu = new GenericMenu();
+                    menu.AddItem(new GUIContent("Copy Diff"), false, () => CopyDiff(selectedFiles));
                     menu.AddItem(new GUIContent("Copy"), false, CopySelected);
                     if (lastSelectedModule != null && lastSelectedFile != null)
                         menu.AddItem(new GUIContent("Open Editor"), false, () => CodeEditor.Editor.CurrentCodeEditor.OpenProject(Path.Join(lastSelectedModule.LogicalPath, lastSelectedFile), lastSelectedLine));
@@ -368,6 +369,12 @@ namespace Abuksigun.UnityGitUI
         {
             var selectedText = GUIUtils.UnescapeAngleBrackets(string.Join("\n", selectedLines.Select(x => diffLines[x][1..])));
             EditorGUIUtility.systemCopyBuffer = selectedText;
+        }
+
+        async void CopyDiff(GitFileReference[] selectedFiles)
+        {
+            string[] diffs = await Task.WhenAll(selectedFiles.Select(x => x.Module.FileDiff(selectedFiles.First())));
+            EditorGUIUtility.systemCopyBuffer = diffs.Join('\n');
         }
 
         async void DiscardHunk(FileStatus file, int id) => await GitPatch("checkout -q --patch", file, id);
