@@ -258,6 +258,7 @@ namespace Abuksigun.UnityGitUI
             lfsFiles = null;
             lfsTrackedPaths = null;
             submodules = null;
+            reflogEntries = null;
             AssetDatabase.Refresh();
             refreshStatusHandler?.Invoke(this);
         }
@@ -323,7 +324,10 @@ namespace Abuksigun.UnityGitUI
                 return true;
             if (IsGitPackage)
             {
-                var revisions = await RunGit($"ls-remote {GitPackageInfo.Url}", true);
+                if (GitPackageInfo.Hash.Contains(GitPackageInfo.Revision))
+                    return false;
+                string revision = string.IsNullOrEmpty(GitPackageInfo.Revision) ? "HEAD" : GitPackageInfo.Revision;
+                var revisions = await RunGit($"ls-remote {GitPackageInfo.Url} {revision}", true);
                 if (revisions.ExitCode != 0)
                     return false;
                 return !revisions.Output.Contains(GitPackageInfo.Hash);
