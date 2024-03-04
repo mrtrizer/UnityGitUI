@@ -31,6 +31,7 @@ namespace Abuksigun.UnityGitUI
             bool forcePull = false;
             bool rebasePull = false;
             bool cleanPull = false;
+            bool autoStash = false;
             bool pushTags = false;
             bool forcePush = false;
 
@@ -48,7 +49,7 @@ namespace Abuksigun.UnityGitUI
                 processIds[module.Guid] = currentProcessIds.Append(Utils.GetNextRunCommandProcessId()).ToArray();
             }
 
-            async Task<CommandResult> Pull(Module module, Remote remote = null, bool force = false, bool rebase = false, bool clean = false)
+            async Task<CommandResult> Pull(Module module, Remote remote, bool force, bool rebase, bool clean, bool autostash)
             {
                 try
                 {
@@ -61,7 +62,7 @@ namespace Abuksigun.UnityGitUI
                         await module.Reset("", true);
                     }
                     AddFollowingProcessId(module);
-                    return await module.Pull(remote, force, rebase);
+                    return await module.Pull(remote, force, rebase, autostash);
                 }
                 finally
                 {
@@ -88,11 +89,12 @@ namespace Abuksigun.UnityGitUI
                         {
                             if (cleanPull && !EditorUtility.DisplayDialog("DANGER!", "Clean flag is checked! This will remove new files and discard changes!\n(clean -fd)", "I want to remove changes!", "Cancel"))
                                 return;
-                            tasks = modules.ToDictionary(x => x.Guid, module => Pull(module, remotes[module], forcePull, rebasePull, cleanPull));
+                            tasks = modules.ToDictionary(x => x.Guid, module => Pull(module, remotes[module], forcePull, rebasePull, cleanPull, autoStash));
                         }
                         forcePull = GUILayout.Toggle(forcePull, "Force pull");
                         rebasePull = GUILayout.Toggle(rebasePull, "Rebase pull");
                         cleanPull = GUILayout.Toggle(cleanPull, "Clean pull");
+                        autoStash = GUILayout.Toggle(autoStash, "Auto stash");
                     }
                     if (mode == Mode.Push)
                     {

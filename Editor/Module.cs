@@ -594,9 +594,9 @@ namespace Abuksigun.UnityGitUI
         #endregion
 
         #region RepoSync
-        public async Task<CommandResult> Pull(Remote remote = null, bool force = false, bool rebase = false)
+        public async Task<CommandResult> Pull(Remote remote = null, bool force = false, bool rebase = false, bool autostash = false)
         {
-            return await RunGit($"pull {"--force".When(force)} {"--rebase".When(rebase)} {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+            return await RunGit($"pull {"--force".When(force)} {"--rebase".When(rebase)} {"--autostash".When(autostash)} {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
         }
         public async Task<CommandResult> Fetch(bool prune, Remote remote = null)
         {
