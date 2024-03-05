@@ -53,6 +53,20 @@ namespace Abuksigun.UnityGitUI
             return true;
         }
 
+        const string DiscardPath = "Assets/Git File/Discard";
+
+        [MenuItem(DiscardPath, true)]
+        public static bool CheckDiscard() => Selection.assetGUIDs.Any(x => Utils.GetAssetGitInfo(x)?.FileStatuses?.Any(y => y.IsInIndex) ?? false);
+        [MenuItem(DiscardPath, priority = 110)]
+        public static void InvokeDiscard()
+        {
+            if (!EditorUtility.DisplayDialog("Discard changes", "Are you sure you want to discard changes?", "Yes", "No"))
+                return;
+            var statuses = Selection.assetGUIDs.Select(x => Utils.GetAssetGitInfo(x));
+            foreach (var module in statuses.Where(x => x != null).Select(x => x.Module).Distinct())
+                _ = module.DiscardFiles(statuses.Where(x => x.Module == module).Select(x => x.FullPath).ToArray());
+        }
+
         static void SelectionChanged()
         {
             var assets = Selection.assetGUIDs.Select(x => GetAssetGitInfo(x)).Where(x => x?.FileStatuses != null);
