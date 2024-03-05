@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -456,6 +457,25 @@ namespace Abuksigun.UnityGitUI
             menu.AddItem(new GUIContent($"Revert to previous commit"), false, () => {
                 if (EditorUtility.DisplayDialog("Are you sure you want REVERT file?", selectedCommit, "Yes", "No"))
                     _ = GUIUtils.RunSafe(new[] { module }, x => x.RevertFiles($"{selectedCommit}~1", filePaths));
+            });
+            menu.AddItem(new GUIContent("Save As"), false, async () =>
+            {
+                string[] filesContent = await module.CatFiles(filePaths, selectedCommit);
+                if (filesContent.Length == 1)
+                {
+                    string path = EditorUtility.SaveFilePanel("Save file", "", Path.GetFileName(filePaths.First()), "");
+                    if (!string.IsNullOrEmpty(path))
+                        File.WriteAllText(path, filesContent.First());
+                }
+                else
+                {
+                    string path = EditorUtility.SaveFolderPanel("Save files", "", "");
+                    if (!string.IsNullOrEmpty(path))
+                    {
+                        for (int i = 0; i < filesContent.Length; i++)
+                            File.WriteAllText(Path.Combine(path, Path.GetFileName(filePaths.ElementAt(i))), filesContent.ElementAt(i));
+                    }
+                }
             });
             menu.ShowAsContext();
         }

@@ -189,6 +189,11 @@ namespace Abuksigun.UnityGitUI
             return result;
         }
 
+        public Task<string[]> CatFiles(IEnumerable<string> files, string commit)
+        {
+            return Task.WhenAll(files.Select(file => RunGit($"cat-file -p {commit}:{GetRelativePath(file).NormalizeSlashes()}").ContinueWith(x => x.Result.Output)));
+        }
+
         public Task<string> FileDiff(GitFileReference logFileReference)
         {
             fileDiffCache ??= new();
@@ -279,6 +284,13 @@ namespace Abuksigun.UnityGitUI
         {
             // This method converts original unreferenced path (that git returns) to a symbolic link path
             return IsLinkedPackage ? fullPath.NormalizeSlashes().Replace(UnreferencedPath, PhysicalPath) : fullPath;
+        }
+
+        private string GetRelativePath(string absolutePath)
+        {
+            return absolutePath.Contains(PhysicalPath)
+                ? Path.GetRelativePath(PhysicalPath, absolutePath)
+                : Path.GetRelativePath(UnreferencedPath, absolutePath);
         }
 
         async Task<string> GetParentRepoPath()
@@ -523,9 +535,7 @@ namespace Abuksigun.UnityGitUI
             }
             else
             {
-                string relativePath = unreferencedPath.Contains(PhysicalPath)
-                    ? Path.GetRelativePath(PhysicalPath, unreferencedPath)
-                    : Path.GetRelativePath(UnreferencedPath, unreferencedPath);
+                string relativePath = GetRelativePath(unreferencedPath);
                 return (await RunGit($"diff {logFileReference.FirstCommit} {logFileReference.LastCommit} -- \"{relativePath}\"")).Output;
             }
         }
