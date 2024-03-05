@@ -323,15 +323,21 @@ namespace Abuksigun.UnityGitUI
             object exitCode = null;
             int localProcessId = ++instance.lastLocalProcessId;
 
-            process.OutputDataReceived += (_, args) => HandleData(outputStringBuilder, false, args);
+            process.OutputDataReceived += (_, args) => {
+                lock (outputStringBuilder)
+                    HandleData(outputStringBuilder, false, args); 
+            };
             process.ErrorDataReceived += (_, args) => HandleData(errorStringBuilder, true, args);
             process.Exited += (_, _) => {
                 exitCode = process.ExitCode;
                 process.Dispose();
             };
             process.Disposed += (_, _) => {
-                string str = outputStringBuilder.ToString();
-                tcs.SetResult(new((int)exitCode, str, $"{command} {args}", localProcessId));
+                lock (outputStringBuilder)
+                {
+                    string str = outputStringBuilder.ToString();
+                    tcs.SetResult(new((int)exitCode, str, $"{command} {args}", localProcessId));
+                }
             };
 
             _ = Task.Run(() => {
