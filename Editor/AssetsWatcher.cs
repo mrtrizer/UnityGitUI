@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using UnityEditor;
+using UnityEngine;
 
 namespace Abuksigun.UnityGitUI
 {
@@ -85,6 +86,8 @@ namespace Abuksigun.UnityGitUI
 
         static AssetsWatcher()
         {
+            if (Application.isBatchMode)
+                return;
             UnityEditorFocusChanged += OnEditorFocusChanged;
         }
 
@@ -111,6 +114,8 @@ namespace Abuksigun.UnityGitUI
 
         static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths, bool didDomainReload)
         {
+            if (Application.isBatchMode)
+                return;
             var allFilePaths = importedAssets.Concat(deletedAssets).Concat(movedAssets).Concat(movedFromAssetPaths);
             foreach (var filePath in allFilePaths)
             {
