@@ -3,19 +3,41 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.ComponentModel;
 using Abuksigun.UnityGitUI;
+using System.IO;
 
 public static class SymLinkUtils
 {
+    const uint IO_REPARSE_TAG_MOUNT_POINT = 0xA0000003;
+
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     struct ReparseDataBuffer
     {
-        public int ReparseTag;
+        public uint ReparseTag;
         public ushort ReparseDataLength;
         public ushort Reserved;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct ReparseDataBufferJunction
+    {
+        public ReparseDataBuffer reparseDataBuffer;
         public ushort SubstituteNameOffset;
         public ushort SubstituteNameLength;
         public ushort PrintNameOffset;
         public ushort PrintNameLength;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 0x3FF0)]
+        public byte[] PathBuffer;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct ReparseDataBufferSymLink
+    {
+        public ReparseDataBuffer reparseDataBuffer;
+        public ushort SubstituteNameOffset;
+        public ushort SubstituteNameLength;
+        public ushort PrintNameOffset;
+        public ushort PrintNameLength;
+        public uint Flags;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 0x3FF0)]
         public byte[] PathBuffer;
     }
@@ -27,7 +49,6 @@ public static class SymLinkUtils
         const uint OPEN_EXISTING = 3;
         const int FILE_FLAG_BACKUP_SEMANTICS = 0x02000000;
         const int FILE_FLAG_REPARSE_POINT = 0x00400000;
-        const int IO_REPARSE_TAG_MOUNT_POINT = unchecked((int)0xA0000003);
         const uint FSCTL_SET_REPARSE_POINT = 0x000900A4;
 
         [DllImport("kernel32.dll", SetLastError = true)]
@@ -52,9 +73,12 @@ public static class SymLinkUtils
 
         const string NonInterpretedPathPrefix = @"\??\";
         byte[] targetDirBytes = Encoding.Unicode.GetBytes(NonInterpretedPathPrefix + targetPath);
-        ReparseDataBuffer buffer = new() {
-            ReparseTag = IO_REPARSE_TAG_MOUNT_POINT,
-            ReparseDataLength = (ushort)(targetDirBytes.Length + 12),
+        ReparseDataBufferJunction buffer = new() {
+            reparseDataBuffer = new()
+            {
+                ReparseTag = IO_REPARSE_TAG_MOUNT_POINT,
+                ReparseDataLength = (ushort)(targetDirBytes.Length + 12),
+            },
             SubstituteNameLength = (ushort)targetDirBytes.Length,
             PrintNameOffset = (ushort)(targetDirBytes.Length + 2),
             PathBuffer = new byte[0x3ff0]
@@ -62,7 +86,7 @@ public static class SymLinkUtils
 
         Array.Copy(targetDirBytes, buffer.PathBuffer, targetDirBytes.Length);
 
-        IntPtr inBuffer = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(ReparseDataBuffer)));
+        IntPtr inBuffer = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(ReparseDataBufferJunction)));
         try
         {
             Marshal.StructureToPtr(buffer, inBuffer, false);
@@ -123,6 +147,8 @@ public static class SymLinkUtils
         const uint FILE_SHARE_READ = 0x1;
         const uint OPEN_EXISTING = 0x3;
         const uint FSCTL_GET_REPARSE_POINT = 0x000900A8;
+        const uint IO_REPARSE_TAG_SYMLINK = 0xA000000C;
+        const uint SYMLINK_FLAG_RELATIVE = 1;
 
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         static extern IntPtr CreateFile(string lpFileName, uint dwDesiredAccess, uint dwShareMode, IntPtr lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, IntPtr hTemplateFile);
@@ -141,12 +167,10 @@ public static class SymLinkUtils
             throw new Win32Exception(Marshal.GetLastWin32Error());
         }
 
-        int bufferSize = Marshal.SizeOf<ReparseDataBuffer>();
+        int bufferSize = Marshal.SizeOf<ReparseDataBufferJunction>();
         IntPtr reparseDataBufferPtr = Marshal.AllocHGlobal(bufferSize);
         try
         {
-            var reparseDataBuffer = new ReparseDataBuffer();
-
             if (!DeviceIoControl(fileHandle, FSCTL_GET_REPARSE_POINT, IntPtr.Zero, 0, reparseDataBufferPtr, (uint)bufferSize, out uint bytesReturned, IntPtr.Zero))
             {
                 Marshal.FreeHGlobal(reparseDataBufferPtr);
@@ -154,13 +178,27 @@ public static class SymLinkUtils
                 throw new Win32Exception(Marshal.GetLastWin32Error());
             }
 
-            reparseDataBuffer = (ReparseDataBuffer)Marshal.PtrToStructure(reparseDataBufferPtr, typeof(ReparseDataBuffer));
-            string targetPath = Encoding.Unicode.GetString(reparseDataBuffer.PathBuffer, reparseDataBuffer.SubstituteNameOffset, reparseDataBuffer.SubstituteNameLength);
+            var reparseDataBuffer = (ReparseDataBuffer)Marshal.PtrToStructure(reparseDataBufferPtr, typeof(ReparseDataBuffer));
+            if (reparseDataBuffer.ReparseTag == IO_REPARSE_TAG_SYMLINK)
+            {
+                var symLinkBuffer = (ReparseDataBufferSymLink)Marshal.PtrToStructure(reparseDataBufferPtr, typeof(ReparseDataBufferSymLink));
+                string targetPath = Encoding.Unicode.GetString(symLinkBuffer.PathBuffer, symLinkBuffer.SubstituteNameOffset, symLinkBuffer.SubstituteNameLength);
+                return symLinkBuffer.Flags == SYMLINK_FLAG_RELATIVE ? Path.GetFullPath(Path.Combine(Path.GetDirectoryName(symlinkPath), targetPath)) : targetPath;
+            }
+            else if (reparseDataBuffer.ReparseTag == IO_REPARSE_TAG_MOUNT_POINT)
+            {
+                var junnctionBuffer = (ReparseDataBufferJunction)Marshal.PtrToStructure(reparseDataBufferPtr, typeof(ReparseDataBufferJunction));
+                string targetPath = Encoding.Unicode.GetString(junnctionBuffer.PathBuffer, junnctionBuffer.SubstituteNameOffset, junnctionBuffer.SubstituteNameLength);
 
-            if (targetPath.StartsWith(@"\??\") || targetPath.StartsWith(@"\\?\"))
-                targetPath = targetPath.Substring(4);
+                if (targetPath.StartsWith(@"\??\") || targetPath.StartsWith(@"\\?\"))
+                    targetPath = targetPath.Substring(4);
 
-            return targetPath;
+                return targetPath;
+            }
+            else
+            {
+                return symlinkPath;
+            }
         }
         finally
         {
