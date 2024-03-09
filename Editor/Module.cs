@@ -264,6 +264,11 @@ namespace Abuksigun.UnityGitUI
             lfsTrackedPaths = null;
             submodules = null;
             reflogEntries = null;
+        }
+
+        void RefreshAssetsStatus()
+        {
+            RefreshFilesStatus();
             AssetDatabase.Refresh();
             refreshStatusHandler?.Invoke(this);
         }
@@ -610,7 +615,7 @@ namespace Abuksigun.UnityGitUI
         #region RepoSync
         public async Task<CommandResult> Pull(Remote remote = null, bool force = false, bool rebase = false, bool autostash = false)
         {
-            return await RunGit($"pull {"--force".When(force)} {"--rebase".When(rebase)} {"--autostash".When(autostash)} {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+            return await RunGit($"pull {"--force".When(force)} {"--rebase".When(rebase)} {"--autostash".When(autostash)} {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
         }
         public async Task<CommandResult> Fetch(bool prune, Remote remote = null)
         {
@@ -631,19 +636,19 @@ namespace Abuksigun.UnityGitUI
 
         public Task<CommandResult> Checkout(string localBranchName, IEnumerable<string> files = null)
         {
-            return RunGit($"checkout {localBranchName} {files?.Join()?.WrapUp("-- ", "")}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+            return RunGit($"checkout {localBranchName} {files?.Join()?.WrapUp("-- ", "")}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
         }
 
-        public Task<CommandResult> CheckoutRemote(string branch) => RunGit($"switch {branch}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
-        public Task<CommandResult> Merge(string branchQualifiedName) => RunGit($"merge {branchQualifiedName}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
-        public Task<CommandResult> Rebase(string branchQualifiedName) => RunGit($"rebase {branchQualifiedName}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+        public Task<CommandResult> CheckoutRemote(string branch) => RunGit($"switch {branch}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
+        public Task<CommandResult> Merge(string branchQualifiedName) => RunGit($"merge {branchQualifiedName}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
+        public Task<CommandResult> Rebase(string branchQualifiedName) => RunGit($"rebase {branchQualifiedName}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
         public Task<CommandResult> CreateBranch(string branchName, bool checkout) => RunGit(checkout ? $"checkout -b {branchName}" : $"branch {branchName}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> RenameBranch(string oldBranchName, string newBranchName) => RunGit($"branch -m {oldBranchName} {newBranchName}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> DeleteBranch(string branchName) => RunGit($"branch -D {branchName}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> DeleteRemoteBranch(string remoteAlias, string branchName) => RunGit($"push -d {remoteAlias} {branchName}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> CreateTag(string tagName, string message, string hash) => RunGit($"tag \"{tagName}\" {message} {hash}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> DeleteTag(string tagName) => RunGit($"tag -d {tagName}").AfterCompletion(RefreshReferences);
-        public Task<CommandResult> ApplyStash(string stashName) => RunGit($"stash apply {stashName}").AfterCompletion(RefreshFilesStatus, RefreshReferences);
+        public Task<CommandResult> ApplyStash(string stashName) => RunGit($"stash apply {stashName}").AfterCompletion(RefreshAssetsStatus, RefreshReferences);
         public Task<CommandResult> DeleteStash(string stashName)  => RunGit($"stash drop {stashName}").AfterCompletion(RefreshReferences);
         #endregion
 
@@ -651,12 +656,12 @@ namespace Abuksigun.UnityGitUI
         public Task<CommandResult> Commit(string commitMessage = null, bool amend = false)
         {
             string args = (amend ? "--amend" : "") + (commitMessage == null ? " --no-edit" : commitMessage.WrapUp(" -m \"", "\""));
-            return RunGit($"commit {args}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+            return RunGit($"commit {args}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
         }
 
         public Task<CommandResult> AmendAuthor(string authorName, string authorEmail)
         {
-            return RunGit($"commit --amend --author=\"{authorName} <{authorEmail}>\" --no-edit").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+            return RunGit($"commit --amend --author=\"{authorName} <{authorEmail}>\" --no-edit").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
         }
 
         public async Task<CommandResult[]> DiscardFiles(IEnumerable<string> files)
@@ -675,7 +680,7 @@ namespace Abuksigun.UnityGitUI
                 status = await GetGitStatus();
             }
             var indexedFiles = status.IndexedUnstaged.Where(file => files.Contains(file.FullPath) || files.Contains(file.FullProjectPath)).Select(x => x.FullPath).ToList();
-            return await Utils.RunSequence(Utils.BatchFiles(indexedFiles), batch => RunGit($"checkout -q -- {batch}")).AfterCompletion(RefreshFilesStatus);
+            return await Utils.RunSequence(Utils.BatchFiles(indexedFiles), batch => RunGit($"checkout -q -- {batch}")).AfterCompletion(RefreshAssetsStatus);
         }
 
         Task<CommandResult[]> StageInternal(IEnumerable<string> files)
@@ -686,7 +691,7 @@ namespace Abuksigun.UnityGitUI
         public async Task<CommandResult[]> Stage(IEnumerable<string> files)
         {
             var results = await StageInternal(files);
-            RefreshFilesStatus();
+            RefreshAssetsStatus();
             return results.ToArray();
         }
 
@@ -697,24 +702,24 @@ namespace Abuksigun.UnityGitUI
 
         public Task<CommandResult[]> Unstage(IEnumerable<string> files)
         {
-            return UnstageInternal(files).AfterCompletion(RefreshFilesStatus);
+            return UnstageInternal(files).AfterCompletion(RefreshAssetsStatus);
         }
 
         public Task<CommandResult> AbortMerge()
         {
-            return RunGit($"merge --abort").AfterCompletion(RefreshFilesStatus);
+            return RunGit($"merge --abort").AfterCompletion(RefreshAssetsStatus);
         }
 
         public Task<CommandResult> AbortRebase()
         {
-            return RunGit($"rebase --abort").AfterCompletion(RefreshFilesStatus);
+            return RunGit($"rebase --abort").AfterCompletion(RefreshAssetsStatus);
         }
 
         public async Task<CommandResult[]> TakeOurs(IEnumerable<string> files)
         {
-            var result = await Utils.RunSequence(Utils.BatchFiles(files), batch => RunGit($"checkout --ours  -- {batch}")).AfterCompletion(RefreshFilesStatus);
+            var result = await Utils.RunSequence(Utils.BatchFiles(files), batch => RunGit($"checkout --ours  -- {batch}")).AfterCompletion(RefreshAssetsStatus);
             await Stage(files);
-            RefreshFilesStatus();
+            RefreshAssetsStatus();
             return result;
         }
 
@@ -722,34 +727,34 @@ namespace Abuksigun.UnityGitUI
         {
             var result = await Utils.RunSequence(Utils.BatchFiles(files), batch => RunGit($"checkout --theirs  -- {batch}"));
             await Stage(files);
-            RefreshFilesStatus();
+            RefreshAssetsStatus();
             return result;
         }
 
-        public Task<CommandResult> ContinueRebase() => RunGit($"rebase --continue").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+        public Task<CommandResult> ContinueRebase() => RunGit($"rebase --continue").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
 
-        public Task<CommandResult> ContinueCherryPick() => RunGit($"cherry-pick --continue").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
-        public Task<CommandResult> AbortCherryPick() => RunGit($"cherry-pick --abort").AfterCompletion(RefreshFilesStatus);
+        public Task<CommandResult> ContinueCherryPick() => RunGit($"cherry-pick --continue").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
+        public Task<CommandResult> AbortCherryPick() => RunGit($"cherry-pick --abort").AfterCompletion(RefreshAssetsStatus);
         #endregion
 
         #region LFS
-        public Task<CommandResult> InstallLfs() => RunGit("lfs install --local").AfterCompletion(RefreshFilesStatus);
-        public Task<CommandResult> UninstallLfs() => RunGit("lfs uninstall").AfterCompletion(RefreshFilesStatus);
-        public Task<CommandResult> FetchLfsObjects() => RunGit("lfs fetch").AfterCompletion(RefreshFilesStatus);
-        public Task<CommandResult> PruneLfsObjects() => RunGit("lfs prune").AfterCompletion(RefreshFilesStatus);
+        public Task<CommandResult> InstallLfs() => RunGit("lfs install --local").AfterCompletion(RefreshAssetsStatus);
+        public Task<CommandResult> UninstallLfs() => RunGit("lfs uninstall").AfterCompletion(RefreshAssetsStatus);
+        public Task<CommandResult> FetchLfsObjects() => RunGit("lfs fetch").AfterCompletion(RefreshAssetsStatus);
+        public Task<CommandResult> PruneLfsObjects() => RunGit("lfs prune").AfterCompletion(RefreshAssetsStatus);
 
         public async Task<CommandResult> TrackPathsWithLfs(IEnumerable<string> filePaths)
         {
             string pathsString = Utils.JoinFileNames(filePaths);
-            return await RunGit($"lfs track {pathsString}", workingDir: await GitRepoPath).AfterCompletion(RefreshFilesStatus);
+            return await RunGit($"lfs track {pathsString}", workingDir: await GitRepoPath).AfterCompletion(RefreshAssetsStatus);
         }
 
         public async Task<CommandResult> UntrackPathsWithLfs(IEnumerable<string> filePaths)
         {
             string pathsString = Utils.JoinFileNames(filePaths);
-            if (await RunGit($"lfs untrack {pathsString}", true, workingDir: await GitRepoPath).AfterCompletion(RefreshFilesStatus) is { ExitCode: not 0 } untrackResult)
+            if (await RunGit($"lfs untrack {pathsString}", true, workingDir: await GitRepoPath).AfterCompletion(RefreshAssetsStatus) is { ExitCode: not 0 } untrackResult)
                 return untrackResult;
-            return await RunGit($"rm --cached {filePaths}", workingDir: await GitRepoPath).AfterCompletion(RefreshFilesStatus);
+            return await RunGit($"rm --cached {filePaths}", workingDir: await GitRepoPath).AfterCompletion(RefreshAssetsStatus);
         }
 
         public Task<CommandResult> GitLfsMigrate(GitLfsMigrateMode mode, string[] patterns, bool noRewrite = true, string includeRef = null)
@@ -757,47 +762,47 @@ namespace Abuksigun.UnityGitUI
             string refsArgument = includeRef != null ? $" --include-ref=\"{includeRef}\"" : "--everything";
             return RunGit($"lfs migrate {mode.ToString().ToLower()} --include=\"{patterns.Join(',')}\" "
                 + $"{" --no-rewrite ".When(noRewrite)} "
-                + $"{refsArgument}").AfterCompletion(RefreshFilesStatus);
+                + $"{refsArgument}").AfterCompletion(RefreshAssetsStatus);
         }
         #endregion
 
         #region History
         public Task<CommandResult> CherryPick(IEnumerable<string> commits)
         {
-            return RunGit($"cherry-pick {commits.Join(' ')}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+            return RunGit($"cherry-pick {commits.Join(' ')}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
         }
 
         public Task<CommandResult> Reset(string commit, bool hard)
         {
-            return RunGit($"reset {(hard ? "--hard" : "--soft")} {commit}").AfterCompletion(RefreshRemoteStatus, RefreshFilesStatus);
+            return RunGit($"reset {(hard ? "--hard" : "--soft")} {commit}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
         }
 
         public Task<CommandResult> RevertFiles(string commit, IEnumerable<string> filePaths)
         {
-            return RunGit($"checkout {commit} -- {Utils.JoinFileNames(filePaths)}").AfterCompletion(RefreshFilesStatus);
+            return RunGit($"checkout {commit} -- {Utils.JoinFileNames(filePaths)}").AfterCompletion(RefreshAssetsStatus);
         }
 
         public Task<CommandResult> Stash(string commitMessage, bool untracked = false)
         {
-            return RunGit($"stash push -m {commitMessage.WrapUp()} {"-u".When(untracked)}").AfterCompletion(RefreshFilesStatus, RefreshReferences);
+            return RunGit($"stash push -m {commitMessage.WrapUp()} {"-u".When(untracked)}").AfterCompletion(RefreshAssetsStatus, RefreshReferences);
         }
 
         public Task<CommandResult[]> StashFiles(string commitMessage, IEnumerable<string> files)
         {
             var batches = Utils.BatchFiles(files).ToList();
-            return Task.WhenAll(batches.Select(batch => RunGit($"stash push -m {commitMessage.WrapUp()} -- {Utils.JoinFileNames(files)}"))).AfterCompletion(RefreshFilesStatus, RefreshReferences);
+            return Task.WhenAll(batches.Select(batch => RunGit($"stash push -m {commitMessage.WrapUp()} -- {Utils.JoinFileNames(files)}"))).AfterCompletion(RefreshAssetsStatus, RefreshReferences);
         }
         #endregion
 
         #region Config
         public Task<CommandResult> UnsetConfig(string key, ConfigScope scope)
         {
-            return RunGit($"config --unset {ScopeToString(scope)} {key}").AfterCompletion(RefreshFilesStatus, RefreshReferences);
+            return RunGit($"config --unset {ScopeToString(scope)} {key}").AfterCompletion(RefreshAssetsStatus, RefreshReferences);
         }
 
         public Task<CommandResult> SetConfig(string key, ConfigScope scope, string newValue)
         {
-            return RunGit($"config {ScopeToString(scope)} {key} \"{newValue}\"").AfterCompletion(RefreshFilesStatus, RefreshReferences);
+            return RunGit($"config {ScopeToString(scope)} {key} \"{newValue}\"").AfterCompletion(RefreshAssetsStatus, RefreshReferences);
         }
         #endregion
 

@@ -93,6 +93,8 @@ namespace Abuksigun.UnityGitUI
 
         static void OnEditorFocusChanged(bool hasFocus)
         {
+            if (!PluginSettingsProvider.EnableInProjectBrowser)
+                return;
             if (hasFocus)
             {
                 foreach (var module in Utils.GetGitModules().Where(x => x != null))
@@ -114,7 +116,7 @@ namespace Abuksigun.UnityGitUI
 
         static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths, bool didDomainReload)
         {
-            if (Application.isBatchMode)
+            if (Application.isBatchMode || !PluginSettingsProvider.EnableInProjectBrowser)
                 return;
             var allFilePaths = importedAssets.Concat(deletedAssets).Concat(movedAssets).Concat(movedFromAssetPaths);
             foreach (var filePath in allFilePaths)
