@@ -294,11 +294,11 @@ namespace Abuksigun.UnityGitUI
                             var fileStatus = status.Files.FirstOrDefault(x => x.FullProjectPath.Contains(currentFile));
                             if (fileStatus != null && !fileStatus.IsUnresolved)
                             {
-                                if (!staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Stage", EditorStyles.miniButton))
+                                if (!staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), "Stage", EditorStyles.miniButton))
                                     stageHunk.Invoke(fileStatus, hunkIndex + 1);
-                                if (staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Unstage", EditorStyles.miniButton))
+                                if (staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), "Unstage", EditorStyles.miniButton))
                                     unstageHunk.Invoke(fileStatus, hunkIndex + 1);
-                                if (!staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), $"Discard", EditorStyles.miniButton))
+                                if (!staged && GUI.Button(new Rect(verticalOffsest -= buttonWidth, currentOffset, 70, headerHeight), "Discard", EditorStyles.miniButton))
                                     discardHunk.Invoke(fileStatus, hunkIndex + 1);
                             }
                         }

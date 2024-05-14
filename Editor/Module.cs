@@ -459,11 +459,13 @@ namespace Abuksigun.UnityGitUI
             string remoteAlias = (await DefaultRemote).Alias;
             var branches = await References;
             if (!branches.Any(x => x is RemoteBranch remoteBranch && remoteBranch.RemoteAlias == remoteAlias && remoteBranch.Name == currentBranch))
-                return null;
+                return new RemoteStatus(null, 0, 0, null);
             try
             {
-                int ahead = int.Parse((await RunGit($"rev-list --count {remoteAlias}/{currentBranch}..{currentBranch}")).Output.Trim());
-                int behind = int.Parse((await RunGit($"rev-list --count {currentBranch}..{remoteAlias}/{currentBranch}")).Output.Trim());
+                var aheadResult = await RunGit($"rev-list --count {remoteAlias}/{currentBranch}..{currentBranch}", true);
+                int ahead = aheadResult.ExitCode == 0 ? int.Parse(aheadResult.Output.Trim()) : 0;
+                var behindResult = await RunGit($"rev-list --count {currentBranch}..{remoteAlias}/{currentBranch}", true);
+                int behind = behindResult.ExitCode == 0 ? int.Parse(behindResult.Output.Trim()) : 0;
                 return new RemoteStatus(remotes[0].Alias, ahead, behind, null);
             }
             catch (Exception e)
