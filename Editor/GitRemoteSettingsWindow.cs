@@ -24,7 +24,7 @@ namespace Abuksigun.UnityGitUI
     class EditableRecord
     {
         public EditableRecord() => NewlyAdded = true;
-        public EditableRecord(string Alias, string Url) => (this.Alias, this.Url, this.NewlyAdded) = (Alias, Url, false);
+        public EditableRecord(string Alias, string Url, bool newlyAdded) => (this.Alias, this.Url, this.NewlyAdded) = (Alias, Url, newlyAdded);
         [field: SerializeField] public string Alias { get; set; } = "";
         [field: SerializeField] public string Url { get; set; } = "";
         [field: SerializeField] public bool NewlyAdded { get; set; }
@@ -46,7 +46,7 @@ namespace Abuksigun.UnityGitUI
             {
                 if (lastHash != remotes.GetHashCode())
                 {
-                    editableRemotes = remotes.Select(x => new EditableRecord(x.Alias, x.Url)).ToList();
+                    editableRemotes = remotes.Select(x => new EditableRecord(x.Alias, x.Url, false)).ToList();
                     var serializedObject = new SerializedObject(this);
                     var property = serializedObject.FindProperty(nameof(editableRemotes));
                     list = new ReorderableList(serializedObject, property, true, false, true, true)
@@ -54,7 +54,7 @@ namespace Abuksigun.UnityGitUI
                         drawElementCallback = (rect, index, isActive, isFocused) => DrawListItems(rect, index, editableRemotes),
                         onAddCallback = (list) => {
                             list.serializedProperty.arraySize++;
-                            editableRemotes.Add(new EditableRecord(editableRemotes.Count == 0 ? "origin" : "", ""));
+                            editableRemotes.Add(new EditableRecord(editableRemotes.Count == 0 ? "origin" : "", "", true));
                         },
                         onRemoveCallback = (list) => {
                             list.serializedProperty.DeleteArrayElementAtIndex(list.index);

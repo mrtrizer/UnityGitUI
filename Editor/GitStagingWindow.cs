@@ -275,6 +275,8 @@ namespace Abuksigun.UnityGitUI
                 return;
 
             var menu = new GenericMenu();
+            var unstagedSelectionPerModule = modules.Select(module =>
+                (module, files: files.Where(x => !x.IsStaged && x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray()));
             var indexedSelectionPerModule = modules.Select(module =>
                 (module, files: files.Where(x => x.IsInIndex && x.ModuleGuid == module.Guid).Select(x => x.FullPath).ToArray()));
 
@@ -301,7 +303,7 @@ namespace Abuksigun.UnityGitUI
                 menu.AddSeparator("");
                 menu.AddItem(new GUIContent("Discard"), false, () => tasksInProgress.Add(GUIUtils.DiscardFiles(indexedSelectionPerModule)));
                 if (files.Any(x => x.IsUnstaged))
-                    menu.AddItem(new GUIContent("Stage"), false, () => tasksInProgress.Add(GUIUtils.Stage(indexedSelectionPerModule)));
+                    menu.AddItem(new GUIContent("Stage"), false, () => tasksInProgress.Add(GUIUtils.Stage(unstagedSelectionPerModule)));
                 if (files.Any(x => x.IsStaged))
                     menu.AddItem(new GUIContent("Unstage"), false, () => tasksInProgress.Add(GUIUtils.Unstage(indexedSelectionPerModule)));
             }
