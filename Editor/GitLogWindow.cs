@@ -101,7 +101,7 @@ namespace Abuksigun.UnityGitUI
         LazyTreeView<string[]> treeViewLog;
 
         [SerializeField] TreeViewState treeViewStateFiles = new();
-        [SerializeField] SplitterState verticalSplitterState = new SplitterState(new float[] { 0.8f, 0.2f });
+        [SerializeField] SplitterState verticalSplitterState = new SplitterState(0.8f, 0.2f );
         LazyTreeView<GitStatus> treeViewFiles;
         int lastSelectedCommitHash;
         Vector2 infoPanelScrollPosition;
@@ -178,7 +178,7 @@ namespace Abuksigun.UnityGitUI
             if (log != lastLog)
             {
                 lastLog = log;
-                lines = ParseGitLogLines(log);
+                lines = ParseGitLogLines(log); // FIXME: Move parse log to Module
                 cells = ParseGraph(lines);
                 treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, true, multiColumnHeader ??= new(multiColumnHeaderState), DrawCell);
                 treeViewFiles = new(statuses => GUIUtils.GenerateFileItems(statuses, true), treeViewStateFiles, true);

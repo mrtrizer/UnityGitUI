@@ -42,6 +42,8 @@ namespace Abuksigun.UnityGitUI
         {
             Repaint();
             var module = GUIUtils.ModuleGuidToolbar(Utils.GetSelectedGitModules().ToList(), guid);
+            if (module == null)
+                return;
             guid = module?.Guid ?? guid;
             var refLogEntries = module.RefLogEntries.GetResultOrDefault();
             if (refLogEntries != null)
