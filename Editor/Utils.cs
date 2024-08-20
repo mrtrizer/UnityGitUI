@@ -195,6 +195,12 @@ namespace Abuksigun.UnityGitUI
 
         public static Module FindModuleContainingPath(string path)
         {
+            const string assetsDir = "Assets/";
+            const string packagesDir = "Packages/";
+            if (path.StartsWith(packagesDir))
+                return GetModule(AssetDatabase.AssetPathToGUID(path[0..path.IndexOf('/', packagesDir.Length)]));
+            if (path.StartsWith(assetsDir))
+                return GetModule(AssetDatabase.AssetPathToGUID(assetsDir));
             string logicalPath = GetUnityLogicalPath(path);
             if (string.IsNullOrEmpty(logicalPath))
                 return null;
