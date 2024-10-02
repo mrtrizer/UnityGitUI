@@ -397,7 +397,7 @@ namespace Abuksigun.UnityGitUI
         {
             string filesStr = files != null && files.Any() ? Utils.JoinFileNames(files).WrapUp("--follow -- ", "") : null;
             var lastCommit = await CurrentCommit;
-            var result = await RunGit($"log --graph --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ae) (%ar) <b>%d</b> %s\" --branches --remotes --tags {lastCommit} {filesStr}");
+            var result = await RunGit($"log --graph --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ae) (%as) <b>%d</b> %s\" --branches --remotes --tags {lastCommit} {filesStr}");
             return result.Output.SplitLines();
         }
 
@@ -638,12 +638,13 @@ namespace Abuksigun.UnityGitUI
 
         public Task<CommandResult> Checkout(string localBranchName, IEnumerable<string> files = null)
         {
-            return RunGit($"checkout {localBranchName} {files?.Join()?.WrapUp("-- ", "")}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
+            return RunGit($"checkout {localBranchName} {files?.Select(x => x.WrapUp("\"", "\""))?.Join()?.WrapUp("-- ", "")}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
         }
 
         public Task<CommandResult> CheckoutRemote(string branch) => RunGit($"switch {branch}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
         public Task<CommandResult> Merge(string branchQualifiedName) => RunGit($"merge {branchQualifiedName}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
         public Task<CommandResult> Rebase(string branchQualifiedName) => RunGit($"rebase {branchQualifiedName}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
+        public async Task<CommandResult> RebaseOnto(string branchQualifiedName, string baseBranchQualifiedName) => await RunGit($"rebase --onto {branchQualifiedName} {baseBranchQualifiedName} {await CurrentBranch}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
         public Task<CommandResult> CreateBranch(string branchName, bool checkout) => RunGit(checkout ? $"checkout -b {branchName}" : $"branch {branchName}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> RenameBranch(string oldBranchName, string newBranchName) => RunGit($"branch -m {oldBranchName} {newBranchName}").AfterCompletion(RefreshReferences);
         public Task<CommandResult> DeleteBranch(string branchName) => RunGit($"branch -D {branchName}").AfterCompletion(RefreshReferences);
@@ -687,7 +688,7 @@ namespace Abuksigun.UnityGitUI
 
         Task<CommandResult[]> StageInternal(IEnumerable<string> files)
         {
-            return Utils.RunSequence(Utils.BatchFiles(files), batch => RunGit($"add -f -- {batch}"));
+            return Utils.RunSequence(Utils.BatchFiles(files.Select(x => UnreferencePath(x))), batch => RunGit($"add -f -- {batch}"));
         }
 
         public async Task<CommandResult[]> Stage(IEnumerable<string> files)

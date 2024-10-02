@@ -33,6 +33,7 @@ namespace Abuksigun.UnityGitUI
     {
         const int TopPanelHeight = 20;
         const int BottomPanelHeight = 30;
+        const int BranchSelectionPanelHeight = 30;
 
         static readonly ReferenceComparer referenceComparer = new();
 
@@ -49,7 +50,7 @@ namespace Abuksigun.UnityGitUI
 
         protected override void OnGUI()
         {
-            var modules = Utils.GetSelectedGitModules();
+            var selectedModules = Utils.GetSelectedGitModules();
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -62,14 +63,14 @@ namespace Abuksigun.UnityGitUI
                 }
                 GUIContent lockBranchesContent = EditorGUIUtility.TrIconContent("AssemblyLock", "Lock");
                 bool lockedModules = Utils.LockedModules.Any();
-                Utils.LockModules(GUILayout.Toggle(lockedModules, lockBranchesContent, EditorStyles.toolbarButton, GUILayout.Width(32)) ? modules.ToList() : null);
+                Utils.LockModules(GUILayout.Toggle(lockedModules, lockBranchesContent, EditorStyles.toolbarButton, GUILayout.Width(32)) ? selectedModules.ToList() : null);
             }
 
             if (showRepos)
                 SplitterGUILayout.BeginVerticalSplit(splitterState);
 
 
-            var referencesPerRepo = modules.Select(module => module.References.GetResultOrDefault());
+            var referencesPerRepo = selectedModules.Select(module => module.References.GetResultOrDefault());
             IEnumerable<Reference> references = referencesPerRepo.SelectMany(x => x).Distinct(referenceComparer);
             simpleTreeViewBranches ??= new(GenerateItemsBranches, treeViewStateBranches ??= new(), false);
                 
@@ -78,13 +79,13 @@ namespace Abuksigun.UnityGitUI
                 referencesPerRepo.Where(x => x!= null),
                 contextMenuCallback: id => {
                     if (task == null || task.IsCompleted)
-                        ShowContextMenu(modules, references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id));
+                        ShowContextMenu(selectedModules, references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id));
                 },
                 doubleClickCallback: id => {
                     if (references.FirstOrDefault(x => referenceComparer.GetHashCode(x) == id) is { } reference)
                     {
-                        if (modules.Any() && reference is Stash stash)
-                            _ = GitStash.ShowStash(modules.First(), reference.Hash);
+                        if (selectedModules.Any() && reference is Stash stash)
+                            _ = GitStash.ShowStash(selectedModules.First(), reference.Hash);
                         else
                             GitLogWindow.SelectHash(null, reference.Hash);
                     }
@@ -95,8 +96,24 @@ namespace Abuksigun.UnityGitUI
                 // FIXME: For some reason splitter works only with scroll
                 using (var scroll = new EditorGUILayout.ScrollViewScope(reposScrollPosition))
                 {
+                    var modules = Utils.GetGitModules();
+                    var branches = modules.Select(module => module.CurrentBranch.GetResultOrDefault()).Distinct().ToList();
+
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        foreach (var branch in branches)
+                        {
+                            if (GUILayout.Button(branch, EditorStyles.miniButton))
+                            {
+                                Utils.SetSelectedModules(modules.Where(x => x.CurrentBranch.GetResultOrDefault() == branch));
+                                simpleTreeViewRepos.SetSelection(modules.Where(x => x.CurrentBranch.GetResultOrDefault() == branch).Select(x => x.Guid.GetHashCode()).ToList());
+                                simpleTreeViewRepos.Reload();
+                            }
+                        }
+                    }
+
                     simpleTreeViewRepos ??= new(GenerateItemsRepos, treeViewStateRepos ??= new(), true, drawRowCallback: DrawRepoRow) { RowHeight = 25 };
-                    simpleTreeViewRepos.Draw(new Vector2(position.width - 20, splitterState.RealSizes[1] - 2), Utils.GetGitModules(), selectionChangedCallback: OnSelectionChangedRepos);
+                    simpleTreeViewRepos.Draw(new Vector2(position.width - 20, splitterState.RealSizes[1] - 2 - BranchSelectionPanelHeight), modules, selectionChangedCallback: OnSelectionChangedRepos);
 
                     reposScrollPosition = scroll.scrollPosition;
                 }
@@ -181,41 +198,60 @@ namespace Abuksigun.UnityGitUI
             });
         }
 
+        static async void RebaseOnto(string ontoBranch)
+        {
+            string baseBranch = "master";
+
+            await GUIUtils.ShowModalWindow("Rebase onto", new Vector2Int(300, 150), (window) => {
+                GUILayout.Label($"Onto branch: {ontoBranch}");
+                GUILayout.Space(20);
+                GUILayout.Label("Base branch name: ");
+                baseBranch = EditorGUILayout.TextField(baseBranch);
+                GUILayout.Space(40);
+                if (GUILayout.Button("Ok", GUILayout.Width(200)))
+                {
+                    var modules = Utils.GetSelectedGitModules();
+                    _ = Task.WhenAll(modules.Select(module => module.RebaseOnto(ontoBranch, baseBranch)));
+                    window.Close();
+                }
+            });
+        }
+
         void ShowContextMenu(IEnumerable<Module> modules, Reference selectedReference)
         {
             var menu = new GenericMenu();
 
-            string branchName = selectedReference?.QualifiedName?.Replace("/", "\u2215");
+            string uiBranchName = selectedReference?.QualifiedName?.Replace("/", "\u2215");
             if (selectedReference is LocalBranch localBranch)
             {
                 var relevantModules = modules.Where(x => x.References.GetResultOrDefault().Contains(localBranch, referenceComparer)).ToList();
-                menu.AddItem(new GUIContent($"Checkout [{branchName}]"), false, () => {
+                menu.AddItem(new GUIContent($"Checkout [{uiBranchName}]"), false, () => {
                     task = GUIUtils.RunSafe(relevantModules, x => x.Checkout(localBranch.Name));
                 });
-                menu.AddItem(new GUIContent($"Delete local [{branchName}]"), false, () => {
+                menu.AddItem(new GUIContent($"Delete local [{uiBranchName}]"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want DELETE branch", $"LOCAL {localBranch.Name} in {relevantModules.Count()} modules", "Yes", "No"))
                         task = GUIUtils.RunSafe(relevantModules, x => x.DeleteBranch(localBranch.Name));
                 });
-                menu.AddItem(new GUIContent($"Rename local [{branchName}]"), false, () => {
+                menu.AddItem(new GUIContent($"Rename local [{uiBranchName}]"), false, () => {
                     CreateOrRenameBranch(localBranch.Name);
                 });
             }
             else if (selectedReference is RemoteBranch remoteBranch)
             {
-                menu.AddItem(new GUIContent($"Checkout & Track [{branchName}]"), false, () => {
+                menu.AddItem(new GUIContent($"Checkout & Track [{uiBranchName}]"), false, () => {
                     task = GUIUtils.RunSafe(modules, x => x.CheckoutRemote(remoteBranch.Name));
                 });
-                menu.AddItem(new GUIContent($"Delete [{branchName}] on remote"), false, () => {
+                menu.AddItem(new GUIContent($"Delete [{uiBranchName}] on remote"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want DELETE branch", $"REMOTE {remoteBranch.Name} in {modules.Count()} modules", "Yes", "No"))
                         task = GUIUtils.RunSafe(modules, x => x.DeleteRemoteBranch(remoteBranch.RemoteAlias, remoteBranch.Name));
                 });
             }
             else if (selectedReference is Tag tag)
             {
-                menu.AddItem(new GUIContent($"Checkout tag [{branchName}]"), false, () => {
+                menu.AddItem(new GUIContent($"Checkout tag [{uiBranchName}]"), false, () => {
                     task = GUIUtils.RunSafe(modules, x => x.Checkout(tag.QualifiedName));
                 });
-                menu.AddItem(new GUIContent($"Delete tag [{branchName}]"), false, () => {
+                menu.AddItem(new GUIContent($"Delete tag [{uiBranchName}]"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want DELETE tag", $"LOCAL {tag.QualifiedName} in {modules.Count()} modules", "Yes", "No"))
                         task = GUIUtils.RunSafe(modules, x => x.DeleteTag(tag.Name));
                 });
@@ -223,10 +259,10 @@ namespace Abuksigun.UnityGitUI
             else if (selectedReference is Stash stash)
             {
                 string stashName = $"stash@{{{stash.Id}}}";
-                menu.AddItem(new GUIContent($"Apply stash [{branchName}]"), false, () => {
+                menu.AddItem(new GUIContent($"Apply stash [{uiBranchName}]"), false, () => {
                     task = GUIUtils.RunSafe(modules, x => x.ApplyStash(stashName));
                 });
-                menu.AddItem(new GUIContent($"Delete stash [{branchName}]"), false, () => {
+                menu.AddItem(new GUIContent($"Delete stash [{uiBranchName}]"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want DELETE stash", $"LOCAL {stashName} in {modules.Count()} modules", "Yes", "No"))
                         task = GUIUtils.RunSafe(modules, x => x.DeleteStash(stashName));
                 });
@@ -236,22 +272,26 @@ namespace Abuksigun.UnityGitUI
             {
                 string mergeDescription = modules.Select(x => $"Are you sure you want to MERGE \n\n{x.DisplayName}:{selectedReference.Name} into {x.CurrentBranch.GetResultOrDefault()} ?").Join('\n');
                 menu.AddSeparator("");
-                menu.AddItem(new GUIContent($"Merge [{branchName}]"), false, () => {
+                menu.AddItem(new GUIContent($"Merge [{uiBranchName}]"), false, () => {
                 if (EditorUtility.DisplayDialog($"MERGE", mergeDescription, "Yes", "No"))
                         task = GUIUtils.RunSafe(modules, x => x.Merge(selectedReference.QualifiedName));
                 });
 
                 string resetHardDescription = modules.Select(x => $"Are you sure you want to RESET HARD \n\n{x.CurrentBranch.GetResultOrDefault()} to {x.DisplayName}:{selectedReference.Name} ?").Join('\n');
                 menu.AddSeparator("");
-                menu.AddItem(new GUIContent($"Reset HARD [{branchName}]"), false, () => {
+                menu.AddItem(new GUIContent($"Reset HARD [{uiBranchName}]"), false, () => {
                     if (EditorUtility.DisplayDialog($"RESET HARD", resetHardDescription, "Yes", "No"))
                         task = GUIUtils.RunSafe(modules, x => x.Reset(selectedReference.QualifiedName, true));
                 });
 
                 string rebaseModules = modules.Select(x => $"Are you sure you want to REBASE \n\n{x.CurrentBranch.GetResultOrDefault()} on {x.DisplayName}:{selectedReference.Name} ?").Join('\n');
-                menu.AddItem(new GUIContent($"Rebase [{branchName}]"), false, () => {
+                menu.AddItem(new GUIContent($"Rebase [{uiBranchName}]"), false, () => {
                     if (EditorUtility.DisplayDialog("REBASE", rebaseModules, "Yes", "No"))
                         task = GUIUtils.RunSafe(modules, x => x.Rebase(selectedReference.QualifiedName));
+                });
+
+                menu.AddItem(new GUIContent($"Rebase --onto [{uiBranchName}]"), false, () => {
+                    RebaseOnto(selectedReference.QualifiedName);
                 });
             }
 
@@ -264,7 +304,7 @@ namespace Abuksigun.UnityGitUI
 
         List<TreeViewItem> GenerateItemsRepos(IEnumerable<Module> modules)
         {
-            return modules.Select(module => new TreeViewItem(module.Guid.GetHashCode(), 0, module.DisplayName)).ToList();
+            return modules.OrderBy(x => x.CurrentBranch.GetResultOrDefault() == "master" ? 1 : 0).ThenBy(x => x.CurrentBranch.GetResultOrDefault()).Select(module => new TreeViewItem(module.Guid.GetHashCode(), 0, module.DisplayName)).ToList();
         }
 
         List<TreeViewItem> GenerateItemsBranches(IEnumerable<Reference[]> branchesPerRepo)
