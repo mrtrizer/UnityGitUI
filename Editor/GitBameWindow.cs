@@ -36,6 +36,7 @@ public static class GitBameWindow
                 return;
 
             var multiColumnHeaderState = new MultiColumnHeaderState(new MultiColumnHeaderState.Column[] {
+                new () { headerContent = new GUIContent("Line") },
                 new () { headerContent = new GUIContent("Hash") },
                 new () { headerContent = new GUIContent("Author"), width = 100 },
                 new () { headerContent = new GUIContent("Date"), width = 150 },
@@ -44,7 +45,7 @@ public static class GitBameWindow
 
             var treeViewLogState = new TreeViewState();
             var multiColumnHeader = new MultiColumnHeader(multiColumnHeaderState);
-            var treeView = new LazyTreeView<BlameLine>(statuses => GenerateBlameItems(statuses), treeViewLogState, false, multiColumnHeader, DrawCell);
+            var treeView = new LazyTreeView<BlameLine>(blameLines => GenerateBlameItems(blameLines), treeViewLogState, false, multiColumnHeader, DrawCell);
 
             _ = GUIUtils.ShowModalWindow("Blame", new Vector2Int(800, 700), (window) => {
                 treeView.Draw(window.position.size, blame,
@@ -69,10 +70,11 @@ public static class GitBameWindow
         if (item is BlameLineItem { } blameLineItem)
         {
             EditorGUI.LabelField(rect, columnIndex switch {
-                0 => blameLineItem.BlameLine.Hash,
-                1 => blameLineItem.BlameLine.Author,
-                2 => blameLineItem.BlameLine.Date.ToString(),
-                3 => blameLineItem.BlameLine.Text,
+                0 => blameLineItem.BlameLine.Line.ToString(),
+                1 => blameLineItem.BlameLine.Hash,
+                2 => blameLineItem.BlameLine.Author,
+                3 => blameLineItem.BlameLine.Date.ToString(),
+                4 => blameLineItem.BlameLine.Text,
                 _ => "",
             });
         }

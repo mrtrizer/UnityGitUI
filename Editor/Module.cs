@@ -16,7 +16,7 @@ namespace Abuksigun.UnityGitUI
     public enum ConfigScope { Global, Local, None }
 
     public record ConfigRef(string Key, ConfigScope Scope);
-    public record BlameLine(string Hash, string Author, DateTime Date, string Text, int Line);
+    public record BlameLine(int Line, string Hash, string Author, DateTime Date, string Text);
     public record Reference(string Name, string QualifiedName, string Hash);
     public record Tag(string Name, string Hash) : Reference(Name, Name, Hash);
     public record Stash(string Message, int Id, string Hash) : Reference(Message, Message.Replace("/", "\u2215"), Hash);
@@ -408,7 +408,7 @@ namespace Abuksigun.UnityGitUI
             return result.Output.SplitLines().Select((x, i) => {
                 var match = blameLineRegex.Match(x);
                 var dateTime = DateTimeOffset.FromUnixTimeSeconds(long.Parse(match.Groups[3].Value)).DateTime;
-                return new BlameLine(match.Groups[1].Value, match.Groups[2].Value, dateTime, match.Groups[5].Value, i);
+                return new BlameLine(i + 1, match.Groups[1].Value, match.Groups[2].Value, dateTime, match.Groups[5].Value);
             }).ToArray();
         }
 
@@ -619,9 +619,9 @@ namespace Abuksigun.UnityGitUI
         {
             return await RunGit($"pull {"--force".When(force)} {"--rebase".When(rebase)} {"--autostash".When(autostash)} {remote?.Alias}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
         }
-        public async Task<CommandResult> Fetch(bool prune, Remote remote = null)
+        public async Task<CommandResult> Fetch(bool prune, string branch, Remote remote = null)
         {
-            return await RunGit($"fetch {remote?.Alias} {"--prune".When(prune)}").AfterCompletion(RefreshRemoteStatus);
+            return await RunGit($"fetch {remote?.Alias} {"--prune".When(prune)} {branch}:{branch}").AfterCompletion(RefreshRemoteStatus);
         }
         public async Task<CommandResult> Push(bool pushTags, bool force, Remote remote = null)
         {
@@ -638,7 +638,7 @@ namespace Abuksigun.UnityGitUI
 
         public Task<CommandResult> Checkout(string localBranchName, IEnumerable<string> files = null)
         {
-            return RunGit($"checkout {localBranchName} {files?.Select(x => x.WrapUp("\"", "\""))?.Join()?.WrapUp("-- ", "")}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
+            return RunGit($"checkout {localBranchName} {files?.Select(x => x.WrapUp("\"", "\""))?.Join()?.WrapUp("-- ", "")}", true).AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
         }
 
         public Task<CommandResult> CheckoutRemote(string branch) => RunGit($"switch {branch}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
