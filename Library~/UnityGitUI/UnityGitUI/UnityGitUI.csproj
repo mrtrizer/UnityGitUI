@@ -1,0 +1,55 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DefineConstants>$(DefineConstants);UNITY_EDITOR_WIN</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DefineConstants>$(DefineConstants);UNITY_EDITOR_WIN</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\..\Editor\AssetsWatcher.cs" Link="AssetsWatcher.cs" />
+    <Compile Include="..\..\..\Editor\Const.cs" Link="Const.cs" />
+    <Compile Include="..\..\..\Editor\Extensions.cs" Link="Extensions.cs" />
+    <Compile Include="..\..\..\Editor\GitBameWindow.cs" Link="GitBameWindow.cs" />
+    <Compile Include="..\..\..\Editor\GitBranchesWindow.cs" Link="GitBranchesWindow.cs" />
+    <Compile Include="..\..\..\Editor\GitConfigWindow.cs" Link="GitConfigWindow.cs" />
+    <Compile Include="..\..\..\Editor\GitDiffWindow.cs" Link="GitDiffWindow.cs" />
+    <Compile Include="..\..\..\Editor\GitLFS.cs" Link="GitLFS.cs" />
+    <Compile Include="..\..\..\Editor\GitLogWindow.cs" Link="GitLogWindow.cs" />
+    <Compile Include="..\..\..\Editor\GitReflogWindow.cs" Link="GitReflogWindow.cs" />
+    <Compile Include="..\..\..\Editor\GitRemotes.cs" Link="GitRemotes.cs" />
+    <Compile Include="..\..\..\Editor\GitRemoteSettingsWindow.cs" Link="GitRemoteSettingsWindow.cs" />
+    <Compile Include="..\..\..\Editor\GitStagingWindow.cs" Link="GitStagingWindow.cs" />
+    <Compile Include="..\..\..\Editor\GitStash.cs" Link="GitStash.cs" />
+    <Compile Include="..\..\..\Editor\GUIUtils.cs" Link="GUIUtils.cs" />
+    <Compile Include="..\..\..\Editor\LazyTreeView.cs" Link="LazyTreeView.cs" />
+    <Compile Include="..\..\..\Editor\MetaDataUtils.cs" Link="MetaDataUtils.cs" />
+    <Compile Include="..\..\..\Editor\Module.cs" Link="Module.cs" />
+    <Compile Include="..\..\..\Editor\PackageLocalRepo.cs" Link="PackageLocalRepo.cs" />
+    <Compile Include="..\..\..\Editor\PluginSettingsProvider.cs" Link="PluginSettingsProvider.cs" />
+    <Compile Include="..\..\..\Editor\ProcessLogWindow.cs" Link="ProcessLogWindow.cs" />
+    <Compile Include="..\..\..\Editor\ProjectBrowserExtension.cs" Link="ProjectBrowserExtension.cs" />
+    <Compile Include="..\..\..\Editor\SplitterGUILayout.cs" Link="SplitterGUILayout.cs" />
+    <Compile Include="..\..\..\Editor\Style.cs" Link="Style.cs" />
+    <Compile Include="..\..\..\Editor\SymLinkUtils.cs" Link="SymLinkUtils.cs" />
+    <Compile Include="..\..\..\Editor\UpdateRepo.cs" Link="UpdateRepo.cs" />
+    <Compile Include="..\..\..\Editor\Utils.cs" Link="Utils.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="UnityEditor">
+      <HintPath>G:\UnityEditor\2022.3.40f1\Editor\Data\Managed\UnityEditor.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>G:\UnityEditor\2022.3.40f1\Editor\Data\Managed\UnityEngine.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
