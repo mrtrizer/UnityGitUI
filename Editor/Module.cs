@@ -638,7 +638,7 @@ namespace Abuksigun.UnityGitUI
 
         public Task<CommandResult> Checkout(string localBranchName, IEnumerable<string> files = null)
         {
-            return RunGit($"checkout {localBranchName} {files?.Select(x => x.WrapUp("\"", "\""))?.Join()?.WrapUp("-- ", "")}", true).AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
+            return RunGit($"checkout {localBranchName} {files?.Select(x => x.WrapUp("\"", "\""))?.Join()?.WrapUp("-- ", "")}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
         }
 
         public Task<CommandResult> CheckoutRemote(string branch) => RunGit($"switch {branch}").AfterCompletion(RefreshRemoteStatus, RefreshAssetsStatus);
