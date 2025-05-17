@@ -189,7 +189,7 @@ namespace Abuksigun.UnityGitUI
             if (hashCode != lastHashCode && diffs.All(x => x.diff.IsCompleted))
             {
                 var diffStrings = staged ? stagedDiffs.Select(x => $"#{x.module.Guid}\n{x.diff}") : unstagedDiffs.Select(x => $"#{x.module.Guid}\n{x.diff}");
-                diffLines = diffStrings.SelectMany(x => GUIUtils.EscapeAngleBrackets(x).Split('\n', RemoveEmptyEntries)).ToArray();
+                diffLines = diffStrings.SelectMany(x => GUIUtils.EscapeAngleBrackets(x).Split('\n', RemoveEmptyEntries)).Select(x => x.Trim('\r')).ToArray();
                 selectedLines = new();
                 lastSelectedIndex = -1;
                 unindexedFilesCache.Clear();
