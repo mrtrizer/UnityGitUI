@@ -3,7 +3,7 @@
 ## Installation ##
 Tested with Git 2.38.1 + Unity 2021.3.10f1
 1. Install git client first https://git-scm.com/downloads. **I also highly recommend installing GCM** (should be installed automatically on Windows), it will show an auth window when you try to pull or push without authorization. **Git should be added to PATH** environment variable. Restart Unity and Unity Hub after you install Git and add it to PATH.
-2. Window -> Package Manager -> "+" -> Add package from git URL -> https://github.com/mrtrizer/MRUnityGitUI.git
+2. Window -> Package Manager -> "+" -> Add package from git URL -> https://github.com/mrtrizer/UnityGitUI.git
 3. (Optional, Only Mac/Linux/Win on NTFS) You can link UnityGitUI without adding to manifest! Just right click on UnityGitUI in Project Browser -> Git -> Link Local Repo, it will suggest you clone the repo, click "Clone", after it will be linked to your Packages dir.
 
 ## How to use ##
