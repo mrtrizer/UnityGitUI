@@ -37,7 +37,9 @@ namespace Abuksigun.UnityGitUI
             new(0.42f, 0.48f, 0.91f)
         };
         public static LazyStyle RichTextLabel = new(() => new(GUI.skin.label) {
-            richText = true
+            richText = true,
+            wordWrap = false,
+            clipping = TextClipping.Clip
         });
 
         public static LazyStyle FileName = new(() => new() {
