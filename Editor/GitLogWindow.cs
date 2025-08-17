@@ -273,7 +273,7 @@ namespace Abuksigun.UnityGitUI
                                     EditorGUILayout.SelectableLabel(userData.FormattedAuthor, EditorStyles.boldLabel, GUILayout.Height(24));
                                     EditorGUILayout.SelectableLabel(commitLine.Hash, EditorStyles.miniLabel, GUILayout.Height(12));
                                     EditorGUILayout.SelectableLabel(commitLine.Date, EditorStyles.miniLabel, GUILayout.Height(12));
-                                    EditorGUILayout.SelectableLabel(commitLine.Comment, EditorStyles.helpBox);
+                                    EditorGUILayout.SelectableLabel(commitLine.Comment, Style.FrameBox.Value);
                                 }
                             }
                             EditorGUILayout.Separator();

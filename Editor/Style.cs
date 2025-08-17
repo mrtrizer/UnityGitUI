@@ -42,6 +42,11 @@ namespace Abuksigun.UnityGitUI
             clipping = TextClipping.Clip
         });
 
+        public static LazyStyle FrameBox = new(() => new(GUI.skin.FindStyle("FrameBox")) {
+            wordWrap = true,
+            clipping = TextClipping.Clip
+        });
+
         public static LazyStyle FileName = new(() => new() {
             fontStyle = FontStyle.Bold,
             normal = new() {
