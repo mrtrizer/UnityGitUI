@@ -128,7 +128,7 @@ namespace Abuksigun.UnityGitUI
                 var groups = Regex.Match(rawLine, @"#([0-9a-f]+).*?- (.*?) \((.*?)\) \((.*?)\) <b>\s?\(?(.*?)\)?</b> (.*)")?.Groups;
                 var references = groups[5].Value.Split(',', StringSplitOptions.RemoveEmptyEntries).Where(x => x != "refs/stash");
                 var branches = references.Where(x => !x.StartsWith("tag:")).ToArray();
-                var tags = references.Where(x => x.StartsWith("tag:")).Select(x => x[5..^1]).ToArray();
+                var tags = references.Where(x => x.StartsWith("tag:")).Select(x => x[5..]).ToArray();
                 logLines.Add(new LogLine(rawLine, Hash: groups[1].Value, Comment: groups[6].Value, Author: groups[2].Value, Email: groups[3].Value, Date: groups[4].Value, branches, tags));
             }
             return logLines;
