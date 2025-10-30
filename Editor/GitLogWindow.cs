@@ -428,7 +428,7 @@ namespace Abuksigun.UnityGitUI
                     });
                     menu.AddItem(new GUIContent($"Rebase/{contextMenuName}"), false, () =>
                     {
-                        _ = module.Rebase(reference.QualifiedName);
+                        _ = GUIUtils.Rebase(new[] { module }, reference.QualifiedName);
                     });
                 }
                 menu.AddItem(new GUIContent($"Cherry Pick/{selectedCommits.Join(", ")}"), false, () =>

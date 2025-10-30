@@ -264,6 +264,35 @@ namespace Abuksigun.UnityGitUI
             }
         }
 
+        public static async Task<CommandResult[]> Rebase(IEnumerable<Module> modules, string branchQualifiedName)
+        {
+            const string stashMessage = "Auto-stash before rebase";
+            var statuses = await Task.WhenAll(modules.Select(x => x.GitStatus));
+            var modulesToStash = modules.Zip(statuses, (m,s) => (m, s)).Where(x => x.s.Unstaged.Any() || x.s.Unindexed.Any()).Select(x => x.m).ToList();
+            var modulesToUnstash = new List<Module>();
+            PushReloadAssembliesLock();
+            try
+            {
+                if (modulesToStash.Any())
+                {
+                    var moduleNames = modulesToStash.Select(x => x.DisplayName).Join('\n');
+                    if (!EditorUtility.DisplayDialog("Unstaged changes", $"You have unstaged changes in:\n {moduleNames} \n Do you want to stash them now?", "Auto-stash changes", "Cancel"))
+                        return null;
+                    var stashResults = await Task.WhenAll(modulesToStash.Select(x => x.Stash(stashMessage)));
+                    modulesToUnstash.AddRange(modulesToStash.Zip(stashResults, (m, r) => (m, r)).Where(x => x.r.ExitCode == 0).Select(x => x.m));
+                }
+
+                var result = await Task.WhenAll(modules.Select(x => x.Rebase(branchQualifiedName)));
+                await Task.WhenAll(modulesToUnstash.Select(x => x.ApplyStash(stashMessage)));
+                await Task.WhenAll(modulesToUnstash.Select(x => x.DeleteStash(stashMessage)));
+                return result;
+            }
+            finally
+            {
+                PopReloadAssembliesLock();
+            }
+        }
+
         public static void OpenFiles(IEnumerable<string> filePaths)
         {
             foreach (var filePath in filePaths)

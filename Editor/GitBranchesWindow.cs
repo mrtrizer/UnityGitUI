@@ -287,7 +287,7 @@ namespace Abuksigun.UnityGitUI
                 string rebaseModules = modules.Select(x => $"Are you sure you want to REBASE \n\n{x.CurrentBranch.GetResultOrDefault()} on {x.DisplayName}:{selectedReference.Name} ?").Join('\n');
                 menu.AddItem(new GUIContent($"Rebase [{uiBranchName}]"), false, () => {
                     if (EditorUtility.DisplayDialog("REBASE", rebaseModules, "Yes", "No"))
-                        task = GUIUtils.RunSafe(modules, x => x.Rebase(selectedReference.QualifiedName));
+                        task = GUIUtils.Rebase(modules, selectedReference.QualifiedName);
                 });
 
                 menu.AddItem(new GUIContent($"Rebase --onto [{uiBranchName}]"), false, () => {
