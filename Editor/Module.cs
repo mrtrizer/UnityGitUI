@@ -673,20 +673,65 @@ namespace Abuksigun.UnityGitUI
         public async Task<CommandResult[]> DiscardFiles(IEnumerable<string> files)
         {
             var status = await GitStatus;
-            var unresolvedFiles = status.Unresolved.Where(file => files.Contains(file.FullPath) || files.Contains(file.FullProjectPath)).Select(x => x.FullPath);
+            
+            // submodules need special handling to avoid detached HEAD state
+            var submoduleFiles = status.Files.Where(file => file.IsSubmodule && (files.Contains(file.FullPath) || files.Contains(file.FullProjectPath))).ToList();
+            var regularFiles = files.Where(f => !submoduleFiles.Any(s => s.FullPath == f || s.FullProjectPath == f)).ToList();
+            
+            foreach (var submodule in submoduleFiles)
+                await DiscardSubmodule(submodule);
+            
+            if (!regularFiles.Any())
+                return Array.Empty<CommandResult>();
+            
+            var unresolvedFiles = status.Unresolved.Where(file => regularFiles.Contains(file.FullPath) || regularFiles.Contains(file.FullProjectPath)).Select(x => x.FullPath);
             if (unresolvedFiles.Any())
             {
                 await StageInternal(unresolvedFiles); // can't discard unresolved files, so we resolve them first
                 status = await GetGitStatus();
             }
-            var stagedFiles = status.Staged.Where(file => files.Contains(file.FullPath) || files.Contains(file.FullProjectPath)).Select(x => x.FullPath);
+            var stagedFiles = status.Staged.Where(file => regularFiles.Contains(file.FullPath) || regularFiles.Contains(file.FullProjectPath)).Select(x => x.FullPath);
             if (stagedFiles.Any())
             {
                 await UnstageInternal(stagedFiles); // can't discard staged files, so we unstage them first
                 status = await GetGitStatus();
             }
-            var indexedFiles = status.IndexedUnstaged.Where(file => files.Contains(file.FullPath) || files.Contains(file.FullProjectPath)).Select(x => x.FullPath).ToList();
+            var indexedFiles = status.IndexedUnstaged.Where(file => regularFiles.Contains(file.FullPath) || regularFiles.Contains(file.FullProjectPath)).Select(x => x.FullPath).ToList();
             return await Utils.RunSequence(Utils.BatchFiles(indexedFiles), batch => RunGit($"checkout -q -- {batch}")).AfterCompletion(RefreshAssetsStatus);
+        }
+
+        async Task<bool> DiscardSubmodule(FileStatus file)
+        {
+            var submoduleModule = Utils.GetModuleByPath(file.FullPath);
+            if (submoduleModule == null)
+                return false;
+
+            var submoduleStatus = await submoduleModule.GitStatus;
+            if (submoduleStatus?.Files.Any() == true)
+                return false;
+
+            string relativePath = GetRelativePath(file.FullPath).NormalizeSlashes();
+            var expectedCommitResult = await RunGit($"ls-tree HEAD -- \"{relativePath}\"", true);
+            if (expectedCommitResult.ExitCode != 0 || string.IsNullOrWhiteSpace(expectedCommitResult.Output))
+                return false;
+
+            // ls-tree has special format for submodules, returning hash inside submodule
+            var match = Regex.Match(expectedCommitResult.Output, @"160000 commit ([a-f0-9]+)");
+            if (!match.Success)
+                return false;
+            string expectedCommit = match.Groups[1].Value;
+
+            // switch to a branch if possible to avoid detached HEAD state
+            var references = await submoduleModule.References;
+            var branchAtCommit = references.FirstOrDefault(r => r is LocalBranch && r.Hash.StartsWith(expectedCommit));
+
+            if (branchAtCommit != null)
+                await submoduleModule.Checkout(branchAtCommit.Name);
+            else
+                await submoduleModule.Checkout(expectedCommit);
+
+            RefreshAssetsStatus();
+            return true;
         }
 
         Task<CommandResult[]> StageInternal(IEnumerable<string> files)
