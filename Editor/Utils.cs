@@ -228,6 +228,8 @@ namespace Abuksigun.UnityGitUI
             return logicalPath;
         }
 
+        public static bool ComparePaths(string path1, string path2) => Path.GetRelativePath(path1, path2) == ".";
+
         public static async Task<CommandResult[]> RunSequence<T>(IEnumerable<T> values, Func<T, Task<CommandResult>> func)
         {
             var commandResults = new List<CommandResult>();

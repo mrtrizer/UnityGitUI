@@ -183,14 +183,37 @@ namespace Abuksigun.UnityGitUI
 
         async Task Commit(IEnumerable<Module> modules)
         {
-            var currentBranches = await Task.WhenAll(modules.Select(async module => (module, branch: await module.CurrentBranch)));
+            var currentBranches = await Task.WhenAll(modules.Select(async module => (module, branch: await module.CurrentBranch, gitRepoPath: await module.GitRepoPath)));
             var detachedBranchModules = currentBranches.Where(x => x.branch == null).Select(x => x.module.Name);
             if (detachedBranchModules.Any()
                 && !EditorUtility.DisplayDialog("Detached HEAD", $"Detached HEAD in modules:\n{detachedBranchModules.Join(", ")}\n\nUse Branches panel to checkout!", "Commit anyway", "Cancel"))
             {
                 return;
             }
-            await Task.WhenAll(modules.Select(module => module.Commit(commitMessage)));
+
+            if (manageSubmodules)
+            {
+                // In this mode, we first commit submodules, then stage them in parent repos, then commit parent repos
+                var modulesWithParent = await Task.WhenAll(modules.Select(async m => (module: m, parentPath: await m.GitParentRepoPath, gitRepoPath: await m.GitRepoPath)));
+                var submodules = modulesWithParent.Where(x => x.parentPath != null);
+                var rootRepos = modulesWithParent.Where(x => x.parentPath == null).ToList();
+
+                await Task.WhenAll(submodules.Select(x => x.module.Commit(commitMessage)));
+
+                foreach (var submodule in submodules)
+                {
+                    var parentRepo = rootRepos.FirstOrDefault(x => Utils.ComparePaths(x.gitRepoPath, submodule.parentPath));
+                    if (parentRepo.module != null)
+                        await parentRepo.module.Stage(new[] { submodule.module.PhysicalPath });
+                }
+
+                await Task.WhenAll(rootRepos.Select(x => x.module.Commit(commitMessage)));
+            }
+            else
+            {
+                await Task.WhenAll(modules.Select(x => x.Commit(commitMessage)));
+            }
+            
             commitMessage = "";
         }
 
