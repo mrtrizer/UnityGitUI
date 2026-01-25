@@ -293,6 +293,37 @@ namespace Abuksigun.UnityGitUI
             }
         }
 
+        public static async Task<CommandResult[]> CheckoutRemote(IEnumerable<Module> modules, string branchName)
+        {
+            var modulesWithLocalBranch = new List<Module>();
+            foreach (var module in modules)
+            {
+                var references = await module.References;
+                if (references?.Any(r => r is LocalBranch && r.Name == branchName) == true)
+                    modulesWithLocalBranch.Add(module);
+            }
+
+            // to get the exact revision from remote, we can delete local branch first
+            if (modulesWithLocalBranch.Any())
+            {
+                var moduleNames = modulesWithLocalBranch.Select(x => x.DisplayName).Join(", ");
+                int choice = EditorUtility.DisplayDialogComplex(
+                    "Local branch exists",
+                    $"Local branch '{branchName}' already exists in:\n{moduleNames}\n\nDo you want to delete the local branch first to get the latest remote version?",
+                    "Delete local & checkout remote",
+                    "Cancel",
+                    "Keep local & checkout");
+
+                if (choice == 1)
+                    return Array.Empty<CommandResult>();
+
+                if (choice == 0)
+                    await Task.WhenAll(modulesWithLocalBranch.Select(m => m.DeleteBranch(branchName)));
+            }
+
+            return await RunSafe(modules, x => x.CheckoutRemote(branchName));
+        }
+
         public static void OpenFiles(IEnumerable<string> filePaths)
         {
             foreach (var filePath in filePaths)

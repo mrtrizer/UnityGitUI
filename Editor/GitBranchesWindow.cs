@@ -239,7 +239,7 @@ namespace Abuksigun.UnityGitUI
             else if (selectedReference is RemoteBranch remoteBranch)
             {
                 menu.AddItem(new GUIContent($"Checkout & Track [{uiBranchName}]"), false, () => {
-                    task = GUIUtils.RunSafe(modules, x => x.CheckoutRemote(remoteBranch.Name));
+                    task = GUIUtils.CheckoutRemote(modules, remoteBranch.Name);
                 });
                 menu.AddItem(new GUIContent($"Delete [{uiBranchName}] on remote"), false, () => {
                     if (EditorUtility.DisplayDialog("Are you sure you want DELETE branch", $"REMOTE {remoteBranch.Name} in {modules.Count()} modules", "Yes", "No"))
