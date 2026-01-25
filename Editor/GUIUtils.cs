@@ -94,7 +94,7 @@ namespace Abuksigun.UnityGitUI
                         icon = EditorGUIUtility.IconContent("DefaultAsset Icon").image;
                     string relativePath = Path.GetRelativePath(module.PhysicalPath, file.FullProjectPath).NormalizeSlashes();
                     var numStat = staged ? file.StagedNumStat : file.UnstagedNumStat;
-                    bool isSubmodule = Utils.GetModuleByPath(file.FullPath) != null;
+                    bool isSubmodule = file.IsSubmodule;
                     var content = $"<b>{MakePrintableStatus(staged ? file.X : file.Y)}</b> {relativePath}{file.OldName?.WrapUp(" (", ")")} +{numStat.Added} -{numStat.Removed} {submoduleMarker.When(isSubmodule)}";
                     items.Add(new TreeViewItem(file.FullPath.GetHashCode(), validStatuses.Count() > 1 ? 1 : 0, content) { icon = icon as Texture2D });
                 }
@@ -268,7 +268,7 @@ namespace Abuksigun.UnityGitUI
         {
             const string stashMessage = "Auto-stash before rebase";
             var statuses = await Task.WhenAll(modules.Select(x => x.GitStatus));
-            var modulesToStash = modules.Zip(statuses, (m,s) => (m, s)).Where(x => x.s.Unstaged.Any() || x.s.Unindexed.Any()).Select(x => x.m).ToList();
+            var modulesToStash = modules.Zip(statuses, (m,s) => (m, s)).Where(x => x.s.Files.Any(y => !y.IsSubmodule && y.IsInIndex)).Select(x => x.m).ToList();
             var modulesToUnstash = new List<Module>();
             PushReloadAssembliesLock();
             try

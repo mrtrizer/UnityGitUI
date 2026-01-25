@@ -50,7 +50,7 @@ namespace Abuksigun.UnityGitUI
         public int Removed;
     }
 
-    public record FileStatus(string ModuleGuid, string FullProjectPath, string FullPath, string OldName, char X, char Y, NumStat UnstagedNumStat, NumStat StagedNumStat)
+    public record FileStatus(string ModuleGuid, string FullProjectPath, string FullPath, string OldName, char X, char Y, NumStat UnstagedNumStat, NumStat StagedNumStat, bool IsSubmodule)
     {
         public bool IsInIndex => Y is not '?' and not '!';
         public bool IsUnstaged => Y is not ' ';
@@ -486,7 +486,7 @@ namespace Abuksigun.UnityGitUI
 
             var numStatUnstaged = ParseNumStat(numStatUnstagedTask.Result.Output);
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
-            return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged), await GitParentRepoPath, Guid);
+            return new GitStatus(await ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged), await GitParentRepoPath, Guid);
         }
 
         async Task<bool> GetIsLfsAvailable() => (await RunProcess(PluginSettingsProvider.GitPath, "lfs version", true)).ExitCode == 0;
@@ -555,18 +555,21 @@ namespace Abuksigun.UnityGitUI
             await Task.WhenAll(gitRepoPathTask, statusTask, numStatTask);
             var numStat = ParseNumStat(numStatTask.Result.Output);
 
-            return new GitStatus(ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStat, numStat), await GitParentRepoPath, Guid);
+            return new GitStatus(await ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStat, numStat), await GitParentRepoPath, Guid);
         }
 
-        FileStatus[] ParseStatus(string statusOutput, string gitRepoPath, Dictionary<string, NumStat> numStatUnstaged, Dictionary<string, NumStat> numStatStaged)
+        async Task<FileStatus[]> ParseStatus(string statusOutput, string gitRepoPath, Dictionary<string, NumStat> numStatUnstaged, Dictionary<string, NumStat> numStatStaged)
         {
+            var submodules = await Submodules;
+
             return statusOutput.SplitLines().Select(line => {
                 string[] paths = line[2..].Split(new[] { " ->", "\t" }, RemoveEmptyEntries);
                 string path = paths[paths.Length - 1].Trim().Trim('"');
                 string oldPath = paths.Length > 1 ? paths[paths.Length - 2].Trim() : null;
                 string fullPath = Path.Join(gitRepoPath, path).NormalizeSlashes();
                 string fullProjectPath = GetSymLinkReferencedPath(fullPath);
-                return new FileStatus(Guid, fullProjectPath, fullPath, oldPath, X: line[0], Y: line[1], numStatUnstaged.GetValueOrDefault(path), numStatStaged.GetValueOrDefault(path));
+                bool isSubmodule = submodules.Any(s => s.FullPath == fullPath);
+                return new FileStatus(Guid, fullProjectPath, fullPath, oldPath, X: line[0], Y: line[1], numStatUnstaged.GetValueOrDefault(path), numStatStaged.GetValueOrDefault(path), isSubmodule);
             }).ToArray();
         }
 
