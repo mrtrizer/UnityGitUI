@@ -221,10 +221,13 @@ namespace Abuksigun.UnityGitUI
                 var graphSize = new Vector2(multiColumnHeaderState.columns[0].width, position.size.y - currentFilesPanelHeight - TableHeaderHeight);
                 float scrollPositionY = treeViewLogState.scrollPos.y;
                 int firstY = Mathf.Max((int)(scrollPositionY / Space) - 1, 0);
+                int lastY = Mathf.Min(cells.GetLength(0), firstY + itemNum);
+                int maxVisibleX = Mathf.Max(1, (int)(graphSize.x / Space) + 1);
+                int maxX = Mathf.Min(cells.GetLength(1), maxVisibleX);
                 GUI.BeginClip(new Rect(firstPoint + Vector2.up * TableHeaderHeight, graphSize));
-                for (int y = firstY; y < Mathf.Min(cells.GetLength(0), firstY + itemNum); y++)
+                for (int y = firstY; y < lastY; y++)
                 {
-                    for (int x = 0; x < cells.GetLength(1); x++)
+                    for (int x = 0; x < maxX; x++)
                     {
                         var cell = cells[y, x];
                         var oldColor = Handles.color;
@@ -232,7 +235,7 @@ namespace Abuksigun.UnityGitUI
                         var offset = new Vector3(10, 10 - scrollPositionY);
                         if (cell.commit)
                             Handles.DrawSolidDisc(offset + new Vector3(x * Space, y * Space), new Vector3(0, 0, 1), 3);
-                        DrawConnection(cell, offset, x, y);
+                        DrawConnection(cell, offset, x, y, firstY, lastY, maxVisibleX);
                         Handles.color = oldColor;
                     }
                 }
@@ -337,20 +340,59 @@ namespace Abuksigun.UnityGitUI
             }
         }
 
-        void DrawConnection(LogGraphCell cell, Vector3 offset, int x, int y)
+        IEnumerable<Vector2Int> FindCellsInRange(int fromY, int maxY, params string[] hashes)
+        {
+            int searchLimit = Mathf.Min(cells.GetLength(0), maxY);
+            foreach (string hash in hashes)
+            {
+                if (hash == null)
+                    continue;
+                for (int parentY = fromY; parentY < searchLimit; parentY++)
+                {
+                    for (int parentX = 0; parentX < cells.GetLength(1); parentX++)
+                    {
+                        if (hash == cells[parentY, parentX].hash)
+                        {
+                            yield return new Vector2Int(parentX, parentY);
+                            parentX = int.MaxValue - 1;
+                            parentY = int.MaxValue - 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        void DrawConnection(LogGraphCell cell, Vector3 offset, int x, int y, int visibleMinY, int visibleMaxY, int maxVisibleX)
         {
             if (cell.parent == null)
                 return;
 
-            foreach (var parentPosition in FindCells(y + 1, cell.parent, cell.mergeParent))
+            foreach (var parentPosition in FindCellsInRange(y + 1, visibleMaxY + 1, cell.parent, cell.mergeParent))
             {
-                var first = offset + new Vector3(x, y) * Space;
-                var last = offset + new Vector3(parentPosition.x, parentPosition.y) * Space;
+                int parentX = parentPosition.x;
+                int parentY = parentPosition.y;
+                
+                // Skip if connection is entirely outside visible X range
+                int minX = Mathf.Min(x, parentX);
+                if (minX > maxVisibleX)
+                    continue;
+                
+                // Check if connection is visible in Y range
+                // Connection is visible if: it starts in view, ends in view, or crosses through view
+                bool startsInView = y >= visibleMinY && y < visibleMaxY;
+                bool endsInView = parentY >= visibleMinY && parentY < visibleMaxY;
+                bool crossesView = y < visibleMinY && parentY >= visibleMaxY;
+                
+                if (!startsInView && !endsInView && !crossesView)
+                    continue;
 
-                if (parentPosition.x < x)
-                    Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, offset + new Vector3(x, parentPosition.y - 0.5f) * Space, last);
-                else if (parentPosition.x > x)
-                    Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, offset + new Vector3(parentPosition.x, y + 0.5f) * Space, last);
+                var first = offset + new Vector3(x, y) * Space;
+                var last = offset + new Vector3(parentX, parentY) * Space;
+
+                if (parentX < x)
+                    Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, offset + new Vector3(x, parentY - 0.5f) * Space, last);
+                else if (parentX > x)
+                    Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, offset + new Vector3(parentX, y + 0.5f) * Space, last);
                 else
                     Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, last);
             }
