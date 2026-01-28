@@ -723,12 +723,35 @@ namespace Abuksigun.UnityGitUI
 
             // switch to a branch if possible to avoid detached HEAD state
             var references = await submoduleModule.References;
-            var branchAtCommit = references.FirstOrDefault(r => r is LocalBranch && r.Hash.StartsWith(expectedCommit));
+            var localBranchAtCommit = references.FirstOrDefault(r => r is LocalBranch && r.Hash.StartsWith(expectedCommit));
 
-            if (branchAtCommit != null)
-                await submoduleModule.Checkout(branchAtCommit.Name);
+            if (localBranchAtCommit != null)
+            {
+                await submoduleModule.Checkout(localBranchAtCommit.Name);
+                await submoduleModule.Pull();
+            }
             else
-                await submoduleModule.Checkout(expectedCommit);
+            {
+                var remoteBranchAtCommit = references.FirstOrDefault(r => r is RemoteBranch && r.Hash.StartsWith(expectedCommit)) as RemoteBranch;
+                if (remoteBranchAtCommit != null)
+                {
+                    // if there is a local branch already, we can't just checkout the remote branch, we should first checkout the local branch tracking it
+                    var trackingLocalBranch = references.FirstOrDefault(r => r is LocalBranch lb && lb.Name == remoteBranchAtCommit.Name) as LocalBranch;
+                    if (trackingLocalBranch != null)
+                    {
+                        await submoduleModule.Checkout(trackingLocalBranch.Name);
+                        await submoduleModule.Pull();
+                    }
+                    else
+                    {
+                        await submoduleModule.CheckoutRemote(remoteBranchAtCommit.Name);
+                    }
+                }
+                else
+                {
+                    await submoduleModule.Checkout(expectedCommit);
+                }
+            }
 
             RefreshAssetsStatus();
             return true;
