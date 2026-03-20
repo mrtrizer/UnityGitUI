@@ -119,7 +119,7 @@ namespace Abuksigun.UnityGitUI
                 }
                 if (modulesInMergingState.Any()
                     && GUILayout.Button($"Abort merge in {modulesInMergingState.Count()}/{modules.Count}", GUILayout.Width(200))
-                    && EditorUtility.DisplayDialog($"Are you sure you want ABORT merge?", modulesInCherryPickState.Select(x => x.DisplayName).Join(", "), "Yes", "No"))
+                    && EditorUtility.DisplayDialog($"Are you sure you want ABORT merge?", $"Modules: {modulesInMergingState.Select(x => x.DisplayName).Join(", ")}", "Yes", "No"))
                 {
                     tasksInProgress.AddRange(modules.Select(module => module.AbortMerge()));
                 }
