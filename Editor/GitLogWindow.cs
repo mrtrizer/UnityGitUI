@@ -87,7 +87,9 @@ namespace Abuksigun.UnityGitUI
             public string parent;
             public string mergeParent;
             public bool pullMerge;
+            public bool pullMergePath;
             public int branch;
+            public int drawX;
         }
 
         LogGraphCell[,] cells;
@@ -255,8 +257,13 @@ namespace Abuksigun.UnityGitUI
                         Handles.color = Style.GraphColors[cell.branch % Style.GraphColors.Length];
                         var offset = new Vector3(10, 10 - scrollPositionY);
                         if (cell.commit)
-                            Handles.DrawSolidDisc(offset + new Vector3(x * Space, y * Space), new Vector3(0, 0, 1), 3);
-                        DrawConnection(cell, offset, x, y, firstY, lastY, maxVisibleX);
+                        {
+                            var discPos = offset + new Vector3(cell.drawX * Space, y * Space);
+                            Handles.DrawSolidDisc(discPos, new Vector3(0, 0, 1), cell.pullMerge || cell.pullMergePath ? 4 : 3);
+                            if (cell.pullMerge)
+                                Handles.DrawWireDisc(discPos, new Vector3(0, 0, 1), 6);
+                        }
+                        DrawConnection(cell, offset, y, visibleMinY: firstY, visibleMaxY: lastY, maxVisibleX);
                         Handles.color = oldColor;
                     }
                 }
@@ -350,47 +357,52 @@ namespace Abuksigun.UnityGitUI
             return null;
         }
 
-        void DrawConnection(LogGraphCell cell, Vector3 offset, int x, int y, int visibleMinY, int visibleMaxY, int maxVisibleX)
+        void DrawConnection(LogGraphCell cell, Vector3 offset, int y, int visibleMinY, int visibleMaxY, int maxVisibleX)
         {
             if (cell.parent == null)
                 return;
 
             int searchMaxY = Mathf.Min(cells.GetLength(0), visibleMaxY + 1);
 
+            float lineWidth = cell.pullMergePath || cell.pullMerge ? 3 : 2;
+
             // For non-commit cells (pass-through lanes), draw straight down to next row with same hash
             if (!cell.commit)
             {
                 var nextPos = FindCellPosition(y + 1, searchMaxY, cell.parent);
                 if (nextPos.HasValue)
-                    DrawLineTo(offset, x, y, nextPos.Value, visibleMinY, visibleMaxY, maxVisibleX);
+                    DrawLineTo(offset, cell.drawX, y, cells[nextPos.Value.y, nextPos.Value.x].drawX, nextPos.Value.y, visibleMinY, visibleMaxY, maxVisibleX, lineWidth);
                 return;
             }
 
             // For commit cells, draw to first parent
             var parentPos = FindCellPosition(y + 1, searchMaxY, cell.parent);
             if (parentPos.HasValue)
-                DrawLineTo(offset, x, y, parentPos.Value, visibleMinY, visibleMaxY, maxVisibleX);
+                DrawLineTo(offset, cell.drawX, y, cells[parentPos.Value.y, parentPos.Value.x].drawX, parentPos.Value.y, visibleMinY, visibleMaxY, maxVisibleX, lineWidth);
 
             // Draw to merge parent
             if ((!HideMergeLines || cell.pullMerge) && cell.mergeParent != null)
             {
                 var mergePos = FindCellPosition(y + 1, searchMaxY, cell.mergeParent);
                 if (mergePos.HasValue)
-                    DrawLineTo(offset, x, y, mergePos.Value, visibleMinY, visibleMaxY, maxVisibleX);
+                    DrawLineTo(offset, cell.drawX, y, cells[mergePos.Value.y, mergePos.Value.x].drawX, mergePos.Value.y, visibleMinY, visibleMaxY, maxVisibleX, lineWidth);
             }
 
             // Draw small merge arrow when merge lines are hidden (but not for pull merges)
             if (HideMergeLines && !cell.pullMerge && cell.mergeParent != null)
-                DrawMergeArrow(cell, offset, x, y);
+                DrawMergeArrow(cell, offset, y);
         }
 
-        void DrawMergeArrow(LogGraphCell cell, Vector3 offset, int x, int y)
+        void DrawMergeArrow(LogGraphCell cell, Vector3 offset, int y)
         {
             var mergeSourcePos = FindCellPosition(0, cells.GetLength(0), cell.mergeParent);
-            int sourceX = mergeSourcePos.HasValue ? mergeSourcePos.Value.x : x + 1;
-            int dir = sourceX > x ? 1 : (sourceX < x ? -1 : 1);
+            int sourceX = mergeSourcePos.HasValue ? cells[mergeSourcePos.Value.y, mergeSourcePos.Value.x].drawX : cell.drawX + 1;
+            int dir = sourceX > cell.drawX ? 1 : (sourceX < cell.drawX ? -1 : 1);
 
-            var center = offset + new Vector3(x, y) * Space;
+            if (mergeSourcePos.HasValue)
+                Handles.color = Style.GraphColors[cells[mergeSourcePos.Value.y, mergeSourcePos.Value.x].branch % Style.GraphColors.Length];
+
+            var center = offset + new Vector3(cell.drawX, y) * Space;
             float arrowLen = Space * 0.45f;
             var tip = center + new Vector3(dir * 4, 0);
             var tail = center + new Vector3(dir * (4 + arrowLen), 0);
@@ -400,11 +412,8 @@ namespace Abuksigun.UnityGitUI
             Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, arrowUp, tip, arrowDown);
         }
 
-        void DrawLineTo(Vector3 offset, int x, int y, Vector2Int parentPosition, int visibleMinY, int visibleMaxY, int maxVisibleX)
+        void DrawLineTo(Vector3 offset, int x, int y, int parentX, int parentY, int visibleMinY, int visibleMaxY, int maxVisibleX, float lineWidth = 2)
         {
-            int parentX = parentPosition.x;
-            int parentY = parentPosition.y;
-
             int minX = Mathf.Min(x, parentX);
             if (minX > maxVisibleX)
                 return;
@@ -422,16 +431,16 @@ namespace Abuksigun.UnityGitUI
             if (parentX < x)
             {
                 var mid = offset + new Vector3(x, parentY - 0.5f) * Space;
-                Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, mid, last);
+                Handles.DrawAAPolyLine(Texture2D.whiteTexture, lineWidth, first, mid, last);
             }
             else if (parentX > x)
             {
                 var mid = offset + new Vector3(parentX, y + 0.5f) * Space;
-                Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, mid, last);
+                Handles.DrawAAPolyLine(Texture2D.whiteTexture, lineWidth, first, mid, last);
             }
             else
             {
-                Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, last);
+                Handles.DrawAAPolyLine(Texture2D.whiteTexture, lineWidth, first, last);
             }
         }
 
@@ -447,6 +456,7 @@ namespace Abuksigun.UnityGitUI
             int branchColorIndex = 1; // 1 reserved for priority chain
             var laneColors = new Dictionary<string, int>();
             var cells = new LogGraphCell[lines.Count, maxLanes];
+            var pullMergeTargetX = new Dictionary<string, int>();
 
             for (int y = 0; y < lines.Count; y++)
             {
@@ -476,17 +486,22 @@ namespace Abuksigun.UnityGitUI
                 if (!laneColors.ContainsKey(hash))
                     laneColors[hash] = isPriority ? 1 : ++branchColorIndex;
                 int commitColor = laneColors[hash];
+                int commitDrawX = pullMergeTargetX.TryGetValue(hash, out int pmx) ? pmx : commitLane;
 
                 // Fill pass-through cells for active lanes
                 for (int x = 0; x < activeLanes.Count && x < maxLanes; x++)
                 {
                     if (activeLanes[x] == null || x == commitLane)
                         continue;
+                    bool isPullMergePath = pullMergeTargetX.ContainsKey(activeLanes[x]);
+                    int dx = isPullMergePath ? pullMergeTargetX[activeLanes[x]] : x;
                     cells[y, x] = new LogGraphCell {
                         commit = false,
                         hash = activeLanes[x],
                         parent = activeLanes[x],
-                        branch = laneColors.TryGetValue(activeLanes[x], out var c) ? c : 0
+                        pullMergePath = isPullMergePath,
+                        branch = laneColors.TryGetValue(activeLanes[x], out var c) ? c : 0,
+                        drawX = dx
                     };
                 }
 
@@ -496,7 +511,9 @@ namespace Abuksigun.UnityGitUI
                     parent = firstParent,
                     mergeParent = mergeParent,
                     pullMerge = pullMerge,
-                    branch = commitColor
+                    pullMergePath = pullMergeTargetX.ContainsKey(hash),
+                    branch = commitColor,
+                    drawX = commitDrawX
                 };
 
                 // Update lanes
@@ -504,10 +521,27 @@ namespace Abuksigun.UnityGitUI
                 if (firstParent != null && !laneColors.ContainsKey(firstParent))
                     laneColors[firstParent] = isPriority ? 1 : commitColor;
 
-                ResolveDuplicateLane(firstParent, commitLane, activeLanes);
+                bool duplicateResolved = ResolveDuplicateLane(firstParent, commitLane, activeLanes);
+
+                // Propagate pull merge draw offset along the merge parent path
+                if (pullMergeTargetX.TryGetValue(hash, out int inheritedTarget))
+                {
+                    pullMergeTargetX.Remove(hash);
+                    if (firstParent != null && !duplicateResolved)
+                        pullMergeTargetX[firstParent] = inheritedTarget;
+                }
+                if (duplicateResolved && firstParent != null)
+                    pullMergeTargetX.Remove(firstParent);
 
                 if (mergeParent != null && !skipMerge)
+                {
                     ReserveMergeParentLane(mergeParent, commitLane, priorityHashes, activeLanes, maxLanes, laneColors, ref branchColorIndex);
+                    if (pullMerge)
+                    {
+                        pullMergeTargetX[mergeParent] = commitLane;
+                        laneColors[mergeParent] = commitColor;
+                    }
+                }
 
                 CompactLanes(activeLanes);
             }
@@ -599,19 +633,19 @@ namespace Abuksigun.UnityGitUI
             return lane;
         }
 
-        static void ResolveDuplicateLane(string firstParent, int commitLane, List<string> activeLanes)
+        static bool ResolveDuplicateLane(string firstParent, int commitLane, List<string> activeLanes)
         {
             if (firstParent == null)
-                return;
+                return false;
             for (int x = 0; x < activeLanes.Count; x++)
             {
                 if (x != commitLane && activeLanes[x] == firstParent)
                 {
-                    // Two lanes track the same hash — free the non-priority one
                     activeLanes[commitLane == 0 ? x : commitLane] = null;
-                    return;
+                    return true;
                 }
             }
+            return false;
         }
 
         static void ReserveMergeParentLane(string mergeParent, int commitLane, HashSet<string> priorityHashes,
