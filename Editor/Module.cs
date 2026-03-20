@@ -397,7 +397,7 @@ namespace Abuksigun.UnityGitUI
         {
             string filesStr = files != null && files.Any() ? Utils.JoinFileNames(files).WrapUp("--follow -- ", "") : null;
             var lastCommit = await CurrentCommit;
-            var result = await RunGit($"log --graph --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ae) (%as) <b>%d</b> %s\" --branches --remotes --tags {lastCommit} {filesStr}");
+            var result = await RunGit($"log --abbrev-commit --decorate --format=format:\"#%h %p - %an (%ae) (%as) <b>%d</b> %s\" --branches --remotes --tags {lastCommit} {filesStr}");
             return result.Output.SplitLines();
         }
 

@@ -21,6 +21,21 @@ namespace Abuksigun.UnityGitUI
                 window.Show();
             }
         }
+
+        const string HideMergesMenuPath = "Window/Git UI/Hide Merge Lines";
+
+        [MenuItem(HideMergesMenuPath, priority = 100)]
+        static void ToggleHideMergeLines()
+        {
+            PluginSettingsProvider.HideMergeLines = !PluginSettingsProvider.HideMergeLines;
+        }
+
+        [MenuItem(HideMergesMenuPath, true)]
+        static bool ToggleHideMergeLinesValidate()
+        {
+            Menu.SetChecked(HideMergesMenuPath, PluginSettingsProvider.HideMergeLines);
+            return true;
+        }
     }
 
     public static class GitFileLog
@@ -47,7 +62,7 @@ namespace Abuksigun.UnityGitUI
         }
     }
 
-    record LogLine(string Raw, string Hash, string Comment, string Author, string Email, string Date, string[] Branches, string[] Tags);
+    record LogLine(string Hash, string[] Parents, string Comment, string Author, string Email, string Date, string[] Branches, string[] Tags);
 
     class CommitTreeViewItem : TreeViewItem
     {
@@ -69,14 +84,15 @@ namespace Abuksigun.UnityGitUI
         {
             public bool commit;
             public string hash;
-            public string child;
             public string parent;
             public string mergeParent;
+            public bool pullMerge;
             public int branch;
         }
 
         LogGraphCell[,] cells;
         string[] lastLog;
+        bool lastHideMergeLines;
         List<LogLine> lines;
 
         public bool ShowStash { get; set; }
@@ -86,6 +102,7 @@ namespace Abuksigun.UnityGitUI
         bool HideGraph => ShowStash || HideFilesPanel;
         bool HideFilesPanel => (LogFiles != null && LogFiles.Count > 0);
         bool HideLog => !string.IsNullOrEmpty(LockedHash);
+        bool HideMergeLines => PluginSettingsProvider.HideMergeLines;
         
         float FilesPanelHeight => HideLog ? position.height : verticalSplitterState.RealSizes[1];
 
@@ -123,13 +140,16 @@ namespace Abuksigun.UnityGitUI
         List<LogLine> ParseGitLogLines(IEnumerable<string> rawLines)
         {
             var logLines = new List<LogLine>();
-            foreach (var rawLine in rawLines.Where(x => x.Contains('*')))
+            foreach (var rawLine in rawLines.Where(x => x.Contains('#')))
             {
-                var groups = Regex.Match(rawLine, @"#([0-9a-f]+).*?- (.*?) \((.*?)\) \((.*?)\) <b>\s?\(?(.*?)\)?</b> (.*)")?.Groups;
-                var references = groups[5].Value.Split(',', StringSplitOptions.RemoveEmptyEntries).Where(x => x != "refs/stash");
+                var groups = Regex.Match(rawLine, @"#([0-9a-f]+)\s(.*?)\s- (.*?) \((.*?)\) \((.*?)\) <b>\s?\(?(.*?)\)?</b> (.*)")?.Groups;
+                if (groups == null || !groups[1].Success)
+                    continue;
+                var parents = groups[2].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var references = groups[6].Value.Split(',', StringSplitOptions.RemoveEmptyEntries).Where(x => x != "refs/stash");
                 var branches = references.Where(x => !x.StartsWith("tag:")).ToArray();
                 var tags = references.Where(x => x.StartsWith("tag:")).Select(x => x[5..]).ToArray();
-                logLines.Add(new LogLine(rawLine, Hash: groups[1].Value, Comment: groups[6].Value, Author: groups[2].Value, Email: groups[3].Value, Date: groups[4].Value, branches, tags));
+                logLines.Add(new LogLine(Hash: groups[1].Value, Parents: parents, Comment: groups[7].Value, Author: groups[3].Value, Email: groups[4].Value, Date: groups[5].Value, branches, tags));
             }
             return logLines;
         }
@@ -175,11 +195,12 @@ namespace Abuksigun.UnityGitUI
             var log = (ShowStash ? module.Stashes : module.LogFiles(LogFiles)).GetResultOrDefault();
             if (log == null)
                 return;
-            if (log != lastLog)
+            if (log != lastLog || lastHideMergeLines != HideMergeLines)
             {
                 lastLog = log;
+                lastHideMergeLines = HideMergeLines;
                 lines = ParseGitLogLines(log); // FIXME: Move parse log to Module
-                cells = ParseGraph(lines);
+                cells = ParseGraph(lines, HideMergeLines);
                 treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, true, multiColumnHeader ??= new(multiColumnHeaderState), DrawCell);
                 treeViewFiles = new(statuses => GUIUtils.GenerateFileItems(statuses, true), treeViewStateFiles, true);
             }
@@ -319,47 +340,14 @@ namespace Abuksigun.UnityGitUI
             }
         }
 
-        IEnumerable<Vector2Int> FindCells(int fromY, params string[] hashes)
+        Vector2Int? FindCellPosition(int fromY, int maxY, string hash)
         {
-            foreach (string hash in hashes)
-            {
-                if (hash == null)
-                    continue;
-                for (int parentY = fromY; parentY < cells.GetLength(0); parentY++)
-                {
-                    for (int parentX = 0; parentX < cells.GetLength(1); parentX++)
-                    {
-                        if (hash == cells[parentY, parentX].hash)
-                        {
-                            yield return new Vector2Int(parentX, parentY);
-                            parentX = int.MaxValue - 1;
-                            parentY = int.MaxValue - 1;
-                        }
-                    }
-                }
-            }
-        }
-
-        IEnumerable<Vector2Int> FindCellsInRange(int fromY, int maxY, params string[] hashes)
-        {
-            int searchLimit = Mathf.Min(cells.GetLength(0), maxY);
-            foreach (string hash in hashes)
-            {
-                if (hash == null)
-                    continue;
-                for (int parentY = fromY; parentY < searchLimit; parentY++)
-                {
-                    for (int parentX = 0; parentX < cells.GetLength(1); parentX++)
-                    {
-                        if (hash == cells[parentY, parentX].hash)
-                        {
-                            yield return new Vector2Int(parentX, parentY);
-                            parentX = int.MaxValue - 1;
-                            parentY = int.MaxValue - 1;
-                        }
-                    }
-                }
-            }
+            if (hash == null) return null;
+            for (int py = fromY; py < maxY; py++)
+                for (int px = 0; px < cells.GetLength(1); px++)
+                    if (cells[py, px].hash == hash)
+                        return new Vector2Int(px, py);
+            return null;
         }
 
         void DrawConnection(LogGraphCell cell, Vector3 offset, int x, int y, int visibleMinY, int visibleMaxY, int maxVisibleX)
@@ -367,64 +355,330 @@ namespace Abuksigun.UnityGitUI
             if (cell.parent == null)
                 return;
 
-            foreach (var parentPosition in FindCellsInRange(y + 1, visibleMaxY + 1, cell.parent, cell.mergeParent))
+            int searchMaxY = Mathf.Min(cells.GetLength(0), visibleMaxY + 1);
+
+            // For non-commit cells (pass-through lanes), draw straight down to next row with same hash
+            if (!cell.commit)
             {
-                int parentX = parentPosition.x;
-                int parentY = parentPosition.y;
-                
-                // Skip if connection is entirely outside visible X range
-                int minX = Mathf.Min(x, parentX);
-                if (minX > maxVisibleX)
-                    continue;
-                
-                // Check if connection is visible in Y range
-                // Connection is visible if: it starts in view, ends in view, or crosses through view
-                bool startsInView = y >= visibleMinY && y < visibleMaxY;
-                bool endsInView = parentY >= visibleMinY && parentY < visibleMaxY;
-                bool crossesView = y < visibleMinY && parentY >= visibleMaxY;
-                
-                if (!startsInView && !endsInView && !crossesView)
-                    continue;
+                var nextPos = FindCellPosition(y + 1, searchMaxY, cell.parent);
+                if (nextPos.HasValue)
+                    DrawLineTo(offset, x, y, nextPos.Value, visibleMinY, visibleMaxY, maxVisibleX);
+                return;
+            }
 
-                var first = offset + new Vector3(x, y) * Space;
-                var last = offset + new Vector3(parentX, parentY) * Space;
+            // For commit cells, draw to first parent
+            var parentPos = FindCellPosition(y + 1, searchMaxY, cell.parent);
+            if (parentPos.HasValue)
+                DrawLineTo(offset, x, y, parentPos.Value, visibleMinY, visibleMaxY, maxVisibleX);
 
-                if (parentX < x)
-                    Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, offset + new Vector3(x, parentY - 0.5f) * Space, last);
-                else if (parentX > x)
-                    Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, offset + new Vector3(parentX, y + 0.5f) * Space, last);
-                else
-                    Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, last);
+            // Draw to merge parent
+            if ((!HideMergeLines || cell.pullMerge) && cell.mergeParent != null)
+            {
+                var mergePos = FindCellPosition(y + 1, searchMaxY, cell.mergeParent);
+                if (mergePos.HasValue)
+                    DrawLineTo(offset, x, y, mergePos.Value, visibleMinY, visibleMaxY, maxVisibleX);
+            }
+
+            // Draw small merge arrow when merge lines are hidden (but not for pull merges)
+            if (HideMergeLines && !cell.pullMerge && cell.mergeParent != null)
+                DrawMergeArrow(cell, offset, x, y);
+        }
+
+        void DrawMergeArrow(LogGraphCell cell, Vector3 offset, int x, int y)
+        {
+            var mergeSourcePos = FindCellPosition(0, cells.GetLength(0), cell.mergeParent);
+            int sourceX = mergeSourcePos.HasValue ? mergeSourcePos.Value.x : x + 1;
+            int dir = sourceX > x ? 1 : (sourceX < x ? -1 : 1);
+
+            var center = offset + new Vector3(x, y) * Space;
+            float arrowLen = Space * 0.45f;
+            var tip = center + new Vector3(dir * 4, 0);
+            var tail = center + new Vector3(dir * (4 + arrowLen), 0);
+            var arrowUp = tip + new Vector3(dir * 3, -3);
+            var arrowDown = tip + new Vector3(dir * 3, 3);
+            Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, tail, tip);
+            Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, arrowUp, tip, arrowDown);
+        }
+
+        void DrawLineTo(Vector3 offset, int x, int y, Vector2Int parentPosition, int visibleMinY, int visibleMaxY, int maxVisibleX)
+        {
+            int parentX = parentPosition.x;
+            int parentY = parentPosition.y;
+
+            int minX = Mathf.Min(x, parentX);
+            if (minX > maxVisibleX)
+                return;
+
+            bool startsInView = y >= visibleMinY && y < visibleMaxY;
+            bool endsInView = parentY >= visibleMinY && parentY < visibleMaxY;
+            bool crossesView = y < visibleMinY && parentY >= visibleMaxY;
+
+            if (!startsInView && !endsInView && !crossesView)
+                return;
+
+            var first = offset + new Vector3(x, y) * Space;
+            var last = offset + new Vector3(parentX, parentY) * Space;
+
+            if (parentX < x)
+            {
+                var mid = offset + new Vector3(x, parentY - 0.5f) * Space;
+                Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, mid, last);
+            }
+            else if (parentX > x)
+            {
+                var mid = offset + new Vector3(parentX, y + 0.5f) * Space;
+                Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, mid, last);
+            }
+            else
+            {
+                Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, first, last);
             }
         }
 
-        LogGraphCell[,] ParseGraph(List<LogLine> lines)
+        LogGraphCell[,] ParseGraph(List<LogLine> lines, bool skipMergeParents = false)
         {
-            var cells = new LogGraphCell[lines.Count, 20];
-            int currentBranchIndex = 0;
-            for (int y = 0; y < cells.GetLength(0); y++)
+            var allHashes = new HashSet<string>(lines.Select(l => l.Hash));
+            var linesByHash = lines.ToDictionary(l => l.Hash);
+            var priorityHashes = BuildPriorityChain(lines, linesByHash, allHashes);
+            var commitBranch = skipMergeParents ? BuildCommitBranchMap(lines, linesByHash) : null;
+
+            var activeLanes = new List<string> { null }; // Lane 0 reserved for priority chain
+            int maxLanes = 40;
+            int branchColorIndex = 1; // 1 reserved for priority chain
+            var laneColors = new Dictionary<string, int>();
+            var cells = new LogGraphCell[lines.Count, maxLanes];
+
+            for (int y = 0; y < lines.Count; y++)
             {
-                string rawLine = lines[y].Raw;
-                var match = Regex.Match(rawLine, @"#([0-9a-f]+) ?([0-9a-f]+)?\s?([0-9a-f]+)?\s-");
-                if (match.Success && match.Groups is { } parts)
+                var line = lines[y];
+                string hash = line.Hash;
+                bool isPriority = priorityHashes.Contains(hash);
+                string firstParent = line.Parents.Length > 0 ? line.Parents[0] : null;
+                string mergeParent = line.Parents.Length > 1 ? line.Parents[1] : null;
+
+                // Drop parents not in the log — they'd create ghost lanes
+                if (firstParent != null && !allHashes.Contains(firstParent))
+                    firstParent = null;
+                if (mergeParent != null && !allHashes.Contains(mergeParent))
+                    mergeParent = null;
+
+                bool pullMerge = false;
+                bool skipMerge = skipMergeParents && mergeParent != null;
+                if (skipMerge)
                 {
-                    for (int x = 0; rawLine[x * 2] != '#'; x++)
+                    pullMerge = IsPullMerge(line.Comment, hash, commitBranch);
+                    if (pullMerge)
+                        skipMerge = false;
+                }
+
+                int commitLane = ClaimLane(hash, isPriority, activeLanes, maxLanes);
+
+                if (!laneColors.ContainsKey(hash))
+                    laneColors[hash] = isPriority ? 1 : ++branchColorIndex;
+                int commitColor = laneColors[hash];
+
+                // Fill pass-through cells for active lanes
+                for (int x = 0; x < activeLanes.Count && x < maxLanes; x++)
+                {
+                    if (activeLanes[x] == null || x == commitLane)
+                        continue;
+                    cells[y, x] = new LogGraphCell {
+                        commit = false,
+                        hash = activeLanes[x],
+                        parent = activeLanes[x],
+                        branch = laneColors.TryGetValue(activeLanes[x], out var c) ? c : 0
+                    };
+                }
+
+                cells[y, commitLane] = new LogGraphCell {
+                    commit = true,
+                    hash = hash,
+                    parent = firstParent,
+                    mergeParent = mergeParent,
+                    pullMerge = pullMerge,
+                    branch = commitColor
+                };
+
+                // Update lanes
+                activeLanes[commitLane] = firstParent;
+                if (firstParent != null && !laneColors.ContainsKey(firstParent))
+                    laneColors[firstParent] = isPriority ? 1 : commitColor;
+
+                ResolveDuplicateLane(firstParent, commitLane, activeLanes);
+
+                if (mergeParent != null && !skipMerge)
+                    ReserveMergeParentLane(mergeParent, commitLane, priorityHashes, activeLanes, maxLanes, laneColors, ref branchColorIndex);
+
+                CompactLanes(activeLanes);
+            }
+
+            return cells;
+        }
+
+        static HashSet<string> BuildPriorityChain(List<LogLine> lines, Dictionary<string, LogLine> linesByHash, HashSet<string> allHashes)
+        {
+            var priorityHashes = new HashSet<string>();
+            string tip = lines.FirstOrDefault(line => line.Branches.Any(b => {
+                var t = b.Trim();
+                return t == "main" || t == "master"
+                    || t == "HEAD -> main" || t == "HEAD -> master"
+                    || t.EndsWith("/main") || t.EndsWith("/master");
+            }))?.Hash ?? lines.FirstOrDefault()?.Hash;
+
+            for (string current = tip; current != null && allHashes.Contains(current); )
+            {
+                priorityHashes.Add(current);
+                current = linesByHash[current].Parents.Length > 0 ? linesByHash[current].Parents[0] : null;
+            }
+            return priorityHashes;
+        }
+
+        static Dictionary<string, string> BuildCommitBranchMap(List<LogLine> lines, Dictionary<string, LogLine> linesByHash)
+        {
+            var commitBranch = new Dictionary<string, string>();
+            foreach (var line in lines)
+            {
+                foreach (var branch in line.Branches)
+                {
+                    var name = branch.Trim();
+                    if (name.StartsWith("HEAD -> "))
+                        name = name.Substring(8);
+                    int slashIdx = name.LastIndexOf('/');
+                    if (slashIdx >= 0)
+                        name = name.Substring(slashIdx + 1);
+
+                    for (string current = line.Hash; current != null && linesByHash.ContainsKey(current) && !commitBranch.ContainsKey(current); )
                     {
-                        bool commitMark = rawLine[x * 2] == '*';
-                        LogGraphCell prevCell = y > 0 ? cells[y - 1, x] : default;
-                        string hash = commitMark ? parts[1].Value : prevCell.parent;
-                        cells[y, x] = new LogGraphCell {
-                            commit = commitMark,
-                            hash = hash,
-                            child = prevCell.hash,
-                            parent = commitMark ? parts[2].Value : prevCell.parent,
-                            mergeParent = commitMark ? parts[3].Value : null,
-                            branch = prevCell.branch != 0 && prevCell.parent == hash ? prevCell.branch : ++currentBranchIndex
-                        };
+                        commitBranch[current] = name;
+                        current = linesByHash[current].Parents.Length > 0 ? linesByHash[current].Parents[0] : null;
                     }
                 }
             }
-            return cells;
+            return commitBranch;
+        }
+
+        static bool IsPullMerge(string comment, string hash, Dictionary<string, string> commitBranch)
+        {
+            // "Merge branch 'X' of <url> into X" or "Merge branch 'X' of <url>" (implicit same branch)
+            var pullMatch = Regex.Match(comment, @"^Merge branch '(.+?)' of .+?( into (.+))?$");
+            if (pullMatch.Success)
+            {
+                string mergeBranch = pullMatch.Groups[1].Value.Trim();
+                if (!pullMatch.Groups[2].Success || mergeBranch == pullMatch.Groups[3].Value.Trim())
+                    return true;
+            }
+            // "Merge branch 'A'" where commit is on branch A
+            var simpleMerge = Regex.Match(comment, @"^Merge branch '(.+?)'$");
+            return simpleMerge.Success
+                && commitBranch != null
+                && commitBranch.TryGetValue(hash, out var currentBranch)
+                && simpleMerge.Groups[1].Value.Trim() == currentBranch;
+        }
+
+        static int ClaimLane(string hash, bool isPriority, List<string> activeLanes, int maxLanes)
+        {
+            if (isPriority)
+            {
+                int oldLane = activeLanes.IndexOf(hash);
+                if (oldLane > 0)
+                    activeLanes[oldLane] = null;
+                if (activeLanes[0] != null && activeLanes[0] != hash)
+                {
+                    string displaced = activeLanes[0];
+                    activeLanes[FindAdjacentFreeLane(activeLanes, 1, 1, maxLanes)] = displaced;
+                }
+                activeLanes[0] = hash;
+                return 0;
+            }
+            int lane = activeLanes.IndexOf(hash);
+            if (lane < 0)
+            {
+                lane = FindAdjacentFreeLane(activeLanes, 1, 1, maxLanes);
+                activeLanes[lane] = hash;
+            }
+            return lane;
+        }
+
+        static void ResolveDuplicateLane(string firstParent, int commitLane, List<string> activeLanes)
+        {
+            if (firstParent == null)
+                return;
+            for (int x = 0; x < activeLanes.Count; x++)
+            {
+                if (x != commitLane && activeLanes[x] == firstParent)
+                {
+                    // Two lanes track the same hash — free the non-priority one
+                    activeLanes[commitLane == 0 ? x : commitLane] = null;
+                    return;
+                }
+            }
+        }
+
+        static void ReserveMergeParentLane(string mergeParent, int commitLane, HashSet<string> priorityHashes,
+            List<string> activeLanes, int maxLanes, Dictionary<string, int> laneColors, ref int branchColorIndex)
+        {
+            int mergeLane = activeLanes.IndexOf(mergeParent);
+            if (mergeLane >= 0)
+                return;
+
+            bool mergeIsPriority = priorityHashes.Contains(mergeParent);
+            if (mergeIsPriority)
+            {
+                mergeLane = 0;
+                if (activeLanes[0] != null)
+                {
+                    string displaced = activeLanes[0];
+                    activeLanes[FindAdjacentFreeLane(activeLanes, 1, 1, maxLanes)] = displaced;
+                }
+            }
+            else
+            {
+                mergeLane = FindAdjacentFreeLane(activeLanes, commitLane, 1, maxLanes);
+            }
+            activeLanes[mergeLane] = mergeParent;
+            if (!laneColors.ContainsKey(mergeParent))
+                laneColors[mergeParent] = mergeIsPriority ? 1 : ++branchColorIndex;
+        }
+
+        static void CompactLanes(List<string> activeLanes)
+        {
+            // Keep lane 0 (priority) in place. Remove null gaps from lane 1 onwards.
+            int writePos = 1;
+            for (int readPos = 1; readPos < activeLanes.Count; readPos++)
+            {
+                if (activeLanes[readPos] != null)
+                {
+                    if (writePos != readPos)
+                        activeLanes[writePos] = activeLanes[readPos];
+                    writePos++;
+                }
+            }
+            while (activeLanes.Count > writePos)
+                activeLanes.RemoveAt(activeLanes.Count - 1);
+            // Always keep at least lane 0
+            if (activeLanes.Count == 0)
+                activeLanes.Add(null);
+        }
+
+        static int FindAdjacentFreeLane(List<string> activeLanes, int nearLane, int minLane, int maxLanes)
+        {
+            // Search outward from nearLane for the closest free slot
+            for (int dist = 0; dist < maxLanes; dist++)
+            {
+                int right = nearLane + dist;
+                if (right >= minLane && right < activeLanes.Count && activeLanes[right] == null)
+                    return right;
+                int left = nearLane - dist;
+                if (left >= minLane && left < activeLanes.Count && activeLanes[left] == null)
+                    return left;
+            }
+            // No free slot — append a new lane
+            if (activeLanes.Count < maxLanes)
+            {
+                activeLanes.Add(null);
+                return activeLanes.Count - 1;
+            }
+            return activeLanes.Count - 1;
         }
 
         async Task ShowCommitContextMenu(Module module, string selectedCommit, IEnumerable<string> selectedCommits)
