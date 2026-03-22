@@ -27,6 +27,7 @@ namespace Abuksigun.UnityGitUI
         [Pref] public static int RemoteRefreshIntervalSec { get => Mathf.Max(30, GetInt(nameof(RemoteRefreshIntervalSec), 120), 5 * 60); set => SetInt(nameof(RemoteRefreshIntervalSec), value); }
         [Pref]  public static int MaxParallelProcesses { get => Mathf.Max(1, GetInt(nameof(MaxParallelProcesses), 10)); set => SetInt(nameof(MaxParallelProcesses), value); }
         [Pref] public static bool HideMergeLines { get => GetInt(nameof(HideMergeLines), 0) == 1; set => SetInt(nameof(HideMergeLines), value ? 1 : 0); }
+        [Pref] public static bool CollapsePullMerges { get => GetInt(nameof(CollapsePullMerges), 0) == 1; set => SetInt(nameof(CollapsePullMerges), value ? 1 : 0); }
 
         static string[] AllPrefs => typeof(PluginSettingsProvider).GetProperties().Where(p => p.GetCustomAttributes(typeof(PrefAttribute), false).Length > 0).Select(p => p.Name).ToArray();
 

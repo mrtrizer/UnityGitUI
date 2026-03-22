@@ -23,6 +23,7 @@ namespace Abuksigun.UnityGitUI
         }
 
         const string HideMergesMenuPath = "Window/Git UI/Hide Merge Lines";
+        const string CollapsePullMergesMenuPath = "Window/Git UI/Collapse Pull Merges";
 
         [MenuItem(HideMergesMenuPath, priority = 100)]
         static void ToggleHideMergeLines()
@@ -34,6 +35,19 @@ namespace Abuksigun.UnityGitUI
         static bool ToggleHideMergeLinesValidate()
         {
             Menu.SetChecked(HideMergesMenuPath, PluginSettingsProvider.HideMergeLines);
+            return true;
+        }
+
+        [MenuItem(CollapsePullMergesMenuPath, priority = 101)]
+        static void ToggleCollapsePullMerges()
+        {
+            PluginSettingsProvider.CollapsePullMerges = !PluginSettingsProvider.CollapsePullMerges;
+        }
+
+        [MenuItem(CollapsePullMergesMenuPath, true)]
+        static bool ToggleCollapsePullMergesValidate()
+        {
+            Menu.SetChecked(CollapsePullMergesMenuPath, PluginSettingsProvider.CollapsePullMerges);
             return true;
         }
     }
@@ -95,6 +109,7 @@ namespace Abuksigun.UnityGitUI
         LogGraphCell[,] cells;
         string[] lastLog;
         bool lastHideMergeLines;
+        bool lastCollapsePullMerges;
         List<LogLine> lines;
 
         public bool ShowStash { get; set; }
@@ -105,6 +120,7 @@ namespace Abuksigun.UnityGitUI
         bool HideFilesPanel => (LogFiles != null && LogFiles.Count > 0);
         bool HideLog => !string.IsNullOrEmpty(LockedHash);
         bool HideMergeLines => PluginSettingsProvider.HideMergeLines;
+        bool CollapsePullMerges => PluginSettingsProvider.CollapsePullMerges;
         
         float FilesPanelHeight => HideLog ? position.height : verticalSplitterState.RealSizes[1];
 
@@ -197,12 +213,13 @@ namespace Abuksigun.UnityGitUI
             var log = (ShowStash ? module.Stashes : module.LogFiles(LogFiles)).GetResultOrDefault();
             if (log == null)
                 return;
-            if (log != lastLog || lastHideMergeLines != HideMergeLines)
+            if (log != lastLog || lastHideMergeLines != HideMergeLines || lastCollapsePullMerges != CollapsePullMerges)
             {
                 lastLog = log;
                 lastHideMergeLines = HideMergeLines;
+                lastCollapsePullMerges = CollapsePullMerges;
                 lines = ParseGitLogLines(log); // FIXME: Move parse log to Module
-                cells = ParseGraph(lines, HideMergeLines);
+                cells = ParseGraph(lines, HideMergeLines, CollapsePullMerges);
                 treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, true, multiColumnHeader ??= new(multiColumnHeaderState), DrawCell);
                 treeViewFiles = new(statuses => GUIUtils.GenerateFileItems(statuses, true), treeViewStateFiles, true);
             }
@@ -385,7 +402,11 @@ namespace Abuksigun.UnityGitUI
             {
                 var mergePos = FindCellPosition(y + 1, searchMaxY, cell.mergeParent);
                 if (mergePos.HasValue)
-                    DrawLineTo(offset, cell.drawX, y, cells[mergePos.Value.y, mergePos.Value.x].drawX, mergePos.Value.y, visibleMinY, visibleMaxY, maxVisibleX, lineWidth);
+                {
+                    var mergeCell = cells[mergePos.Value.y, mergePos.Value.x];
+                    Handles.color = Style.GraphColors[mergeCell.branch % Style.GraphColors.Length];
+                    DrawLineTo(offset, cell.drawX, y, mergeCell.drawX, mergePos.Value.y, visibleMinY, visibleMaxY, maxVisibleX, lineWidth, arrowAtStart: true);
+                }
             }
 
             // Draw small merge arrow when merge lines are hidden (but not for pull merges)
@@ -412,7 +433,7 @@ namespace Abuksigun.UnityGitUI
             Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, arrowUp, tip, arrowDown);
         }
 
-        void DrawLineTo(Vector3 offset, int x, int y, int parentX, int parentY, int visibleMinY, int visibleMaxY, int maxVisibleX, float lineWidth = 2)
+        void DrawLineTo(Vector3 offset, int x, int y, int parentX, int parentY, int visibleMinY, int visibleMaxY, int maxVisibleX, float lineWidth = 2, bool arrowAtStart = false)
         {
             int minX = Mathf.Min(x, parentX);
             if (minX > maxVisibleX)
@@ -428,28 +449,47 @@ namespace Abuksigun.UnityGitUI
             var first = offset + new Vector3(x, y) * Space;
             var last = offset + new Vector3(parentX, parentY) * Space;
 
+            Vector3 incomingDir = Vector3.zero;
+
             if (parentX < x)
             {
-                var mid = offset + new Vector3(x, parentY - 0.5f) * Space;
+                // Merge lines: bend horizontally at commit so line arrives directly at merge point
+                // Branch lines: bend vertically at commit, horizontal near parent
+                var mid = arrowAtStart
+                    ? offset + new Vector3(parentX, y + 0.5f) * Space
+                    : offset + new Vector3(x, parentY - 0.5f) * Space;
                 Handles.DrawAAPolyLine(Texture2D.whiteTexture, lineWidth, first, mid, last);
+                incomingDir = (first - mid).normalized;
             }
             else if (parentX > x)
             {
                 var mid = offset + new Vector3(parentX, y + 0.5f) * Space;
                 Handles.DrawAAPolyLine(Texture2D.whiteTexture, lineWidth, first, mid, last);
+                incomingDir = (first - mid).normalized;
             }
             else
             {
                 Handles.DrawAAPolyLine(Texture2D.whiteTexture, lineWidth, first, last);
+                incomingDir = (first - last).normalized;
+            }
+
+            if (arrowAtStart && startsInView && incomingDir.sqrMagnitude > 0)
+            {
+                // Arrowhead aligned to the line direction, pointing into the commit
+                var tip = first - incomingDir * 5;
+                var perp = new Vector3(-incomingDir.y, incomingDir.x, 0);
+                var arrowA = tip - incomingDir * 5 + perp * 3;
+                var arrowB = tip - incomingDir * 5 - perp * 3;
+                Handles.DrawAAPolyLine(Texture2D.whiteTexture, 2, arrowA, tip, arrowB);
             }
         }
 
-        LogGraphCell[,] ParseGraph(List<LogLine> lines, bool skipMergeParents = false)
+        LogGraphCell[,] ParseGraph(List<LogLine> lines, bool skipMergeParents = false, bool collapsePullMerges = false)
         {
             var allHashes = new HashSet<string>(lines.Select(l => l.Hash));
             var linesByHash = lines.ToDictionary(l => l.Hash);
             var priorityHashes = BuildPriorityChain(lines, linesByHash, allHashes);
-            var commitBranch = skipMergeParents ? BuildCommitBranchMap(lines, linesByHash) : null;
+            var commitBranch = (skipMergeParents || collapsePullMerges) ? BuildCommitBranchMap(lines, linesByHash) : null;
 
             var activeLanes = new List<string> { null }; // Lane 0 reserved for priority chain
             int maxLanes = 40;
@@ -474,10 +514,10 @@ namespace Abuksigun.UnityGitUI
 
                 bool pullMerge = false;
                 bool skipMerge = skipMergeParents && mergeParent != null;
-                if (skipMerge)
+                if (mergeParent != null && (skipMerge || collapsePullMerges))
                 {
                     pullMerge = IsPullMerge(line.Comment, hash, commitBranch);
-                    if (pullMerge)
+                    if (pullMerge && skipMerge)
                         skipMerge = false;
                 }
 
