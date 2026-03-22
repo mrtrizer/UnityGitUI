@@ -140,6 +140,7 @@ namespace Abuksigun.UnityGitUI
         LazyTreeView<GitStatus> treeViewFiles;
         int lastSelectedCommitHash;
         Vector2 infoPanelScrollPosition;
+        RenderTexture graphRT;
 
         string GetSelectedCommitHash(int id)
         {
@@ -264,7 +265,25 @@ namespace Abuksigun.UnityGitUI
                 int lastY = Mathf.Min(cells.GetLength(0), firstY + itemNum);
                 int maxVisibleX = Mathf.Max(1, (int)(graphSize.x / Space) + 1);
                 int maxX = Mathf.Min(cells.GetLength(1), maxVisibleX);
-                GUI.BeginClip(new Rect(firstPoint + Vector2.up * TableHeaderHeight, graphSize));
+
+                int scale = 1;
+
+                int rtW = Mathf.Max(1, Mathf.CeilToInt(graphSize.x) * scale);
+                int rtH = Mathf.Max(1, Mathf.CeilToInt(graphSize.y) * scale);
+                if (graphRT == null || graphRT.width != rtW || graphRT.height != rtH)
+                {
+                    if (graphRT != null)
+                        graphRT.Release();
+                    graphRT = new RenderTexture(rtW, rtH, 0, RenderTextureFormat.ARGB32) { antiAliasing = 8 };
+                    graphRT.Create();
+                }
+
+                var prevRT = RenderTexture.active;
+                RenderTexture.active = graphRT;
+                GL.Clear(true, true, Color.clear);
+                GL.PushMatrix();
+                GL.LoadPixelMatrix(0, rtW / (float)scale, rtH / (float)scale, 0);
+
                 for (int y = firstY; y < lastY; y++)
                 {
                     for (int x = 0; x < maxX; x++)
@@ -284,7 +303,11 @@ namespace Abuksigun.UnityGitUI
                         Handles.color = oldColor;
                     }
                 }
-                GUI.EndClip();
+
+                GL.PopMatrix();
+                RenderTexture.active = prevRT;
+
+                GUI.DrawTexture(new Rect(firstPoint + Vector2.up * TableHeaderHeight, graphSize), graphRT);
             }
         }
 
@@ -514,10 +537,17 @@ namespace Abuksigun.UnityGitUI
 
                 bool pullMerge = false;
                 bool skipMerge = skipMergeParents && mergeParent != null;
-                if (mergeParent != null && (skipMerge || collapsePullMerges))
+                if (mergeParent != null && collapsePullMerges)
                 {
                     pullMerge = IsPullMerge(line.Comment, hash, commitBranch);
                     if (pullMerge && skipMerge)
+                        skipMerge = false;
+                }
+                else if (skipMerge)
+                {
+                    // When only hiding merge lines (no collapse), still skip non-pull merges
+                    // but check if it's a pull merge to preserve its line
+                    if (IsPullMerge(line.Comment, hash, commitBranch))
                         skipMerge = false;
                 }
 
