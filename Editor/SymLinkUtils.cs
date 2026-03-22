@@ -122,8 +122,15 @@ public static class SymLinkUtils
 
     public static bool IsLink(string path)
     {
-        var attributes = System.IO.File.GetAttributes(path);
-        return (attributes & System.IO.FileAttributes.ReparsePoint) == System.IO.FileAttributes.ReparsePoint;
+        try
+        {
+            var attributes = System.IO.File.GetAttributes(path);
+            return (attributes & System.IO.FileAttributes.ReparsePoint) == System.IO.FileAttributes.ReparsePoint;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     public static string ResolveLink(string symlinkPath)

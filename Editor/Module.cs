@@ -524,8 +524,18 @@ namespace Abuksigun.UnityGitUI
                 .Where(line => !string.IsNullOrWhiteSpace(line))
                 .Select(line => {
                     var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                    return new SubmoduleInfo(parts[1], Path.GetFullPath(Path.Combine(PhysicalPath, parts[1])).NormalizeSlashes(), parts[0]);
-                }).ToArray();
+                    try
+                    {
+                        return new SubmoduleInfo(parts[1], Path.GetFullPath(Path.Combine(PhysicalPath, parts[1])).NormalizeSlashes(), parts[0]);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogError($"Failed to parse submodule line: '{line}', PhysicalPath: '{PhysicalPath}', parts: [{string.Join(", ", parts)}], error: {e.Message}");
+                        return null;
+                    }
+                })
+                .Where(x => x != null)
+                .ToArray();
 
             return submodules;
         }
