@@ -296,8 +296,12 @@ namespace Abuksigun.UnityGitUI
                         {
                             var discPos = offset + new Vector3(cell.drawX * Space, y * Space);
                             Handles.DrawSolidDisc(discPos, new Vector3(0, 0, 1), cell.pullMerge || cell.pullMergePath ? 4 : 3);
-                            if (cell.pullMerge)
+                            if (cell.mergeParent != null)
+                            {
+                                Handles.DrawWireDisc(discPos, new Vector3(0, 0, 1), 5f);
+                                Handles.DrawWireDisc(discPos, new Vector3(0, 0, 1), 5.5f);
                                 Handles.DrawWireDisc(discPos, new Vector3(0, 0, 1), 6);
+                            }
                         }
                         DrawConnection(cell, offset, y, visibleMinY: firstY, visibleMaxY: lastY, maxVisibleX);
                         Handles.color = oldColor;
@@ -608,7 +612,7 @@ namespace Abuksigun.UnityGitUI
                     ReserveMergeParentLane(mergeParent, commitLane, priorityHashes, activeLanes, maxLanes, laneColors, ref branchColorIndex);
                     if (pullMerge)
                     {
-                        pullMergeTargetX[mergeParent] = commitLane;
+                        pullMergeTargetX[mergeParent] = commitDrawX;
                         laneColors[mergeParent] = commitColor;
                     }
                 }
@@ -624,9 +628,11 @@ namespace Abuksigun.UnityGitUI
             var priorityHashes = new HashSet<string>();
             string tip = lines.FirstOrDefault(line => line.Branches.Any(b => {
                 var t = b.Trim();
+                return t.EndsWith("/main") || t.EndsWith("/master");
+            }))?.Hash ?? lines.FirstOrDefault(line => line.Branches.Any(b => {
+                var t = b.Trim();
                 return t == "main" || t == "master"
-                    || t == "HEAD -> main" || t == "HEAD -> master"
-                    || t.EndsWith("/main") || t.EndsWith("/master");
+                    || t == "HEAD -> main" || t == "HEAD -> master";
             }))?.Hash ?? lines.FirstOrDefault()?.Hash;
 
             for (string current = tip; current != null && allHashes.Contains(current); )
