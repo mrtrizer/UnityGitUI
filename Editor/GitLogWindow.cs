@@ -21,35 +21,6 @@ namespace Abuksigun.UnityGitUI
                 window.Show();
             }
         }
-
-        const string HideMergesMenuPath = "Window/Git UI/Hide Merge Lines";
-        const string CollapsePullMergesMenuPath = "Window/Git UI/Collapse Pull Merges";
-
-        [MenuItem(HideMergesMenuPath, priority = 100)]
-        static void ToggleHideMergeLines()
-        {
-            PluginSettingsProvider.HideMergeLines = !PluginSettingsProvider.HideMergeLines;
-        }
-
-        [MenuItem(HideMergesMenuPath, true)]
-        static bool ToggleHideMergeLinesValidate()
-        {
-            Menu.SetChecked(HideMergesMenuPath, PluginSettingsProvider.HideMergeLines);
-            return true;
-        }
-
-        [MenuItem(CollapsePullMergesMenuPath, priority = 101)]
-        static void ToggleCollapsePullMerges()
-        {
-            PluginSettingsProvider.CollapsePullMerges = !PluginSettingsProvider.CollapsePullMerges;
-        }
-
-        [MenuItem(CollapsePullMergesMenuPath, true)]
-        static bool ToggleCollapsePullMergesValidate()
-        {
-            Menu.SetChecked(CollapsePullMergesMenuPath, PluginSettingsProvider.CollapsePullMerges);
-            return true;
-        }
     }
 
     public static class GitFileLog
@@ -108,7 +79,7 @@ namespace Abuksigun.UnityGitUI
 
         LogGraphCell[,] cells;
         string[] lastLog;
-        bool lastHideMergeLines;
+        bool lastShowMergeLines;
         bool lastCollapsePullMerges;
         List<LogLine> lines;
 
@@ -119,7 +90,7 @@ namespace Abuksigun.UnityGitUI
         bool HideGraph => ShowStash || HideFilesPanel;
         bool HideFilesPanel => (LogFiles != null && LogFiles.Count > 0);
         bool HideLog => !string.IsNullOrEmpty(LockedHash);
-        bool HideMergeLines => PluginSettingsProvider.HideMergeLines;
+        bool ShowMergeLines => PluginSettingsProvider.ShowMergeLines;
         bool CollapsePullMerges => PluginSettingsProvider.CollapsePullMerges;
         
         float FilesPanelHeight => HideLog ? position.height : verticalSplitterState.RealSizes[1];
@@ -214,13 +185,13 @@ namespace Abuksigun.UnityGitUI
             var log = (ShowStash ? module.Stashes : module.LogFiles(LogFiles)).GetResultOrDefault();
             if (log == null)
                 return;
-            if (log != lastLog || lastHideMergeLines != HideMergeLines || lastCollapsePullMerges != CollapsePullMerges)
+            if (log != lastLog || lastShowMergeLines != ShowMergeLines || lastCollapsePullMerges != CollapsePullMerges)
             {
                 lastLog = log;
-                lastHideMergeLines = HideMergeLines;
+                lastShowMergeLines = ShowMergeLines;
                 lastCollapsePullMerges = CollapsePullMerges;
                 lines = ParseGitLogLines(log); // FIXME: Move parse log to Module
-                cells = ParseGraph(lines, HideMergeLines, CollapsePullMerges);
+                cells = ParseGraph(lines, !ShowMergeLines, CollapsePullMerges);
                 treeViewLog = new(statuses => GenerateLogItems(lines), treeViewLogState, true, multiColumnHeader ??= new(multiColumnHeaderState), DrawCell);
                 treeViewFiles = new(statuses => GUIUtils.GenerateFileItems(statuses, true), treeViewStateFiles, true);
             }
@@ -251,6 +222,24 @@ namespace Abuksigun.UnityGitUI
             int itemNum = (int)(position.size.y / Space);
 
             float currentFilesPanelHeight = showFilesPanel && HideFilesPanel ? 0 : FilesPanelHeight;
+
+            // Eat mouse events in the toggle button area before the tree view processes them
+            float btnSize = 40;
+            float btnMargin = 16;
+            float btnTop = position.height - currentFilesPanelHeight - btnSize - 4;
+            var toggleArea = new Rect(position.width - btnMargin - btnSize * 2 - 2, btnTop, btnSize * 2 + 2, btnSize);
+            bool mouseInToggleArea = toggleArea.Contains(Event.current.mousePosition);
+            if (mouseInToggleArea && Event.current.type == EventType.MouseDown)
+            {
+                float bx = position.width - btnMargin;
+                var collapseRect = new Rect(bx - btnSize, btnTop, btnSize, btnSize);
+                var hideRect = new Rect(bx - btnSize * 2 - 2, btnTop, btnSize, btnSize);
+                if (collapseRect.Contains(Event.current.mousePosition))
+                    PluginSettingsProvider.CollapsePullMerges = !CollapsePullMerges;
+                else if (hideRect.Contains(Event.current.mousePosition))
+                    PluginSettingsProvider.ShowMergeLines = !ShowMergeLines;
+                Event.current.Use();
+            }
 
             treeViewLog.Draw(new Vector2(position.width, position.height - currentFilesPanelHeight), new[] { lastLog },
                 id => _ = ShowCommitContextMenu(module, GetSelectedCommitHash(id), GetSelectedCommitHashes(treeViewLogState.selectedIDs)),
@@ -298,7 +287,7 @@ namespace Abuksigun.UnityGitUI
                             Handles.DrawSolidDisc(discPos, new Vector3(0, 0, 1), cell.pullMerge || cell.pullMergePath ? 4 : 3);
                             if (cell.mergeParent != null)
                             {
-                                Handles.DrawWireDisc(discPos, new Vector3(0, 0, 1), 5f);
+                                Handles.DrawWireDisc(discPos, new Vector3(0, 0, 1), 5);
                                 Handles.DrawWireDisc(discPos, new Vector3(0, 0, 1), 5.5f);
                                 Handles.DrawWireDisc(discPos, new Vector3(0, 0, 1), 6);
                             }
@@ -312,6 +301,18 @@ namespace Abuksigun.UnityGitUI
                 RenderTexture.active = prevRT;
 
                 GUI.DrawTexture(new Rect(firstPoint + Vector2.up * TableHeaderHeight, graphSize), graphRT);
+            }
+
+            // Draw toggle buttons on top of everything (visual only — input handled above)
+            if (Event.current.type == EventType.Repaint)
+            {
+                float bx = position.width - btnMargin;
+                bx -= btnSize;
+                GUI.Toggle(new Rect(bx, btnTop, btnSize, btnSize), CollapsePullMerges,
+                    new GUIContent(EditorGUIUtility.IconContent("DotSelection").image, "Collapse Pull Merges"), EditorStyles.toolbarButton);
+                bx -= btnSize + 2;
+                GUI.Toggle(new Rect(bx, btnTop, btnSize, btnSize), ShowMergeLines,
+                    new GUIContent(EditorGUIUtility.IconContent("d_Animator Icon").image, "Show Merge Lines"), EditorStyles.toolbarButton);
             }
         }
 
@@ -408,7 +409,7 @@ namespace Abuksigun.UnityGitUI
 
             int searchMaxY = Mathf.Min(cells.GetLength(0), visibleMaxY + 1);
 
-            float lineWidth = cell.pullMergePath || cell.pullMerge ? 3 : 2;
+            float lineWidth = 2;
 
             // For non-commit cells (pass-through lanes), draw straight down to next row with same hash
             if (!cell.commit)
@@ -425,7 +426,7 @@ namespace Abuksigun.UnityGitUI
                 DrawLineTo(offset, cell.drawX, y, cells[parentPos.Value.y, parentPos.Value.x].drawX, parentPos.Value.y, visibleMinY, visibleMaxY, maxVisibleX, lineWidth);
 
             // Draw to merge parent
-            if ((!HideMergeLines || cell.pullMerge) && cell.mergeParent != null)
+            if ((ShowMergeLines || cell.pullMerge) && cell.mergeParent != null)
             {
                 var mergePos = FindCellPosition(y + 1, searchMaxY, cell.mergeParent);
                 if (mergePos.HasValue)
@@ -437,7 +438,7 @@ namespace Abuksigun.UnityGitUI
             }
 
             // Draw small merge arrow when merge lines are hidden (but not for pull merges)
-            if (HideMergeLines && !cell.pullMerge && cell.mergeParent != null)
+            if (!ShowMergeLines && !cell.pullMerge && cell.mergeParent != null)
                 DrawMergeArrow(cell, offset, y);
         }
 
@@ -539,20 +540,13 @@ namespace Abuksigun.UnityGitUI
                 if (mergeParent != null && !allHashes.Contains(mergeParent))
                     mergeParent = null;
 
-                bool pullMerge = false;
+                bool pullMerge = mergeParent != null && IsPullMerge(line.Comment, hash, commitBranch);
                 bool skipMerge = skipMergeParents && mergeParent != null;
-                if (mergeParent != null && collapsePullMerges)
+                if (pullMerge && skipMerge)
+                    skipMerge = false;
+                else if (skipMerge && !pullMerge)
                 {
-                    pullMerge = IsPullMerge(line.Comment, hash, commitBranch);
-                    if (pullMerge && skipMerge)
-                        skipMerge = false;
-                }
-                else if (skipMerge)
-                {
-                    // When only hiding merge lines (no collapse), still skip non-pull merges
-                    // but check if it's a pull merge to preserve its line
-                    if (IsPullMerge(line.Comment, hash, commitBranch))
-                        skipMerge = false;
+                    // Non-pull merges get skipped when hiding merge lines
                 }
 
                 int commitLane = ClaimLane(hash, isPriority, activeLanes, maxLanes);
@@ -610,7 +604,7 @@ namespace Abuksigun.UnityGitUI
                 if (mergeParent != null && !skipMerge)
                 {
                     ReserveMergeParentLane(mergeParent, commitLane, priorityHashes, activeLanes, maxLanes, laneColors, ref branchColorIndex);
-                    if (pullMerge)
+                    if (pullMerge && collapsePullMerges)
                     {
                         pullMergeTargetX[mergeParent] = commitDrawX;
                         laneColors[mergeParent] = commitColor;
