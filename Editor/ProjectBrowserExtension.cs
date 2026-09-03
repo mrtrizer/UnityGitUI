@@ -16,6 +16,9 @@ namespace Abuksigun.UnityGitUI
         static LazyStyle SmallLabelStyle = new(() => new GUIStyle(EditorStyles.label) { fontStyle = FontStyle.Bold, fontSize = 8, richText = true });
         static LazyStyle LabelStyle = new(() => new GUIStyle(SmallLabelStyle.Value) { fontStyle = FontStyle.Bold, fontSize = 10, richText = true });
         static int spinCounter;
+        static bool spinnerRepaintScheduled;
+        static double nextSpinnerRepaintTime;
+        static double repaintSpinnersUntil;
 
         static ProjectBrowserExtension()
         {
@@ -73,6 +76,29 @@ namespace Abuksigun.UnityGitUI
             SelectAssets(assets);
         }
 
+        static void RequestSpinnerRepaint()
+        {
+            repaintSpinnersUntil = EditorApplication.timeSinceStartup + 0.2;
+            if (spinnerRepaintScheduled)
+                return;
+            spinnerRepaintScheduled = true;
+            EditorApplication.update += RepaintSpinners;
+        }
+
+        static void RepaintSpinners()
+        {
+            double currentTime = EditorApplication.timeSinceStartup;
+            if (currentTime >= nextSpinnerRepaintTime)
+            {
+                nextSpinnerRepaintTime = currentTime + 0.1;
+                EditorApplication.RepaintProjectWindow();
+            }
+            if (currentTime <= repaintSpinnersUntil)
+                return;
+            spinnerRepaintScheduled = false;
+            EditorApplication.update -= RepaintSpinners;
+        }
+
         public static async Task UpdateSelection()
         {
             foreach (var file in GetSelectedFiles())
@@ -106,6 +132,7 @@ namespace Abuksigun.UnityGitUI
                 {
                     var rect = drawRect.Move(drawRect.width - 25, 0).Resize(15, 15);
                     GUIUtils.DrawSpin(ref spinCounter, rect);
+                    RequestSpinnerRepaint();
                 }
                 else
                 {
@@ -154,7 +181,7 @@ namespace Abuksigun.UnityGitUI
                     {
                         var rect = drawRect.Move(drawRect.width - 70 * scale, 0).Resize(drawRect.width, 15);
                         GUIUtils.DrawSpin(ref spinCounter, rect);
-                        EditorApplication.RepaintProjectWindow();
+                        RequestSpinnerRepaint();
                     }
                 }
                 else
@@ -179,7 +206,7 @@ namespace Abuksigun.UnityGitUI
                     {
                         var rect = drawRect.Move(drawRect.width - 25, 0).Resize(15, 15);
                         GUIUtils.DrawSpin(ref spinCounter, rect);
-                        EditorApplication.RepaintProjectWindow();
+                        RequestSpinnerRepaint();
                     }
                 }
 

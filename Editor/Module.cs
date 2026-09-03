@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -69,6 +70,8 @@ namespace Abuksigun.UnityGitUI
 
     public class Module
     {
+        static readonly SemaphoreSlim networkProcessSemaphore = new(2);
+
         public delegate Task ErrorHandler(Module module, CommandResult result);
         public delegate void RefreshStatusHandler(Module module);
         
@@ -167,26 +170,36 @@ namespace Abuksigun.UnityGitUI
             return IsLinkedPackage ? path.Replace(PhysicalPath, UnreferencedPath) : path;
         }
 
-        public Task<CommandResult> RunGit(string args, bool ignoreError = false, Action<IOData> dataHandler = null, string workingDir = null)
+        public Task<CommandResult> RunGit(string args, bool ignoreError = false, Action<IOData> dataHandler = null, string workingDir = null, bool networkOperation = false)
         {
             string mergedArgs = "-c core.quotepath=false --no-optional-locks " + args;
-            return RunProcess(PluginSettingsProvider.GitPath, mergedArgs, ignoreError, dataHandler, workingDir);
+            return RunProcess(PluginSettingsProvider.GitPath, mergedArgs, ignoreError, dataHandler, workingDir, networkOperation);
         }
 
-        public async Task<CommandResult> RunProcess(string command, string args, bool ignoreError = false, Action<IOData> dataHandler = null, string workingDir = null)
+        public async Task<CommandResult> RunProcess(string command, string args, bool ignoreError = false, Action<IOData> dataHandler = null, string workingDir = null, bool networkOperation = false)
         {
+            if (networkOperation)
+                await networkProcessSemaphore.WaitAsync();
             lock (processLogConcurent)
                 processLogConcurent.Add(new IOData { Data = $">> {command} {args}", Error = false, LocalProcessId = Utils.GetNextRunCommandProcessId() });
-            var handle = Utils.RunCommand(workingDir ?? PhysicalPath, command, args, (_, data) => {
-                lock (processLogConcurent)
-                    processLogConcurent.Add(data);
-                dataHandler?.Invoke(data);
-                return true;
-            });
-            var result = await handle.task;
-            if (!ignoreError && result.ExitCode != 0)
-                _ = errorHandler?.Invoke(this, result);
-            return result;
+            try
+            {
+                var handle = Utils.RunCommand(workingDir ?? PhysicalPath, command, args, (_, data) => {
+                    lock (processLogConcurent)
+                        processLogConcurent.Add(data);
+                    dataHandler?.Invoke(data);
+                    return true;
+                });
+                var result = await handle.task;
+                if (!ignoreError && result.ExitCode != 0)
+                    _ = errorHandler?.Invoke(this, result);
+                return result;
+            }
+            finally
+            {
+                if (networkOperation)
+                    networkProcessSemaphore.Release();
+            }
         }
 
         public Task<string[]> CatFiles(IEnumerable<string> files, string commit)
@@ -344,7 +357,7 @@ namespace Abuksigun.UnityGitUI
                 if (GitPackageInfo.Hash.Contains(GitPackageInfo.Revision))
                     return false;
                 string revision = string.IsNullOrEmpty(GitPackageInfo.Revision) ? "HEAD" : GitPackageInfo.Revision;
-                var revisions = await RunGit($"ls-remote {GitPackageInfo.Url} {revision}", true);
+                var revisions = await RunGit($"ls-remote {GitPackageInfo.Url} {revision}", true, networkOperation: true);
                 if (revisions.ExitCode != 0)
                     return false;
                 return !revisions.Output.Contains(GitPackageInfo.Hash);
@@ -370,8 +383,12 @@ namespace Abuksigun.UnityGitUI
 
         async Task<Reference[]> GetReferences()
         {
-            var branchesResult = await RunGit($"branch -a --format=\"%(refname)\t%(objectname)\t%(upstream)\"");
-            var branches = branchesResult.Output.SplitLines()
+            var branchesTask = RunGit($"branch -a --format=\"%(refname)\t%(objectname)\t%(upstream)\"");
+            var stashesTask = RunGit($"log -g --format=\"%gd %H %s\" refs/stash", true);
+            var tagsTask = RunGit($"show-ref --tags", true);
+            await Task.WhenAll(branchesTask, stashesTask, tagsTask).ConfigureAwait(false);
+
+            var branches = branchesTask.Result.Output.SplitLines()
                 .Where(x => x.StartsWith("refs"))
                 .Select(x => x.Split('\t', RemoveEmptyEntries))
                 .Select<string[], Branch>(x => {
@@ -380,13 +397,11 @@ namespace Abuksigun.UnityGitUI
                         ? new RemoteBranch(split[3..].Join('/'), x[1], split[2])
                         : new LocalBranch(split[2..].Join('/'), x[1], x.Length > 2 ? x[2] : null);
                 });
-            var stashesResult = await RunGit($"log -g --format=\"%gd %H %s\" refs/stash", true);
-            var stashes = stashesResult.Output.SplitLines()
+            var stashes = stashesTask.Result.Output.SplitLines()
                 .Select(x => Regex.Match(x, @"stash@\{([0-9]+)\} ([a-f0-9]{40}) (.*?)(--|$)"))
                 .Select(x => new Stash(x.Groups[3].Value, int.Parse(x.Groups[1].Value), x.Groups[2].Value))
                 .Cast<Reference>();
-            var tagsResult = await RunGit($"show-ref --tags", true);
-            var tags = tagsResult.Output.SplitLines()
+            var tags = tagsTask.Result.Output.SplitLines()
                 .Select(x => Regex.Match(x, @"([a-f0-9]{40}) refs/tags/(.*)"))
                 .Select(x => new Tag(x.Groups[2].Value, x.Groups[1].Value))
                 .Cast<Reference>();
@@ -441,7 +456,7 @@ namespace Abuksigun.UnityGitUI
             var remotes = await Remotes;
             var references = await References;
             var currentBranch = references.FirstOrDefault(x => x is LocalBranch && x.Name == currentBranchName);
-            var remote = (await GetRemotes()).FirstOrDefault();
+            var remote = remotes.FirstOrDefault();
             if (currentBranch is LocalBranch { TrackingBranch: not null } localBranch)
                 remote = remotes.FirstOrDefault(x => localBranch.TrackingBranch.StartsWith($"refs/remotes/{x.Alias}")) ?? remote;
             return remote;
@@ -453,7 +468,7 @@ namespace Abuksigun.UnityGitUI
             if (remotes.Length == 0)
                 return null;
             string currentBranch = await CurrentBranch;
-            var fetchResult = await RunGit($"fetch --prune", true);
+            var fetchResult = await RunGit($"fetch --prune", true, networkOperation: true);
             if (fetchResult.ExitCode != 0)
                 return new RemoteStatus(null, 0, 0, fetchResult.Output);
             string remoteAlias = (await DefaultRemote).Alias;
@@ -462,10 +477,10 @@ namespace Abuksigun.UnityGitUI
                 return new RemoteStatus(null, 0, 0, null);
             try
             {
-                var aheadResult = await RunGit($"rev-list --count {remoteAlias}/{currentBranch}..{currentBranch}", true);
-                int ahead = aheadResult.ExitCode == 0 ? int.Parse(aheadResult.Output.Trim()) : 0;
-                var behindResult = await RunGit($"rev-list --count {currentBranch}..{remoteAlias}/{currentBranch}", true);
-                int behind = behindResult.ExitCode == 0 ? int.Parse(behindResult.Output.Trim()) : 0;
+                var countResult = await RunGit($"rev-list --left-right --count {remoteAlias}/{currentBranch}...{currentBranch}", true);
+                var counts = countResult.Output.Split(new[] { '\t', ' ' }, RemoveEmptyEntries);
+                int behind = countResult.ExitCode == 0 && counts.Length == 2 ? int.Parse(counts[0]) : 0;
+                int ahead = countResult.ExitCode == 0 && counts.Length == 2 ? int.Parse(counts[1]) : 0;
                 return new RemoteStatus(remotes[0].Alias, ahead, behind, null);
             }
             catch (Exception e)
@@ -479,14 +494,17 @@ namespace Abuksigun.UnityGitUI
         async Task<GitStatus> GetGitStatus()
         {
             var gitRepoPathTask = GitRepoPath;
+            var gitParentRepoPathTask = GitParentRepoPath;
+            var submodulesTask = Submodules;
             var statusTask = RunGit("status -uall --porcelain");
             var numStatUnstagedTask = RunGit("diff --numstat");
             var numStatStagedTask = RunGit("diff --numstat --staged");
-            await Task.WhenAll(gitRepoPathTask, statusTask, numStatUnstagedTask, numStatStagedTask);
+            await Task.WhenAll(gitRepoPathTask, gitParentRepoPathTask, submodulesTask, statusTask, numStatUnstagedTask, numStatStagedTask).ConfigureAwait(false);
 
             var numStatUnstaged = ParseNumStat(numStatUnstagedTask.Result.Output);
             var numStatStaged = ParseNumStat(numStatStagedTask.Result.Output);
-            return new GitStatus(await ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStatUnstaged, numStatStaged), await GitParentRepoPath, Guid);
+            var files = ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, submodulesTask.Result, numStatUnstaged, numStatStaged);
+            return new GitStatus(files, gitParentRepoPathTask.Result, Guid);
         }
 
         async Task<bool> GetIsLfsAvailable() => (await RunProcess(PluginSettingsProvider.GitPath, "lfs version", true)).ExitCode == 0;
@@ -560,18 +578,19 @@ namespace Abuksigun.UnityGitUI
         async Task<GitStatus> GetDiffFiles(string firstCommit, string lastCommit)
         {
             var gitRepoPathTask = GitRepoPath;
+            var gitParentRepoPathTask = GitParentRepoPath;
+            var submodulesTask = Submodules;
             var statusTask = RunGit($"diff --name-status {firstCommit} {lastCommit}");
             var numStatTask = RunGit($"diff --numstat {firstCommit} {lastCommit}");
-            await Task.WhenAll(gitRepoPathTask, statusTask, numStatTask);
+            await Task.WhenAll(gitRepoPathTask, gitParentRepoPathTask, submodulesTask, statusTask, numStatTask).ConfigureAwait(false);
             var numStat = ParseNumStat(numStatTask.Result.Output);
 
-            return new GitStatus(await ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, numStat, numStat), await GitParentRepoPath, Guid);
+            var files = ParseStatus(statusTask.Result.Output, gitRepoPathTask.Result, submodulesTask.Result, numStat, numStat);
+            return new GitStatus(files, gitParentRepoPathTask.Result, Guid);
         }
 
-        async Task<FileStatus[]> ParseStatus(string statusOutput, string gitRepoPath, Dictionary<string, NumStat> numStatUnstaged, Dictionary<string, NumStat> numStatStaged)
+        FileStatus[] ParseStatus(string statusOutput, string gitRepoPath, SubmoduleInfo[] submodules, Dictionary<string, NumStat> numStatUnstaged, Dictionary<string, NumStat> numStatStaged)
         {
-            var submodules = await Submodules;
-
             return statusOutput.SplitLines().Select(line => {
                 string[] paths = line[2..].Split(new[] { " ->", "\t" }, RemoveEmptyEntries);
                 string path = paths[paths.Length - 1].Trim().Trim('"');

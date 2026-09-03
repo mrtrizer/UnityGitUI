@@ -17,24 +17,22 @@ namespace Abuksigun.UnityGitUI
             const string headsPath = ".git/refs";
 
             readonly string gitRepoPath;
-            readonly Module module;
 
             public Dictionary<string, long> KnownHeadFiles { get; }
             public long IndexFileTimestamp { get; }
 
             public RepoFilesTimestamps(Module module)
             {
-                this.module = module;
                 gitRepoPath = module.GitRepoPath.GetResultOrDefault();
-                IndexFileTimestamp = GetFileTimestamp(Path.Join(module.PhysicalPath, indexFilePath));
-                KnownHeadFiles = GetKnownHeadFiles(module);
+                IndexFileTimestamp = GetFileTimestamp(Path.Join(gitRepoPath, indexFilePath));
+                KnownHeadFiles = GetKnownHeadFiles();
             }
 
             long GetFileTimestamp(string path)
             {
                 try
                 {
-                    return File.GetLastAccessTime(path).ToFileTimeUtc();
+                    return File.GetLastWriteTimeUtc(path).ToFileTimeUtc();
                 }
                 catch
                 {
@@ -42,7 +40,7 @@ namespace Abuksigun.UnityGitUI
                 }
             }
 
-            Dictionary<string, long> GetKnownHeadFiles(Module module)
+            Dictionary<string, long> GetKnownHeadFiles()
             {
                 var knownHeadFiles = new Dictionary<string, long>();
                 try
@@ -68,7 +66,7 @@ namespace Abuksigun.UnityGitUI
 
             public bool IsRefsChanged()
             {
-                var knownHeadFiles = GetKnownHeadFiles(module);
+                var knownHeadFiles = GetKnownHeadFiles();
                 if (knownHeadFiles.Count != KnownHeadFiles.Count)
                     return true;
                 return KnownHeadFiles.Any(x => x.Value != knownHeadFiles.GetValueOrDefault(x.Key));
@@ -100,7 +98,8 @@ namespace Abuksigun.UnityGitUI
                 foreach (var module in Utils.GetGitModules().Where(x => x != null))
                 {
                     var repoFilesTimestamps = repoFilesTimestampsMap.GetValueOrDefault(module.Guid);
-                    module.RefreshFilesStatus();
+                    if (repoFilesTimestamps == null || repoFilesTimestamps.IsRepoIndexChanged())
+                        module.RefreshFilesStatus();
                     if (!PluginSettingsProvider.WatchRefsDir || repoFilesTimestamps == null || repoFilesTimestamps.IsRefsChanged())
                         module.RefreshReferences();
                 }
